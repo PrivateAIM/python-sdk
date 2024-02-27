@@ -75,9 +75,10 @@ src\
 |&emsp;&emsp;&emsp;|__def _invmod()\
 |\
 |__templates\
-&emsp;&emsp;|__aggregation_generic.py\
+&emsp;&emsp;|__main_generic.py\
+&emsp;&emsp;|__aggregator_generic.py\
 &emsp;&emsp;|&emsp;|__def aggregate()\
-&emsp;&emsp;|__analysis_generic.py()\
-&emsp;&emsp;&emsp;&emsp;|__def main()\
+&emsp;&emsp;|__analyzer_generic.py()\
+&emsp;&emsp;&emsp;&emsp;|__def main()
 
 

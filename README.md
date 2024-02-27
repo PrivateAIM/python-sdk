@@ -38,7 +38,7 @@ Finally, run `pre-commit install --install-hooks -t pre-commit -t commit-msg` to
 
 ## Project structure
 
-The [project directory](./project) is the location to put all your Python code.
+The [project directory](./flame) is the location to put all your Python code.
 Rename it to the actual name of your code project and modify the `packages` property in `pyproject.toml` accordingly.
 
 The [tests directory](./tests) is where all your tests go.
