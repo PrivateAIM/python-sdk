@@ -50,7 +50,7 @@ src\
 |\
 |__clients\
 |&emsp;|__minio_client.py\
-|&emsp;|__data_api_client.py\    
+|&emsp;|__data_api_client.py\
 |&emsp;|__message_broker_client.py\
 |\
 |__federated\
@@ -70,12 +70,14 @@ src\
 |&emsp;|__aggregation_paillier.py\
 |&emsp;&emsp;&emsp;|__def aggregate()\
 |&emsp;&emsp;&emsp;|__def _load_keys.py\
-|&emsp;&emsp;&emsp;|__def _encry|         
+|&emsp;&emsp;&emsp;|__def _encrypt()\
 |&emsp;&emsp;&emsp;|__def _enc_add()\
 |&emsp;&emsp;&emsp;|__def _invmod()\
 |\
 |__templates\
-|&emsp;|__aggregation_generic.py\
-|&emsp;&emsp;&emsp;|__def aggregate()\
+&emsp;&emsp;|__aggregation_generic.py\
+&emsp;&emsp;|&emsp;|__def aggregate()\
+&emsp;&emsp;|__analysis_generic.py()\
+&emsp;&emsp;&emsp;&emsp;|__def main()\
 
 
