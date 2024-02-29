@@ -1,6 +1,13 @@
 from flame.flame import FlameSDK
-from flame.protocols import StandartNNAggregator
+from typing import Any, Callable
+from flame import Node
+from flame.federated import Aggregator
+from flame.protocols import StandartNNAggregatorMethod
 import asyncio
+
+
+
+
 
 
 async def aggregate(flame: FlameSDK):

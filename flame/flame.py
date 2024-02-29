@@ -2,20 +2,11 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from typing import Any, Callable, Optional
 
-from pydantic import BaseModel
-
+from .api import FlameAPI
+from .clients.data_api_client import DataApiClient
+from .clients.message_broker_client import MessageBrokerClient
 from .federated.aggregator_client import Aggregator
-from .federated.analysis_client import Analyzer
-
-
-class FlameAggregator(Aggregator):
-    def __init__(self):
-        pass
-
-
-class FlameAnalyzer(Analyzer):
-    def __init__(self):
-        pass
+from .federated.analyzer_client import Analyzer
 
 
 class FlameSDK:

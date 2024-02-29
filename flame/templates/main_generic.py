@@ -1,3 +1,4 @@
+from flame.protocols import StandartNNAggregatorMethod
 from flame.flame import FlameSDK
 
 
@@ -9,7 +10,7 @@ def main():
 
     # start node in aggregator or analysis mode
     if flame.is_aggregator():
-        flame.start_aggregator()
+        flame.start_aggregator(StandartNNAggregatorMethod())
     elif flame.is_analyzer():
         flame.start_analyzer()
     else:

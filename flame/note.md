@@ -40,8 +40,11 @@ at startup check if (also) aggregation node
 4. Federation Protocols Implementation
 
 # Project structure
-src\
+flame\
 |__flame.py (check execution mode: analysis/aggregation)\
+|&emsp;|__class FlameSDK\
+|&emsp;|__class FlameAggregator(.federated.aggregator_client.Aggregator)\
+|&emsp;|__class FlameAnalyzer(.federated.analyzer_client.Analyzer)\
 |\
 |__utils\
 |&emsp;|__token.py\
