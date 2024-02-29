@@ -41,7 +41,7 @@ at startup check if (also) aggregation node
 
 # Project structure
 src\
-|__main.py (check execution mode: analysis/aggregation)\
+|__flame.py (check execution mode: analysis/aggregation)\
 |\
 |__utils\
 |&emsp;|__token.py\
@@ -54,7 +54,7 @@ src\
 |&emsp;|__message_broker_client.py\
 |\
 |__federated\
-|&emsp;|__aggregator_server.py (for Aggregation node)\
+|&emsp;|__aggregator_client.py (for Aggregation node)\
 |&emsp;|&emsp;|__class Aggregator()\
 |&emsp;|&emsp;&emsp;&emsp;|__def execute()\
 |&emsp;|&emsp;&emsp;&emsp;|__def _await_parameters()\
