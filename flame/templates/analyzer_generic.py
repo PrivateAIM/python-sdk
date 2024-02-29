@@ -2,10 +2,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from flame.flame import FlameSDK
+
 import asyncio
 
 
-async def train(flame):
+async def train(flame: FlameSDK):
     data = ''  # get from kong
     while await flame.not_converged():
         params = await flame.get_params()
@@ -20,7 +22,7 @@ async def train(flame):
             if batch_idx % 10 == 0:
                 flame.log_metric("loss", loss.item())
                 flame.log_metric("accuracy", 100. * batch_idx / len(flame.get_data_loader()))
-        flame = flame.send_gradient(model)
+        flame = flame.send_weights(model)
         model = await flame.get_model()
 
         flame.log_metric("accuracy", 100. * batch_idx / len(flame.get_data_loader()))
