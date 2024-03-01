@@ -1,5 +1,11 @@
 # flame-python-sdk
 
+# Tasks:
+1. Data source access
+2. Result submission
+3. Send meta information through the Node API to the message broker to other nodes
+4. Federation Protocols Implementation
+
 # Processes:
 - read and check tokens for
   - message broker
@@ -19,7 +25,7 @@
 # Workflows:
 at startup check if (also) aggregation node 
 
-### Analysis node
+### Analyzer node
 1. read/check tokens (message broker, data api, storage api)
 2. perform analysis
 3. send parameters to message broker
@@ -32,12 +38,6 @@ at startup check if (also) aggregation node
 3. aggregate parameters
 4. send aggregated parameters to message broker
 5. send final result to hub
-
-# Tasks:
-1. Data source access
-2. Result submission
-3. Send meta information through the Node API to the message broker to other nodes
-4. Federation Protocols Implementation
 
 # Project structure
 flame\

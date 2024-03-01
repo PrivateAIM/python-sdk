@@ -9,10 +9,10 @@ import asyncio
 
 async def train(flame: FlameSDK):
     data = ''  # get from kong
-    while await flame.not_converged():
+    while not flame.converged():
         params = await flame.get_params()
         weights = await flame.get_weights()
-        model = Net(**params, weights=weights, epoch=flame.get_num_epochs)
+        model = Net(**params, weights=weights, epoch=flame.get_num_epochs())
         model.train(data)
         for batch_idx, (data, target) in enumerate(flame.get_data()):
 
@@ -27,7 +27,6 @@ async def train(flame: FlameSDK):
 
         flame.log_metric("accuracy", 100. * batch_idx / len(flame.get_data_loader()))
         flame.log_metric("loss", loss.item())
-
 
 
 class Net(nn.Module):

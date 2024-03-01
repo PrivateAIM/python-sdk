@@ -1,5 +1,3 @@
-from fastapi import APIRouter
-from fastapi.responses import JSONResponse
 from typing import Any, Callable, Optional
 
 from .api import FlameAPI
@@ -10,9 +8,13 @@ from .federated.analyzer_client import Analyzer
 
 
 class FlameSDK:
-    flame_api: APIRouter
-    aggregator: Optional[FlameAggregator]
-    analyzer: Optional[FlameAnalyzer]
+    message_broker: MessageBrokerClient
+    flame_api: FlameAPI
+    data_api_client: DataApiClient
+    minio_service: Any
+
+    aggregator: Optional[Aggregator]
+    analyzer: Optional[Analyzer]
 
     def __init__(self) -> None:
         if self.is_analyzer() or self.is_aggregator():
@@ -35,5 +37,8 @@ class FlameSDK:
     def start_analyzer(self) -> None:
         pass
 
-    def get_weights(self) -> list[float]:
-        return self.aggregator.get_weights()
+    def get_weights(self, cutoff: float) -> list[float]:
+        return self.aggregator.get_weights(cutoff)
+
+    def converged(self) -> bool:
+        return self.aggregator.converged
