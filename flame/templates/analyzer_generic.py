@@ -13,7 +13,7 @@ async def train(flame: FlameSDK):
         params = await flame.get_params()
         weights = await flame.get_weights()
         model = Net(**params, weights=weights, epoch=flame.get_num_epochs())
-        model.train(data)
+        model.train()
         for batch_idx, (data, target) in enumerate(flame.get_data()):
 
             output = model(data)

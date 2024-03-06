@@ -21,7 +21,8 @@
   - reexecution
   - check if aggregation node (specified in config)
   - aggregation function
-  
+
+
 # Workflows:
 at startup check if (also) aggregation node 
 

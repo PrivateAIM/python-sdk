@@ -1,10 +1,10 @@
 from typing import Any, Callable, Optional
 
-from .api import FlameAPI
-from .clients.data_api_client import DataApiClient
-from .clients.message_broker_client import MessageBrokerClient
-from .federated.aggregator_client import Aggregator
-from .federated.analyzer_client import Analyzer
+from flame.api import FlameAPI
+from flame.clients.data_api_client import DataApiClient
+from flame.clients.message_broker_client import MessageBrokerClient
+from flame.federated.aggregator_client import Aggregator
+from flame.federated.analyzer_client import Analyzer
 
 
 class FlameSDK:
