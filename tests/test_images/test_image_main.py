@@ -1,8 +1,8 @@
-import flame
-import time
+from flame.flame import FlameSDK
+
 
 def main():
-    time.sleep(3600)
+    flame = FlameSDK()
 
 
 if __name__ == "__main__":

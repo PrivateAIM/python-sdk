@@ -1,15 +1,20 @@
 import asyncio
 from typing import Any, Callable
+from flame.federated.node_base_client import Node
+from flame.federated.analyzer_client import Analyzer
 
 
-class Aggregator:
+class Aggregator(Node):
     def __init__(self,
-                 nodes: list[Node],
+                 node_id: int,
+                 nodes: list[Analyzer],
                  base_model: Any,
                  model_params: dict[str: str | float | int | bool],
                  weights: list[Any],
                  gradients: list[list[float]],
                  aggr_method: Callable) -> None:
+        super().__init__(node_id)
+        
         self.nodes = nodes
         self.base_model = base_model
         self.model_params = model_params
