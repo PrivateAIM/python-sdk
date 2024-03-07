@@ -30,7 +30,7 @@ class FlameAPI:
 
         app.include_router(
             router,
-            prefix=f"/{'an' if node_mode == 'analyzer' else 'ag'}",
+            prefix=f"/po/node",
         )
 
         uvicorn.run(app, host="0.0.0.0", port=8000)
