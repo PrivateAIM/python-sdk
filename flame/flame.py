@@ -1,13 +1,15 @@
+import asyncio
+import time
 import threading
 
 from typing import Any, Callable, Optional
 
-import time
 from flame.api import FlameAPI
 from flame.clients.data_api_client import DataApiClient
 from flame.clients.message_broker_client import MessageBrokerClient
 from flame.federated.aggregator_client import Aggregator
 from flame.federated.analyzer_client import Analyzer
+from flame.utils.token import get_tokens
 
 
 class FlameSDK:
@@ -21,10 +23,22 @@ class FlameSDK:
     analyzer: Optional[Analyzer]
 
     def __init__(self) -> None:
+        tokens = get_tokens()
         # TODO: MessageBroker sending config
+
         if self.is_analyzer():
+            # analyzer setup
+            # TODO
+            # connection to kong
+            self.data_api_client = DataApiClient(tokens['DATA_SOURCE_TOKEN'])
+            # get available data sources
+            asyncio.run(self.data_api_client.test_connection())
+
+            # start flame api
             self.flame_api_thread = threading.Thread(target=self._start_flame_api, args=('analyzer',))
             self.flame_api_thread.start()
+
+            # start analysis
             print('Analysing stuff')
             time.sleep(10)
             print('Done analysing')
@@ -37,15 +51,14 @@ class FlameSDK:
     def _start_flame_api(self, node_mode: str) -> None:
         self.flame_api = FlameAPI(node_mode)
 
-    def test_apis(self) -> None:
-        pass
+    async def test_apis(self) -> None:
+        await self.data_api_client.test_connection()
 
     def is_aggregator(self) -> bool:
         return False  # TODO: change when tokens and message broker are implemented
 
     def is_analyzer(self) -> bool:
         return True  # TODO: change when tokens and message broker are i    def stop_api(self) -> None:
-
 
     def start_aggregator(self) -> None:
         pass
