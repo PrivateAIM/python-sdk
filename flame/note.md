@@ -22,6 +22,37 @@
   - check if aggregation node (specified in config)
   - aggregation function
 
+# Communications
+always over nginx (tba)\
+Node address = (message broker address, analysis id)
+### Message Broker
+  0. receive message broker token
+  1. get node type/(configuration)
+     - send: project id, analysis id, token
+     - receive: Analyzer/Aggregator mode (and other configurations)
+  2. send message broker endpoint of analysis/aggregator
+     - send: project id, analysis id, token
+     - receive: success/fail
+  3. get other node message addresses
+     - send: project id, analysis id, token
+     - receive: list of node addresses and their roles
+  4. send message to other nodes
+     - send: project id, analysis id, token, target node address, message
+     - receive: acknowledgement
+  5. send results to hub
+     - send: project id, analysis id, token, results
+     - receive: acknowledgement
+
+### Data API
+  0. receive data api source token
+  1. get available data sources
+     - send: project id, analysis id, token
+     - receive: list of data sources
+  2. get data from source
+     - send: project id, analysis id, token, data source id
+     - receive: data
+  
+
 
 # Workflows:
 at startup check if (also) aggregation node 
@@ -84,5 +115,7 @@ flame\
 &emsp;&emsp;|&emsp;|__def aggregate()\
 &emsp;&emsp;|__analyzer_generic.py()\
 &emsp;&emsp;&emsp;&emsp;|__def main()
+
+
 
 
