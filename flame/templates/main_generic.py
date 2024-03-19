@@ -1,14 +1,15 @@
-from flame.protocols import StandartNNAggregatorMethod
+from flame.templates.aggregator_generic import my_Aggregator
 from flame.flame import FlameSDK
 
 
 def main():
     # start the communication with the flame message protocols, and alive api
     flame = FlameSDK()
+    node_config = flame.get_node_config()
 
     # start node in aggregator or analysis mode
     if flame.is_aggregator():
-        flame.start_aggregator(StandartNNAggregatorMethod())
+        flame.start_aggregator(my_Aggregator(node_config=node_config, ))
     elif flame.is_analyzer():
         flame.start_analyzer()
     else:
