@@ -1,4 +1,7 @@
 import uvicorn
+import asyncio
+
+from typing import Callable
 
 from fastapi import FastAPI, APIRouter
 from fastapi.responses import JSONResponse
@@ -6,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 
 class FlameAPI:
-    def __init__(self, node_mode: str):
+    def __init__(self, node_mode: str, converged: Callable) -> None:
         app = FastAPI(title=f"FLAME {'Analysis' if node_mode == 'analyzer' else 'Aggregation'}",
                       docs_url="/api/docs",
                       redoc_url="/api/redoc",
@@ -24,13 +27,21 @@ class FlameAPI:
         )
         router = APIRouter()
 
+        self.converged = converged
+
         @router.get("/healthz", response_class=JSONResponse)
         def health():
-            return {"status": "ok"}
+            return {"status": self._finished()}
 
         app.include_router(
             router,
-            prefix=f"/po/node",
+            prefix="/po/node",
         )
 
         uvicorn.run(app, host="0.0.0.0", port=8000)
+
+    def _finished(self) -> str:
+        if asyncio.run(self.converged()):
+            return "finished"
+        else:
+            return "ongoing"

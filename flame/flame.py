@@ -3,7 +3,7 @@ import time
 import threading
 from enum import Enum
 
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Type
 
 from flame.api import FlameAPI
 from flame.clients.data_api_client import DataApiClient
@@ -39,27 +39,26 @@ class FlameSDK:
 
         # connection to result service
         self.result_service_client = ResultClient(tokens['RESULT_SERVICE_TOKEN'])
-        asyncio.run(self.result_service_client.test_connection())
+        # asyncio.run(self.result_service_client.test_connection())
 
         if self.is_analyzer():
             # connection to kong
             self.data_api_client = DataApiClient(tokens['DATA_SOURCE_TOKEN'])
-            # get available data sources
+            # connection to data sources
             asyncio.run(self.data_api_client.test_connection())
-            # TODO: Get data sources
 
             # start flame api
-            self.flame_api_thread = threading.Thread(target=self._start_flame_api, args=('analyzer',))
+            self.flame_api_thread = threading.Thread(target=self._start_flame_api, args=('analyzer', self.converged))
             self.flame_api_thread.start()
         elif self.is_aggregator():
             # start flame api
-            self.flame_api_thread = threading.Thread(target=self._start_flame_api, args=('aggregator',))
+            self.flame_api_thread = threading.Thread(target=self._start_flame_api, args=('aggregator', self.converged))
             self.flame_api_thread.start()
         else:
             raise BrokenPipeError("Unable to determine action mode.")
 
-    def _start_flame_api(self, node_mode: str) -> None:
-        self.flame_api = FlameAPI(node_mode)
+    def _start_flame_api(self, node_mode: str, converged: Callable) -> None:
+        self.flame_api = FlameAPI(node_mode, converged)
 
     async def test_apis(self) -> None:
         await self.data_api_client.test_connection()
@@ -84,27 +83,38 @@ class FlameSDK:
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_ANALYZER.value)
 
-    async def start_analyzer(self, analyzer: Analyzer) -> None:
+    async def start_analyzer(self, analyzer_class: Type[Analyzer]) -> None:
         if self.is_analyzer():
-            self.analyzer = analyzer
-            await self.analyzer.analyze()
-            self.commit_results()
-            pass
+            self.analyzer = analyzer_class(self.node_config)
+            aggregator_results = None
+            count = 0
+            while (not await self.converged()) and (count < 1):  # until aggregator converges
+                intermediate_results = await self.analyzer.analyze(self.data_api_client, aggregator_results)
+                self.commit_results(intermediate_results)
+                # await next epoch or termination
+                aggregator_results = await self._get_aggregator_results()  # get intermediate result
+                count += 1
+
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_AGGREGATOR.value)
 
-    def commit_results(self) -> None:
+    def commit_results(self, intermediate_results: Any) -> None:
+        pass
 
+    async def _get_aggregator_results(self) -> Any:
         pass
 
     def push_results(self) -> None:
         pass
 
+    def get_data_source_client(self) -> DataApiClient:
+        return self.data_api_client
+
     def get_weights(self, cutoff: float) -> list[float]:
         return self.aggregator.get_weights(cutoff)
 
-    def converged(self) -> bool:
+    async def converged(self) -> bool:
         if self.is_aggregator():
             return self.aggregator.converged
         else:
-            raise BrokenPipeError(_ERROR_MESSAGES.IS_ANALYZER)
+            return False  # await self.message_broker() # ask for aggregator convergence state
