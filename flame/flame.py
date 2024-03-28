@@ -1,5 +1,4 @@
 import asyncio
-import time
 import threading
 from enum import Enum
 
@@ -34,12 +33,16 @@ class FlameSDK:
 
     def __init__(self) -> None:
         tokens = get_tokens()
-        self.message_broker = MessageBrokerClient(tokens['MESSAGE_BROKER_TOKEN'])  # TODO
-        self.node_config = asyncio.run(self.message_broker.get_node_config())  # TODO: Get Node config from MsgBroker
+
+        # connect to message broker
+        self.message_broker = MessageBrokerClient(tokens['KEYCLOAK_TOKEN'])
+
+        # extract node config
+        self.node_config = NodeConfig(self.message_broker)
 
         # connection to result service
-        self.result_service_client = ResultClient(tokens['RESULT_SERVICE_TOKEN'])
-        # asyncio.run(self.result_service_client.test_connection())
+        self.result_service_client = ResultClient(tokens['KEYCLOAK_TOKEN'])
+        asyncio.run(self.result_service_client.test_connection())
 
         if self.is_analyzer():
             # connection to kong

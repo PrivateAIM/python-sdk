@@ -1,3 +1,4 @@
+import os
 import uvicorn
 import asyncio
 
@@ -35,7 +36,7 @@ class FlameAPI:
 
         app.include_router(
             router,
-            prefix="/po/node",
+            prefix=f"/po/{os.getenv('DEPLOYMENT_NAME')}",
         )
 
         uvicorn.run(app, host="0.0.0.0", port=8000)
