@@ -25,6 +25,9 @@ class My_Analyzer(Analyzer):
 def main():
     flame = FlameSDK()
     if flame.is_analyzer():
+        print("Analyzer")
+        flame.send_message([flame.node_config.node_id], "Hello")
+        print("after send_message")
         asyncio.run(flame.start_analyzer(My_Analyzer))
         
 

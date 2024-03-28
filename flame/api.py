@@ -1,16 +1,19 @@
+import json
 import os
 import uvicorn
 import asyncio
 
-from typing import Callable
+from typing import Callable, Any
 
 from fastapi import FastAPI, APIRouter
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
+from flame.clients.message_broker_client import MessageBrokerClient
+
 
 class FlameAPI:
-    def __init__(self, node_mode: str, converged: Callable) -> None:
+    def __init__(self, node_mode: str, message_broker: MessageBrokerClient, converged: Callable) -> None:
         app = FastAPI(title=f"FLAME {'Analysis' if node_mode == 'analyzer' else 'Aggregation'}",
                       docs_url="/api/docs",
                       redoc_url="/api/redoc",
@@ -31,12 +34,16 @@ class FlameAPI:
         self.converged = converged
 
         @router.get("/healthz", response_class=JSONResponse)
-        def health():
+        def health() -> dict[str, str]:
             return {"status": self._finished()}
+
+        @router.post("/webhook", response_class=JSONResponse)
+        def get_message(msg: Any) -> None:
+            message_broker.receive_message(msg)
 
         app.include_router(
             router,
-            prefix=f"/po/{os.getenv('DEPLOYMENT_NAME')}",
+            prefix='',
         )
 
         uvicorn.run(app, host="0.0.0.0", port=8000)

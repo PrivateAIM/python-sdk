@@ -2,12 +2,12 @@ import os
 import asyncio
 
 from httpx import AsyncClient, HTTPError
+from typing import Any
 
 
-class _Message:
-    def __init__(self, receiver: str, message: str) -> None:
-        self.sender = os.environ["SENDER"]
-        self.receiver = receiver
+class Message:
+    def __init__(self, recipients: list[str], message: Any) -> None:
+        self.recipients = recipients
         self.message = message
 
 
@@ -18,6 +18,8 @@ class MessageBrokerClient:
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"}
         )
         asyncio.run(self._connect())
+        self.list_of_incoming_messages = []
+        self.list_of_outgoing_messages = []
 
     async def get_self_config(self, analysis_id: str) -> dict[str, str]:
         response = await self._message_broker.get(f'/analyses/{analysis_id}/participants/self',
@@ -44,7 +46,7 @@ class MessageBrokerClient:
             return False
 
     async def _ask_central_analyzer_or_aggregator(self) -> str:
-        message = _Message(receiver="central_analyses_management", message="status_aggregator_or_analyzer")
+        message = Message(receiver="central_analyses_management", message="status_aggregator_or_analyzer")
         self._send(message)
         answer = await self._receive()
         return answer['nodeType']
@@ -52,15 +54,23 @@ class MessageBrokerClient:
     async def _connect(self) -> None:
         await self._message_broker.post(
             f'/analyses/{os.getenv("ANALYSIS_ID")}/messages/subscription',
-            json={'webhookUrl': f'/po/{os.getenv("DEPLOYMENT_NAME")}'}
+            json={'webhookUrl': f'http://service-{os.getenv("DEPLOYMENT_NAME")}/webhook'}
         )
         response = await self._message_broker.get(f'/analyses/{os.getenv("ANALYSIS_ID")}/participants/self',
                                                   headers=[('Connection', 'close')])
         response.raise_for_status()
 
-    def _send(self, message: _Message):
-        self._message_broker.send(message)
+    def send_message(self, message: Message):
+        body = {
+            "recipients": message.recipients,
+            "message": message.message
+        }
+        asyncio.run(self._message_broker.post(f'/analyses/{os.getenv("ANALYSIS_ID")}/messages',
+                                              json=body,
+                                              headers=[('Connection', 'close')]))
+        self.list_of_outgoing_messages.append(body)
 
-    def _receive(self) -> _Message:
-        return self._message_broker.receive()
+    def receive_message(self, body: Any) -> None:
+        self.list_of_incoming_messages.append(body)
+        print(body)
 

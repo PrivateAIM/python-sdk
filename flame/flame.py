@@ -7,7 +7,7 @@ from typing import Any, Callable, Optional, Type
 from flame.api import FlameAPI
 from flame.clients.data_api_client import DataApiClient
 from flame.clients.result_client import ResultClient
-from flame.clients.message_broker_client import MessageBrokerClient
+from flame.clients.message_broker_client import MessageBrokerClient, Message
 from flame.federated.aggregator_client import Aggregator
 from flame.federated.analyzer_client import Analyzer
 from flame.federated.node_base_client import NodeConfig
@@ -51,17 +51,19 @@ class FlameSDK:
             asyncio.run(self.data_api_client.test_connection())
 
             # start flame api
-            self.flame_api_thread = threading.Thread(target=self._start_flame_api, args=('analyzer', self.converged))
+            self.flame_api_thread = threading.Thread(target=self._start_flame_api,
+                                                     args=('analyzer', self.message_broker, self.converged))
             self.flame_api_thread.start()
         elif self.is_aggregator():
             # start flame api
-            self.flame_api_thread = threading.Thread(target=self._start_flame_api, args=('aggregator', self.converged))
+            self.flame_api_thread = threading.Thread(target=self._start_flame_api,
+                                                     args=('aggregator', self.message_broker, self.converged))
             self.flame_api_thread.start()
         else:
             raise BrokenPipeError("Unable to determine action mode.")
 
-    def _start_flame_api(self, node_mode: str, converged: Callable) -> None:
-        self.flame_api = FlameAPI(node_mode, converged)
+    def _start_flame_api(self, node_mode: str, message_broker: MessageBrokerClient, converged: Callable) -> None:
+        self.flame_api = FlameAPI(node_mode, message_broker, converged)
 
     async def test_apis(self) -> None:
         await self.data_api_client.test_connection()
@@ -121,3 +123,6 @@ class FlameSDK:
             return self.aggregator.converged
         else:
             return False  # await self.message_broker() # ask for aggregator convergence state
+
+    def send_message(self, recipients: list[str], message: Any) -> None:
+        self.message_broker.send_message(Message(recipients, message))
