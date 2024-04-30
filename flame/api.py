@@ -1,5 +1,7 @@
 import json
 import os
+import sys
+
 import uvicorn
 import asyncio
 
@@ -49,7 +51,10 @@ class FlameAPI:
         uvicorn.run(app, host="0.0.0.0", port=8000)
 
     def _finished(self) -> str:
-        if asyncio.run(self.converged()):
-            return "finished"
-        else:
-            return "ongoing"
+        try:
+            if asyncio.run(self.converged()):
+                return "finished"
+            else:
+                return "ongoing"
+        except AttributeError:
+            sys.exit()

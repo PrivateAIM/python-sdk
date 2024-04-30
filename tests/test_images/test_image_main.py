@@ -1,18 +1,17 @@
 import asyncio
 from typing import Any
 
-from flame.flame import (FlameSDK,
-                         Analyzer,
-                         DataApiClient,
-                         NodeConfig)
+from flame import (FlameSDK,
+                   Aggregator,
+                   Analyzer)
 
 
 class My_Analyzer(Analyzer):
-    def __init__(self, node_config: NodeConfig):
+    def __init__(self, node_config):
         super().__init__(node_config)
         pass
 
-    async def analysis_method(self, data_api_client: DataApiClient, aggregator_results: Any) -> Any:
+    async def analysis_method(self, data_api_client, aggregator_results):
         # get all available sources
         #data_sources = await data_api_client.get_available_sources()
         # select a source

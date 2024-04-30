@@ -1,44 +1,58 @@
-import asyncio
-from typing import Any, Callable
+from abc import abstractmethod
+from typing import Any, Callable, Optional
 from flame.federated.node_base_client import Node, NodeConfig
-from flame.federated.analyzer_client import Analyzer
 
 
 class Aggregator(Node):
     nodes: list[Node]
-    base_model: Any
-    model_params: dict[str: str | float | int | bool]
-    weights: list[Any]
-    gradients: list[list[float]]
-    aggr_method: Callable
+    num_iterations: float = 0
+    model_params: Optional[dict[str: str | float | int | bool]]
+    aggr_weights: Optional[list[Any]]
+    gradients: Optional[list[list[float]]]
+    converged: bool = False
 
     def __init__(self,
                  node_config: NodeConfig,
-                 base_model: Any,
-                 model_params: dict[str: str | float | int | bool],
-                 weights: list[Any],
-                 gradients: list[list[float]],
-                 aggr_method: Callable) -> None:
+                 model_params: Optional[dict[str: str | float | int | bool]] = None,
+                 weights: Optional[list[Any]] = None,
+                 gradients: Optional[list[list[float]]] = None) -> None:
         if node_config.node_mode != 'aggregator':
             raise ValueError(f'Attempted to initialize aggregator node with mismatching configuration '
                              f'(expected: node_mode="aggregator", received="{node_config.node_mode}").')
         super().__init__(node_config.node_id, 'aggregator')
         
         self.nodes = node_config.partner_nodes
-        self.base_model = base_model
         self.model_params = model_params
-        self.weights = weights
+        self.aggr_weights = weights
         self.gradients = gradients
-        self.aggr_method = aggr_method
-        self.converged = False
 
-    async def aggregate(self, cutoff: float = .8) -> None:
-        while sum([await node.responded for node in self.nodes]) < int((len(self.nodes) + 1) * cutoff):
-            pass
-        self.weights = self.aggr_method([await node.get_result() for node in self.nodes])
+    async def aggregate(self) -> str:
+        result = self.aggregation_method([await node.get_result() for node in self.nodes])
+        result_file = self.set_result(result)
+        # TODO: Update converged status
+        self.num_iterations += 1
+
+        return result_file
+
+    @abstractmethod
+    def aggregation_method(self, analysis_results: list[Any]) -> Any:
+        """
+        This method will be used to aggregate the data. It has to be overridden.
+        :return: aggregated_result
+        """
+        pass
+
+    # def _calc_gradients(self, new_weights: list[Any]) -> None:
+    #     if self.gradients is not None:
+    #         old_weights = self.aggr_weights
+    #         self.gradients = old_weights - new_weights
+    #         # converged?
+    #     else:
+    #         self.gradients = new_weights
 
     def get_weights(self) -> list[Any]:
-        return self.weights
+        return self.aggr_weights
 
     def _converge(self):
         self.converged = True
+        # TODO: send converged status to hub
