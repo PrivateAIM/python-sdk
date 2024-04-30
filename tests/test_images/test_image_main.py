@@ -21,6 +21,15 @@ class My_Analyzer(Analyzer):
         #data_xy2 = await data_api_client.get_data(datasource=source_xy, query='2')
         pass
 
+class My_Aggregator:
+    def __init__(self):
+        pass
+
+    async def aggregate(self):
+        pass
+
+
+
 
 def main():
     flame = FlameSDK()

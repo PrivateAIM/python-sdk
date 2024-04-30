@@ -3,7 +3,7 @@ from httpx import AsyncClient, HTTPError
 
 class ResultClient:
     def __init__(self, token: str) -> None:
-        self.client = AsyncClient(base_url="http://node-result-service:8080",
+        self.client = AsyncClient(base_url="http://flame-node-node-result-service:8080",
                                   headers={"Authorization": f"Bearer {token}"})
 
     async def test_connection(self) -> None:
