@@ -14,7 +14,7 @@ class Message:
 class MessageBrokerClient:
     def __init__(self, token: str) -> None:
         self._message_broker = AsyncClient(
-            base_url="http://node-message-broker",
+            base_url="http://flame-node-node-message-broker",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"}
         )
         asyncio.run(self._connect())
