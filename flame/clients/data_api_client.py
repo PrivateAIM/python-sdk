@@ -4,7 +4,7 @@ from httpx import AsyncClient, HTTPError
 
 class DataApiClient:
     def __init__(self, token: str) -> None:
-        self.client = AsyncClient(base_url="http://kong-kong-proxy", headers={"apikey": token,
+        self.client = AsyncClient(base_url="http://flame-node-kong-proxy", headers={"apikey": token,
                                                                               "Content-Type": "application/json"})
         self.available_sources = []  # asyncio.run(self._get_available_sources())
 
