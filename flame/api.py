@@ -2,12 +2,13 @@ import json
 import os
 import sys
 
+
 import uvicorn
 import asyncio
 
 from typing import Callable, Any
 
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, Request, Depends
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -39,8 +40,10 @@ class FlameAPI:
         def health() -> dict[str, str]:
             return {"status": self._finished()}
 
+        async def get_body(request: Request)-> dict[str, Any]:
+            return await request.json()
         @router.post("/webhook", response_class=JSONResponse)
-        def get_message(msg: Any) -> None:
+        def get_message(msg: dict = Depends(get_body)) -> None:
             message_broker.receive_message(msg)
 
         app.include_router(
@@ -52,7 +55,7 @@ class FlameAPI:
 
     def _finished(self) -> str:
         try:
-            if asyncio.run(self.converged()):
+            if self.converged():
                 return "finished"
             else:
                 return "ongoing"

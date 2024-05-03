@@ -34,17 +34,16 @@ class Node:
 
     def set_result(self, result: Any) -> str:
         self.latest_result = result
-        return ''  # TODO: save result in file and return path
+        return self.latest_result  # TODO: save result in file and return path
 
-    async def get_result(self, node_id: Optional[str]) -> Any:
-        # TODO: receive latest results from central from node with self.node_id
-        #  (e.g. get all message meant for self.node_id from hub)
-        #
-        #  Optional: add specific node_id to only get messages sent form this id
-        #
-        # TODO: Ensure that this does not time out!!!!
-        #
-        return ''
+    def get_result(self, message_broker: MessageBrokerClient, node_id: Optional[str]) -> Any:
+        if node_id is not None:
+            msgs = [msg for msg in message_broker.list_of_incoming_messages if msg["message"]["sender"] == node_id]  # TODO
+        else:
+            msgs = message_broker.list_of_incoming_messages
+        for msg in msgs:
+            if "resultData" in msg["message"].keys():
+                return msg["message"]["resultData"]
 
 
 class NodeConfig:
