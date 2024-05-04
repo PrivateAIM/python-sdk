@@ -2,7 +2,6 @@ import time
 from abc import abstractmethod
 from typing import Any, Optional
 
-from flame.clients.data_api_client import DataApiClient
 from flame.clients.message_broker_client import MessageBrokerClient
 from flame.federated.node_base_client import Node, NodeConfig
 
@@ -36,8 +35,7 @@ class Analyzer(Node):
         responded = False
         while not responded:
             for msg in message_broker.list_of_incoming_messages:
-                if aggregator_id == msg["message"]["sender"]:  # TODO
+                if (aggregator_id == msg["sender"]) and (("resultData" in msg.keys()) or ("convStatus" in msg.keys())):
                     responded = True
-
-            time.sleep(5)
             print(f"Waiting for response from aggregator (currently: {responded})")
+            time.sleep(5)

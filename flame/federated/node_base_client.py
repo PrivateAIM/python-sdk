@@ -1,7 +1,6 @@
 import asyncio
 import os
 
-from pydantic import BaseModel
 from typing import Any, Optional, Literal
 from enum import Enum
 
@@ -36,14 +35,14 @@ class Node:
         self.latest_result = result
         return self.latest_result  # TODO: save result in file and return path
 
-    def get_result(self, message_broker: MessageBrokerClient, node_id: Optional[str]) -> Any:
+    def get_result(self, message_broker: MessageBrokerClient, node_id: Optional[str] = None) -> Any:
         if node_id is not None:
-            msgs = [msg for msg in message_broker.list_of_incoming_messages if msg["message"]["sender"] == node_id]  # TODO
+            msgs = [msg for msg in message_broker.list_of_incoming_messages if msg["sender"] == node_id]
         else:
             msgs = message_broker.list_of_incoming_messages
         for msg in msgs:
-            if "resultData" in msg["message"].keys():
-                return msg["message"]["resultData"]
+            if "resultData" in msg.keys():
+                return msg["resultData"]
 
 
 class NodeConfig:

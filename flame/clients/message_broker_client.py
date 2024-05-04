@@ -1,9 +1,7 @@
 import os
 import asyncio
-import json
 
 from httpx import AsyncClient, HTTPError
-from typing import Any
 
 
 class Message:
@@ -59,16 +57,17 @@ class MessageBrokerClient:
                                                   headers=[('Connection', 'close')])
         response.raise_for_status()
 
-    def send_message(self, message: Message):
+    async def send_message(self, message: Message):
         body = {
             "recipients": message.recipients,
             "message": message.message
         }
         print('body type:', type(body))
         print('body:', body)
-        response = asyncio.run(self._message_broker.post(f'/analyses/{os.getenv("ANALYSIS_ID")}/messages',
-                                                         json=body,
-                                                         headers=[('Connection', 'close'),("Content-Type", "application/json")]))
+        response = await self._message_broker.post(f'/analyses/{os.getenv("ANALYSIS_ID")}/messages',
+                                                   json=body,
+                                                   headers=[('Connection', 'close'),
+                                                            ("Content-Type", "application/json")])
         print(f"message broker send response  {response}")
         #print(f"message  send   response json {response}")
         print(f"message  send   {body}")
@@ -77,5 +76,5 @@ class MessageBrokerClient:
 
     def receive_message(self, body: dict) -> None:
         self.list_of_incoming_messages.append(body)
-        print(body)
+        print(f"incoming messages {body}")
 

@@ -42,7 +42,8 @@ class My_Aggregator(Aggregator):
 
 def main():
     flame = FlameSDK()
-    flame.send_message(recipients=[node.node_id for node in flame.node_config.partner_nodes], message={"foo": "bar"} )
+    #asyncio.run(flame.send_message(recipients=[node.node_id for node in flame.node_config.partner_nodes], message={"foo": "bar"} ))
+
     if flame.is_analyzer():
         print("Analyzer")
         my_analyzer = My_Analyzer  # or My_Analyzer(flame.node_config, **kwargs), if implemented with custom params

@@ -1,4 +1,5 @@
 import asyncio
+import sys
 from threading import Thread
 from enum import Enum
 
@@ -81,12 +82,11 @@ class FlameSDK:
             # Init
             self.aggregator = aggregator(self.node_config, is_federated) \
                 if issubclass(aggregator, Aggregator) else aggregator
-            partner_ids = self.node_config.partner_nodes
+            partner_nodes = self.node_config.partner_nodes
 
             while not self.converged():  # (**)
                 # Await number of responses reaching number of necessary nodes
-                self.aggregator.await_results(partner_ids,
-                                              self.message_broker,
+                self.aggregator.await_results(self.message_broker,
                                               cutoff)
 
                 # Aggregate results
@@ -94,12 +94,11 @@ class FlameSDK:
 
                 # If converged send aggregated result over ResultService to Hub, send converged status to Hub
                 if self.converged():
-                    self.push_results(result_file)
-                    # TODO: Send converged status to Hub
+                    await self.push_results(result_file)
 
                 # Else send aggregated results to MinIO for analyzers, loop back to (**)
                 else:
-                    self.commit_results(partner_id, result_file)
+                    await self.commit_results(partner_nodes, result_file)
 
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_ANALYZER.value)
@@ -120,7 +119,7 @@ class FlameSDK:
                 result_file = await self.analyzer.analyze(data, aggregator_results)
 
                 # Send result to MinIO for aggregator
-                self.commit_results(aggregator_id, result_file)
+                await self.commit_results([self.node_config.aggregator_node], result_file)
                 self.analyzer.await_results(aggregator_id, self.message_broker)
 
                 # Await converged status or result update by aggregator on MinIO
@@ -128,16 +127,16 @@ class FlameSDK:
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_AGGREGATOR.value)
 
-    def commit_results(self, recipients: list[str], intermediate_results: Any) -> None:
-        self.send_message(recipients, {"sender": self.node_config.node.node_id,
-                                       "resultData": intermediate_results})
+    async def commit_results(self, recipients: list[Node], intermediate_results: Any) -> None:
+        await self.send_message([r.node_id for r in recipients], {"sender": self.node_config.node.node_id,
+                                                                  "resultData": intermediate_results})
 
     async def _get_aggregator_results(self) -> Any:
         pass
 
-    def push_results(self, result_file: str) -> None:
+    async def push_results(self, result_file: str) -> None:
         if self.is_aggregator():
-            self.result_service_client.push_result(result_file)
+            await self.result_service_client.push_result(result_file)
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_ANALYZER.value)
 
@@ -155,9 +154,9 @@ class FlameSDK:
 
     def _convergence_status(self) -> bool:
         for msg in self.message_broker.list_of_incoming_messages:
-            if ((msg["message"]["sender"] == self.node_config.aggregator_node) and
-                    ("convStatus" in msg["message"].keys())):  # TODO
-                return bool(msg["message"]["convStatus"])
+            if ((msg["sender"] == self.node_config.aggregator_node.node_id) and
+                    ("convStatus" in msg.keys())):
+                return bool(msg["convStatus"])
 
-    def send_message(self, recipients: list[str], message: dict) -> None:
-        self.message_broker.send_message(Message(recipients, message))
+    async def send_message(self, recipients: list[str], message: dict) -> None:
+        await self.message_broker.send_message(Message(recipients, message))

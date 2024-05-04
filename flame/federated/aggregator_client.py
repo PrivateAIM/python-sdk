@@ -41,7 +41,7 @@ class Aggregator(Node):
 
         # Check convergence status
         if (not self.is_federated) or self.has_converged(result):
-            self._converge(message_broker)
+            await self._converge(message_broker)
 
         self.num_iterations += 1
 
@@ -74,24 +74,23 @@ class Aggregator(Node):
     def get_weights(self) -> list[Any]:
         return self.aggr_weights
 
-    def _converge(self, message_broker: MessageBrokerClient) -> None:
+    async def _converge(self, message_broker: MessageBrokerClient) -> None:
         self.converged = True
-        message_broker.send_message(Message([node.node_id for node in self.nodes], {"convStatus": True,
+        await message_broker.send_message(Message([node.node_id for node in self.nodes], {"convStatus": True,
                                                                                     "sender": self.node.node_id}))
 
     def await_results(self,
-                      partner_nodes: list[Node],
                       message_broker: MessageBrokerClient,
                       cutoff: float) -> None:
         # Calculate number of necessary nodes (number of nodes * cutoff)
-        num_necessary_nodes = int(len(partner_nodes) * cutoff)
+        num_necessary_nodes = int(len(self.nodes) * cutoff)
 
         # Await node responses
-        node_responded = {node: False for node in partner_nodes}
+        node_responded = {node: False for node in self.nodes}
         while sum(node_responded.values()) < num_necessary_nodes:
             for msg in message_broker.list_of_incoming_messages:
-                for node in partner_nodes:
-                    if node.node_id == msg["recipients"]:  # TODO
+                for node in self.nodes:
+                    if (node.node_id == msg["sender"]) and ("resultData" in msg.keys()):
                         node_responded[node] = True
 
             time.sleep(5)

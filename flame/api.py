@@ -40,10 +40,13 @@ class FlameAPI:
         def health() -> dict[str, str]:
             return {"status": self._finished()}
 
-        async def get_body(request: Request)-> dict[str, Any]:
+        async def get_body(request: Request) -> dict[str, Any]:
+            print("Received message webhook")
             return await request.json()
+
         @router.post("/webhook", response_class=JSONResponse)
         def get_message(msg: dict = Depends(get_body)) -> None:
+            print(f"Received message webhook: {msg}")
             message_broker.receive_message(msg)
 
         app.include_router(
