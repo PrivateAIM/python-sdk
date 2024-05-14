@@ -3,76 +3,107 @@
 This repository serves as a template for Python-based repositories within the PrivateAIM project.
 It comes preconfigured with tools for testing, building, linting and formatting your Python code.
 
-## Prerequisites
+# Python sdk core
 
-[Poetry](https://python-poetry.org/) is the Python package manager of choice.
-[Follow the installation instructions](https://python-poetry.org/docs/) and make sure that Poetry is working on your
-machine.
+## Startup 
 
-Using [PyCharm](https://www.jetbrains.com/pycharm/) as the primary IDE is not required, but heavily encouraged.
-The instructions in this document are mostly tailored towards PyCharm.
+Every FLAME analysis starts by connecting itself to the other components of the flame platform and starting the Analysis api.
+This is done by creating a FlameSDK object.
 
-## Project setup
+```python
+from flame import FlameSDK
 
-In GitHub, click on "Use this template", then "Create in a new repository".
-Enter the name of your repository and click on "Create repository".
+if __name__ == "__main__":
+   flame = FlameSDK()
+   
+```
+During the creation of the FlameSDK object, the connection to the other components of the flame platform is established.
 
-### With PyCharm
+## Message Broker Client
+### List of available methods
+- `get_list_of_partisepationg (self) -> None`
+  - Returns a list of all nodes participating in the analysis.
+- `send_message(self,resiver, message: dict) -> None`
+    - Sends a message to the specified node.
+- `send_message_and_wait_for_response(self,resiver,message: dict) -> dict`
+    - Sends a message to the specified node and waits for a response.
+- `await_message(self,node_id, timout: int = None) -> dict`
+    - Waits for a message to arrive.
+- `get_list_of_messages(self) -> list`
+    - Returns a list of all messages that have arrived. 
 
-Go to `Git > Clone…`.
-Enter the URL to the repository you just created and the directory you'd like to clone it to.
-Click on `Clone`.
-Confirm that you trust the project.
-PyCharm will then automatically set up a new Poetry environment with all configured dependencies for your repository.
-Open a terminal within PyCharm, then run `pre-commit install --install-hooks -t pre-commit -t commit-msg` to install the
-pre-commit hooks.
+### List of quality of life methods
 
-### Manually
+- `ask_status_nodes(self,timout: int) -> str`
+    - Returns the status of all nodes.
+    - Status can be: "online", "offline", "not_connected"
+    - Timout is the time to wait for a response from the nodes.
+- `send_intermediate_result(self,resiver, result: IOstream) -> None`
+    - Sends an intermediate result using service and message borker.
+### Message structure
+```json
+{
+    "sender": "node_id",
+    "time": "datetime",
+    "message_nuber": "int",
+    "data": "dict"
+}
+```
 
-Clone the repository.
-Open a terminal and navigate to the repository.
-Run `poetry install`.
-This will create a new Poetry environment and install all dependencies.
-Run `poetry shell` to drop into the Poetry environment.
-Finally, run `pre-commit install --install-hooks -t pre-commit -t commit-msg` to install the pre-commit hooks.
+## Result Service (temporary name)
+### List of available methods
+- `send_result(self, result: IOstream) -> None`
+  - sends final result to the hub. To be avialable analyist to download.
+- `save_intermediate_result(self, result: IOstream) -> result_id` 
+  - saves intermediate result to the hub. To be other nodes to download.
+- `save_intermediate_result_local(self, result: IOstream) -> result_id`
+  - saves intermediate result to the local storage. To be avilabel for later analysis in the same Projket.
+- `list_intermediate_local_result(self) -> result_info_local`
+  - returns a list of all intermediate results saved locally.
+- `list_intermediate_result(self) -> result_info`
+  - returns a list of all intermediate results saved on the hub.
+- `get_intermediate_result(self, result_id: str) -> IOstream`
+  - returns the intermediate result with the specified id.
+- `get_intermediate_result_local(self, result_id: str) -> IOstream`
+    - returns the intermediate result with the specified id saved locally.
+- `get_role(self) -> bool`
+    - get the role of the node. True if the node is a aggregator and can subbmit finainal results, else False.
+### list of quality of life methods
+- store and retrieve specific data types like fhir, torch, pandas, numpy, etc.
 
-## Project structure
+### Result structure local
+```json
+{
+  "results" : [
+    "result_id": "str",
+    "result_name": "str",
+    "analyzis_id": "str",
+    "result_size": "int",
+    "result_time": "datetime",
+    "result_owner": "str",
+    "other":"dict"
+    ]
+}
+```
+### Result structure hub
+```json
+{
+  "results" : [
+    "result_id": "str",
+    "result_name": "str",
+    "node_id": "str",
+    "result_size": "int",
+    "result_time": "datetime",
+    "result_owner": "str",
+    "other":"dict"
+    ]
+}
+```
 
-The [project directory](./flame) is the location to put all your Python code.
-Rename it to the actual name of your code project and modify the `packages` property in `pyproject.toml` accordingly.
-
-The [tests directory](./tests) is where all your tests go.
-Running `pytest` on the command line will automatically pick up any tests inside that directory and execute them.
-Refer to the pytest documentation for more information on how to write your tests and get the most out of pytest.
-
-The Poetry environment comes with these pre-installed dependencies:
-
-- [pre-commit](https://pre-commit.com/) for pre-commit hooks
-- [pytest](https://docs.pytest.org/en/7.4.x/) for testing
-- [ruff](https://github.com/astral-sh/ruff) for code linting and formatting
-
-Furthermore, thanks to pre-commit, the following hooks are installed by default:
-
-- [out-of-the-box pre-commit hooks](https://github.com/pre-commit/pre-commit-hooks)
-    - `check-added-large-files`: prevents large files from being committed
-    - `check-toml`: checks TOML files for syntax errors
-    - `check-yaml`: checks YAML files for syntax errors
-    - `end-of-file-fixer`: checks for single newlines at the end of a file
-    - `trailing-whitespace`: removes trailing whitespaces from files
-- [ruff hook](https://github.com/astral-sh/ruff-pre-commit): lints and auto-formats files using ruff
-- [conventional commits hook](https://github.com/compilerla/conventional-pre-commit): checks commit messages against
-  the [conventional commits spec](https://www.conventionalcommits.org/en/v1.0.0/)
-
-If any of the pre-commit hooks fail, you will have to resolve all conflicts that have been pointed out, re-add all your
-previously staged files and commit again.
-
-## Linting and auto-formatting
-
-[Ruff](https://github.com/astral-sh/ruff) is the Python linter and formatter of choice.
-It is highly recommended to install
-the [Ruff plugin from the JetBrains Marketplace](https://plugins.jetbrains.com/plugin/20574-ruff).
-Once installed, go to `File > Settings…`, then navigate to `Tools > Ruff`.
-Make sure that "Run ruff when Reformat Code" is checked and that `Project Specific > ruff executable` points to the Ruff
-executable within your virtual environment.
-Next, go to `Tools > Actions on Save` and check "Reformat code".
-This will automatically run Ruff on a file every time it is saved.
+## Data api
+### List of available methods
+- `get_data_client(self, data_id: str) -> IOstream`
+    - Returns the data client for a specific fhir or S3 store used for this project.
+- `get_data_sources(self) -> list[data_source]`
+  - Returns a list of all data sources available for this project.
+  - 
