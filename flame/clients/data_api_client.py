@@ -4,12 +4,12 @@ from httpx import AsyncClient, HTTPError
 
 
 class DataApiClient:
-    def __init__(self, project_id: str, tokens: dict[str, str]) -> None:
-        self.client = AsyncClient(base_url="http://flame-node-kong-proxy",
-                                  headers={"apikey": tokens["DATA_SOURCE_TOKEN"],
+    def __init__(self, project_id: str, envs: dict[str, str]) -> None:
+        self.client = AsyncClient(base_url=f"http://{envs['NGINX_NAME']}/kong",
+                                  headers={"apikey": envs["DATA_SOURCE_TOKEN"],
                                            "Content-Type": "application/json"})
-        self.hub_client = AsyncClient(base_url="http://flame-node-hub-adapter-service:5000",
-                                      headers={"Authorization": f"Bearer {tokens['KEYCLOAK_TOKEN']}",
+        self.hub_client = AsyncClient(base_url=f"http://{envs['NGINX_NAME']}/hub-adapter",
+                                      headers={"Authorization": f"Bearer {envs['KEYCLOAK_TOKEN']}",
                                                "accept": "application/json"})
 
         self.project_id = project_id

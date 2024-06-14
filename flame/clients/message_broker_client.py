@@ -11,10 +11,10 @@ class Message:
 
 
 class MessageBrokerClient:
-    def __init__(self, token: str) -> None:
+    def __init__(self, envs: dict[str, str]) -> None:
         self._message_broker = AsyncClient(
-            base_url="http://flame-node-node-message-broker",
-            headers={"Authorization": f"Bearer {token}", "Accept": "application/json"}
+            base_url=f"http://{envs['NGINX_NAME']}/message-broker",
+            headers={"Authorization": f"Bearer {envs['KEYCLOAK_TOKEN']}", "Accept": "application/json"}
         )
         asyncio.run(self._connect())
         self.list_of_incoming_messages: list[dict] = []
@@ -47,11 +47,11 @@ class MessageBrokerClient:
     async def _connect(self) -> None:
         response = await self._message_broker.post(
             f'/analyses/{os.getenv("ANALYSIS_ID")}/messages/subscriptions',
-            json={'webhookUrl': f'http://service-{os.getenv("DEPLOYMENT_NAME")}/webhook'}
+            json={'webhookUrl': f'http://nginx-{os.getenv("DEPLOYMENT_NAME")}/analysis/webhook'}
         )
         print(f"message broker connect response  {response}")
         print(f'/analyses/{os.getenv("ANALYSIS_ID")}/messages/subscriptions')
-        print({'webhookUrl': f'http://service-{os.getenv("DEPLOYMENT_NAME")}/webhook'})
+        print({'webhookUrl': f'http://nginx-{os.getenv("DEPLOYMENT_NAME")}/analysis/webhook'})
 
         response = await self._message_broker.get(f'/analyses/{os.getenv("ANALYSIS_ID")}/participants/self',
                                                   headers=[('Connection', 'close')])

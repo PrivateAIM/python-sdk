@@ -1,6 +1,11 @@
 import asyncio
 from typing import Any
 
+import uvicorn
+from fastapi import FastAPI, APIRouter, Request, Depends
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+
 from flame import (FlameSDK,
                    Aggregator,
                    Analyzer)
@@ -12,10 +17,16 @@ class My_Analyzer(Analyzer):
         pass
 
     def analysis_method(self, data, aggregator_results) -> Any:
-        print(f"type of data in my analyzer {type(data)}")
-        print(f"data in my analyser {data}")
+        """
+        This method will be used to analyze the data. It has to be overridden.
+        :param data:
+        :param aggregator_results:
+        :return:
+        """
+        #your personal analysis method here
+
         number_of_patients = data[0]['total']
-        print(f"number of patients in my analyzer {number_of_patients}")
+
         return number_of_patients
 
 
@@ -36,13 +47,11 @@ class My_Aggregator(Aggregator):
 
     def has_converged(self, aggregator_results) -> bool:
         print(f"aggregator_results in my aggregator {aggregator_results}")
-        # if
         return True
 
 
 def main():
     flame = FlameSDK()
-    #asyncio.run(flame.send_message(recipients=[node.node_id for node in flame.node_config.partner_nodes], message={"foo": "bar"} ))
 
     if flame.is_analyzer():
         print("Analyzer")
@@ -59,3 +68,43 @@ def main():
 
 if __name__ == "__main__":
     main()
+    ''' app = FastAPI(title=f"FLAME {'Analysis'}",
+                  docs_url="/api/docs",
+                  redoc_url="/api/redoc",
+                  openapi_url="/api/v1/openapi.json", )
+    
+    origins = [
+        "http://localhost:8080/",
+    ]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    router = APIRouter()
+    
+    
+    @router.get("/healthz", response_class=JSONResponse)
+    def health() -> dict[str, str]:
+        return {"status": "true"}
+    
+    
+    async def get_body(request: Request) -> dict[str, Any]:
+        print("Received message webhook")
+        return await request.json()
+    
+    
+    app.include_router(
+        router,
+        prefix='',
+    )
+    
+    uvicorn.run(app, host="0.0.0.0", port=8000)'''
+
+
+
+
+
+

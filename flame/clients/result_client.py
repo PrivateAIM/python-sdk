@@ -3,13 +3,13 @@ from httpx import AsyncClient, HTTPError
 
 
 class ResultClient:
-    def __init__(self, token: str) -> None:
-        self.client = AsyncClient(base_url="http://flame-node-node-result-service:8080",
-                                  headers={"Authorization": f"Bearer {token}"})
+    def __init__(self, envs: dict[str, str]) -> None:
+        self.client = AsyncClient(base_url=f"http://{envs['NGINX_NAME']}/storage",
+                                  headers={"Authorization": f"Bearer {envs['KEYCLOAK_TOKEN']}"})
 
     async def test_connection(self) -> None:
         await self.push_result("test_image_main.py")
-    
+
     async def push_result(self, result: Any) -> dict:
         result_path = "result.txt"
         self._write_result(result, result_path)

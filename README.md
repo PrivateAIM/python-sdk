@@ -33,7 +33,7 @@ be exchanged using the Result Service.
 - `send_message(self, receivers: List[nodeID], message: dict) -> None`
     - Sends a message to all specified nodes.
 - `await_message(self, node_ids: List[nodeID], timeout: int = None) -> dict`
-    - Waits for a messages to arrive.
+    - Waits for messages from the specified nodes to arrive.
 - `get_list_of_messages(self) -> List[dict]`
     - Returns a list of all messages that have arrived. 
 
@@ -121,7 +121,7 @@ Data Source Client is a service for accessing data from different sources like F
   - Returns a list of all data sources available for this project.
 
 ### List of quality of life methods
-- `get_fhir_data(self, queries: List[str]) -> List[dict]`
+``- `get_fhir_data(self, queries: List[str]) -> List[dict]`
   - Returns the data from the FHIR store for each of the specified queries.
 - `get_s3_data(self, key: str, local_path: str) -> IOstream`
-  - Returns the data from the S3 store associated with the given key.
+  - Returns the data from the S3 store associated with the given key.``

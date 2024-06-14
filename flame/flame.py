@@ -12,9 +12,10 @@ from flame.clients.message_broker_client import MessageBrokerClient, Message
 from flame.federated.aggregator_client import Aggregator
 from flame.federated.analyzer_client import Analyzer
 from flame.federated.node_base_client import Node, NodeConfig
-from flame.utils.token import get_tokens
+from flame.utils.envs import get_envs
+from flame.utils.nginx import wait_until_nginx_online
 
-
+from httpx import AsyncClient, HTTPError
 class _ERROR_MESSAGES(Enum):
     IS_ANALYZER = 'Node is configured as analyzer. Unable to execute command associated to aggregator.'
     IS_AGGREGATOR = 'Node is configured as aggregator. Unable to execute command associated to analyzer.'
@@ -33,27 +34,27 @@ class FlameSDK:
     analyzer: Optional[Analyzer]
 
     def __init__(self) -> None:
-        tokens = get_tokens()
+        print("Starting Flame")
+        envs = get_envs()
+        wait_until_nginx_online(envs)
 
         # connect to message broker
-        self.message_broker = MessageBrokerClient(tokens['KEYCLOAK_TOKEN'])
+        self.message_broker = MessageBrokerClient(envs)
 
         # extract node config
         self.node_config = NodeConfig(self.message_broker)
 
         # connection to result service
-        self.result_service_client = ResultClient(tokens['KEYCLOAK_TOKEN'])
+        self.result_service_client = ResultClient(envs)
 
         if self.is_analyzer():
             # connection to kong
-            self.data_api_client = DataApiClient(self.node_config.project_id, tokens)
+            self.data_api_client = DataApiClient(self.node_config.project_id, envs)
 
-            # start flame api
             self.flame_api_thread = Thread(target=self._start_flame_api,
                                            args=('analyzer', self.message_broker, self.converged))
             self.flame_api_thread.start()
         elif self.is_aggregator():
-            # start flame api
             self.flame_api_thread = Thread(target=self._start_flame_api,
                                            args=('aggregator', self.message_broker, self.converged))
             self.flame_api_thread.start()
