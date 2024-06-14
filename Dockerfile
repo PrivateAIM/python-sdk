@@ -17,8 +17,10 @@ RUN poetry install --without dev --no-root && rm -rf $POETRY_CACHE_DIR
 
 COPY flame ./flame
 
-COPY tests/test_images/test_image_main.py ./
+#COPY tests/test_images/test_image_main.py ./
+COPY tests/test_images/test_core_sdk_main.py ./
 
 EXPOSE 8080
 
-ENTRYPOINT ["poetry", "run", "python", "-m", "test_image_main"]
+#ENTRYPOINT ["poetry", "run", "python", "-m", "test_image_main"]
+ENTRYPOINT ["poetry", "run", "python", "-u", "test_core_sdk_main.py"]
