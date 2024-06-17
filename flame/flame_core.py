@@ -1,3 +1,4 @@
+from httpx import AsyncClient
 
 from flame.clients.message_broker_client import MessageBrokerClient
 from flame.federated.node_base_client import Node, NodeConfig
@@ -5,7 +6,7 @@ from flame.clients.result_client import ResultClient
 
 from flame.api import FlameAPI
 
-from typing import List, Literal
+from typing import List, Literal, IO
 
 from threading import Thread
 from flame.utils.envs import get_envs
@@ -126,17 +127,140 @@ class FlameCoreSDK:
         #TODO Implement this
 
 ########################################Storage Client###########################################
-    def submit_final_result(self, result):
+    def submit_final_result(self, result: IO) -> str:
         """
-        Submit the final result to the result service
+        sends the final result to the hub. Making it available for analysts to download.
+        This method is only available for nodes for which the method `get_role(self)` returns "aggregator”.
         :param result: the final result
+        :return: the request status code
+        """
+        pass
+        #TODO Implement this
+
+    def save_intermediate_data(self,location: Literal["local","global"] ,data: IO) -> str:
+        """
+        saves intermediate results/data either on the hub (location="global"), or locally
+        :param location: the location to save the result, local saves in the node, global saves in central instance of MinIO
+        :param data: the result to save
+        :return: the request status code
+        """
+        pass
+        #TODO Implement this
+
+    def list_intermediate_data(self, location: Literal["local","global"]) -> List[str]:
+        """
+        returns a list of all locally/globally saved intermediate data available
+        :param location: the location to list the result, local lists in the node, global lists in central instance of MinIO
+        :return: the list of results
+        """
+        pass
+        #TODO Implement this
+
+    def get_intermediate_data(self, location: Literal["local","global"], id: str) -> IO:
+        """
+        returns the intermediate data with the specified id
+        :param location: the location to get the result, local gets in the node, global gets in central instance of MinIO
+        :param id: the id of the result to get
+        :return: the result
+        """
+        pass
+        #TODO Implement this
+
+
+########################################Data Source Client#######################################
+    def get_data_client(self, data_id: str) -> AsyncClient:
+        """
+        Returns the data client for a specific fhir or S3 store used for this project.
+        :param data_id: the id of the data source
+        :return: the data client
+        """
+        pass
+        #TODO Implement this
+    def get_data_sources(self) -> List[str]:
+        """
+        Returns a list of all data sources available for this project.
+        :return: the list of data sources
+        """
+        pass
+        #TODO Implement this
+
+    def get_fhir_data(self, data_id: str, queries: List[str]) -> List[dict]:
+        """
+        Returns the data from the FHIR store for each of the specified queries.
+        :param data_id: the id of the data source
+        :param query: the query to get the data
+        :return: the data
+        """
+        pass
+        #TODO Implement this
+    def get_s3_data(self, key: str, local_path: str) -> IO:
+        """
+        Returns the data from the S3 store associated with the given key.
+        :param key:
+        :param local_path:
+        :return:
+        """
+
+########################################General##################################################
+    def get_participants(self) -> List[str]:
+        """
+        Returns a list of all participants in the analysis
+        :return: the list of participants
+        """
+        pass
+        #TODO Implement this
+
+    def get_node_status(self,timeout: int = None) -> dict[str, Literal["online", "offline", "not_connected"]]:
+        """
+        Returns the status of all nodes.
+        :param timeout:  time in seconds to wait for the response, if None waits indefinetly
         :return:
         """
         pass
         #TODO Implement this
-########################################Data Source Client#######################################
 
-########################################General##################################################
+    def get_analysis_id(self) -> str:
+        """
+        Returns the analysis id
+        :return: the analysis id
+        """
+        pass
+        #TODO Implement this
+
+    def get_project_id(self) -> str:
+        """
+        Returns the project id
+        :return: the project id
+        """
+        pass
+        #TODO Implement this
+
+
+    def get_id(self) -> str:
+        """
+        Returns the node id
+        :return: the node id
+        """
+        pass
+        #TODO Implement this
+
+    def get_role(self) -> Literal["aggregator", "analyzer"]:
+        """
+        get the role of the node. "aggregator" means that the node can submit final results using "submit_final_result", else "default".
+        (this my change with futer permission settings for more function,)
+        :return: the role of the node
+        """
+        pass
+        #TODO Implement this
+    def send_intermediate_result(self, receivers: List[str], result: IO) -> str:
+        """
+        SSends an intermediate result using Result Service and Message Broker.
+        :param receivers: list of node ids to send the result to
+        :param result: the result to send
+        :return: the request status code
+        """
+        pass
+        #TODO Implement this
 
     def node_finished(self) -> bool:
         """
@@ -146,6 +270,7 @@ class FlameCoreSDK:
         """
         self.finished = True
         return self.finished
+
     def analysis_finished(self) -> bool:
         """
         Sends a signal to all nodes to set their node_finished to True, then calles node_finished
