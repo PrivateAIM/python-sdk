@@ -1,5 +1,5 @@
-from flame.templates.aggregator_generic import my_Aggregator
-from flame.flame import FlameSDK
+from schemas.templates.aggregator_generic import my_Aggregator
+from schemas.star.flame_star import FlameSDK
 
 
 def main():

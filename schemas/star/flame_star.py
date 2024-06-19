@@ -1,21 +1,19 @@
-import asyncio
-import sys
 from threading import Thread
 from enum import Enum
 
 from typing import Any, Callable, Optional, Type
 
-from flame.api import FlameAPI
-from flame.clients.data_api_client import DataApiClient
-from flame.clients.result_client import ResultClient
-from flame.clients.message_broker_client import MessageBrokerClient, Message
+from resources.rest_api import FlameAPI
+from resources.clients.data_api_client import DataApiClient
+from resources.clients.result_client import ResultClient
+from resources.clients.message_broker_client import MessageBrokerClient, Message
 from flame.federated.aggregator_client import Aggregator
-from flame.federated.analyzer_client import Analyzer
+from schemas.star.analyzer_client import Analyzer
 from flame.federated.node_base_client import Node, NodeConfig
 from flame.utils.envs import get_envs
 from flame.utils.nginx import wait_until_nginx_online
 
-from httpx import AsyncClient, HTTPError
+
 class _ERROR_MESSAGES(Enum):
     IS_ANALYZER = 'Node is configured as analyzer. Unable to execute command associated to aggregator.'
     IS_AGGREGATOR = 'Node is configured as aggregator. Unable to execute command associated to analyzer.'

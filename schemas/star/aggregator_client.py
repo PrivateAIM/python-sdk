@@ -1,9 +1,9 @@
 from abc import abstractmethod
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 import time
 
 from flame.federated.node_base_client import Node, NodeConfig
-from flame.clients.message_broker_client import Message, MessageBrokerClient
+from resources.clients.message_broker_client import Message, MessageBrokerClient
 
 
 class Aggregator(Node):

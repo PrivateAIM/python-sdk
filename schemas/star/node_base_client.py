@@ -4,7 +4,7 @@ import os
 from typing import Any, Optional, Literal
 from enum import Enum
 
-from flame.clients.message_broker_client import MessageBrokerClient
+from resources.clients.message_broker_client import MessageBrokerClient
 
 
 class NodeStatus(Enum):

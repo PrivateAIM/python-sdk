@@ -2,7 +2,7 @@ import time
 from abc import abstractmethod
 from typing import Any, Optional
 
-from flame.clients.message_broker_client import MessageBrokerClient
+from resources.clients.message_broker_client import MessageBrokerClient
 from flame.federated.node_base_client import Node, NodeConfig
 
 

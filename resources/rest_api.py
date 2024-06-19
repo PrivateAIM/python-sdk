@@ -1,10 +1,7 @@
-import json
-import os
 import sys
 
 
 import uvicorn
-import asyncio
 
 from typing import Callable, Any
 
@@ -12,7 +9,7 @@ from fastapi import FastAPI, APIRouter, Request, Depends
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from flame.clients.message_broker_client import MessageBrokerClient
+from resources.clients.message_broker_client import MessageBrokerClient
 
 
 class FlameAPI:
