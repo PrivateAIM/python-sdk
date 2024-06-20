@@ -3,9 +3,9 @@ from httpx import AsyncClient, HTTPError
 
 
 class ResultClient:
-    def __init__(self, envs: dict[str, str]) -> None:
-        self.client = AsyncClient(base_url=f"http://{envs['NGINX_NAME']}/storage",
-                                  headers={"Authorization": f"Bearer {envs['KEYCLOAK_TOKEN']}"})
+    def __init__(self, nginx_name, keycloak_token) -> None:
+        self.client = AsyncClient(base_url=f"http://{nginx_name}/storage",
+                                  headers={"Authorization": f"Bearer {keycloak_token}"})
 
     async def test_connection(self) -> None:
         await self.push_result("test_image_main.py")

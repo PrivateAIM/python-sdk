@@ -1,7 +1,7 @@
 from httpx import AsyncClient
 
+from resources.analysis_config import AnalysisConfig
 from resources.clients.message_broker_client import MessageBrokerClient
-from flame.federated.node_base_client import NodeConfig
 from resources.clients.result_client import ResultClient
 
 from resources.rest_api import FlameAPI
@@ -9,8 +9,9 @@ from resources.rest_api import FlameAPI
 from typing import List, Literal, IO
 
 from threading import Thread
-from flame.utils.envs import get_envs
-from flame.utils.nginx import wait_until_nginx_online
+from resources.utils import wait_until_nginx_online
+
+
 class FlameCoreSDK:
 
     def __init__(self):
@@ -18,33 +19,31 @@ class FlameCoreSDK:
         # Setup the connection to all the services needed
 
         print("Getting environment variables")
-        # get environment variables
-        envs = get_envs()
-        self.finished = False
+        config = AnalysisConfig()
 
         # wait until nginx is online
-        wait_until_nginx_online(envs)
+        wait_until_nginx_online(config.nginx_name)
 
         print("Connecting to message broker")
         # connect to message broker
-        self._message_broker = MessageBrokerClient(envs)
+        self._message_broker = MessageBrokerClient(config.nginx_name, config.keycloak_token)
 
         print("Extracting node config")
         # extract node config
-        self._node_config = NodeConfig(self.message_broker)
 
         print("Connecting to result service")
         # connection to result service
-        self._result_service_client = ResultClient(envs)
+        self._result_service_client = ResultClient(config.nginx_name, config.keycloak_token)
 
         print("Starting flame api thread")
         # start the flame api thread , this is uesed for incoming messages from the message broker and health checks
         self._flame_api_thread = Thread(target=self._start_flame_api,
-                                       args=('analyzer', self.message_broker))
+                                        args=('analyzer', self.message_broker))
         self._flame_api_thread.start()
 
         print("Flame core SDK started")
-########################################Internal###############################################
+
+    ########################################Internal###############################################
     def _start_flame_api(self, node_mode: str, message_broker: MessageBrokerClient) -> None:
         """
         Start the flame api, this is used for incoming messages from the message broker and health checks
@@ -59,9 +58,9 @@ class FlameCoreSDK:
         Check if the node has finished processing used by the flame api to check if the node has finished processing
         :return:
         """
-        return self.finished
+        return self.config.node_finished()
 
-########################################Message Broker Client####################################
+    ########################################Message Broker Client####################################
     def send_message(self, receivers: List[str], message_category: str, message: dict, timeout: int = None) -> str:
         """
         Sends a message to all specified nodes.
@@ -77,7 +76,8 @@ class FlameCoreSDK:
         # Send the message
         # Wait for the response
 
-    def await_responses(self, node_ids: List[str], message_id: str, message_category: str, timeout: int = None) -> List[dict]:
+    def await_responses(self, node_ids: List[str], message_id: str, message_category: str, timeout: int = None) -> List[
+        dict]:
         """
         Wait for responses from the specified nodes
         :param node_ids: list of node ids to wait for
@@ -93,7 +93,6 @@ class FlameCoreSDK:
             # Check if the message has been received6
             # If received return the message
             # If not received wait for the message
-
 
     def get_messages(self, status: Literal["read", "unread", "all"] = "unread") -> List[dict]:
         """
@@ -123,7 +122,8 @@ class FlameCoreSDK:
         pass
         #TODO Implement this
 
-    def send_message_and_wait_for_responses(self, receivers: List[str], message_category: str, message: dict, timeout: int = None) -> dict:
+    def send_message_and_wait_for_responses(self, receivers: List[str], message_category: str, message: dict,
+                                            timeout: int = None) -> dict:
         """
         Sends a message to all specified nodes and waits for responses,( combines send_message and await_responses)
         :param receivers:  list of node ids to send the message to
@@ -135,7 +135,7 @@ class FlameCoreSDK:
         pass
         #TODO Implement this
 
-########################################Storage Client###########################################
+    ########################################Storage Client###########################################
     def submit_final_result(self, result: IO) -> str:
         """
         sends the final result to the hub. Making it available for analysts to download.
@@ -146,7 +146,7 @@ class FlameCoreSDK:
         pass
         #TODO Implement this
 
-    def save_intermediate_data(self,location: Literal["local","global"] ,data: IO) -> str:
+    def save_intermediate_data(self, location: Literal["local", "global"], data: IO) -> str:
         """
         saves intermediate results/data either on the hub (location="global"), or locally
         :param location: the location to save the result, local saves in the node, global saves in central instance of MinIO
@@ -156,7 +156,7 @@ class FlameCoreSDK:
         pass
         #TODO Implement this
 
-    def list_intermediate_data(self, location: Literal["local","global"]) -> List[str]:
+    def list_intermediate_data(self, location: Literal["local", "global"]) -> List[str]:
         """
         returns a list of all locally/globally saved intermediate data available
         :param location: the location to list the result, local lists in the node, global lists in central instance of MinIO
@@ -165,7 +165,7 @@ class FlameCoreSDK:
         pass
         #TODO Implement this
 
-    def get_intermediate_data(self, location: Literal["local","global"], id: str) -> IO:
+    def get_intermediate_data(self, location: Literal["local", "global"], id: str) -> IO:
         """
         returns the intermediate data with the specified id
         :param location: the location to get the result, local gets in the node, global gets in central instance of MinIO
@@ -175,8 +175,7 @@ class FlameCoreSDK:
         pass
         #TODO Implement this
 
-
-########################################Data Source Client#######################################
+    ########################################Data Source Client#######################################
     def get_data_client(self, data_id: str) -> AsyncClient:
         """
         Returns the data client for a specific fhir or S3 store used for this project.
@@ -185,6 +184,7 @@ class FlameCoreSDK:
         """
         pass
         #TODO Implement this
+
     def get_data_sources(self) -> List[str]:
         """
         Returns a list of all data sources available for this project.
@@ -202,6 +202,7 @@ class FlameCoreSDK:
         """
         pass
         #TODO Implement this
+
     def get_s3_data(self, key: str, local_path: str) -> IO:
         """
         Returns the data from the S3 store associated with the given key.
@@ -210,7 +211,7 @@ class FlameCoreSDK:
         :return:
         """
 
-########################################General##################################################
+    ########################################General##################################################
     def get_participants(self) -> List[str]:
         """
         Returns a list of all participants in the analysis
@@ -219,7 +220,7 @@ class FlameCoreSDK:
         pass
         #TODO Implement this
 
-    def get_node_status(self,timeout: int = None) -> dict[str, Literal["online", "offline", "not_connected"]]:
+    def get_node_status(self, timeout: int = None) -> dict[str, Literal["online", "offline", "not_connected"]]:
         """
         Returns the status of all nodes.
         :param timeout:  time in seconds to wait for the response, if None waits indefinetly
@@ -244,7 +245,6 @@ class FlameCoreSDK:
         pass
         #TODO Implement this
 
-
     def get_id(self) -> str:
         """
         Returns the node id
@@ -261,6 +261,7 @@ class FlameCoreSDK:
         """
         pass
         #TODO Implement this
+
     def send_intermediate_result(self, receivers: List[str], result: IO) -> str:
         """
         SSends an intermediate result using Result Service and Message Broker.
@@ -277,8 +278,8 @@ class FlameCoreSDK:
         Need to be called when all processing is done
         :return:
         """
-        self.finished = True
-        return self.finished
+        self.config.finish_analysis()
+        return self.config.finished()
 
     def analysis_finished(self) -> bool:
         """

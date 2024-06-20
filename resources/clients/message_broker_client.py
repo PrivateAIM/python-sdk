@@ -11,10 +11,10 @@ class Message:
 
 
 class MessageBrokerClient:
-    def __init__(self, envs: dict[str, str]) -> None:
+    def __init__(self, nginx_name, keycloak_token) -> None:
         self._message_broker = AsyncClient(
-            base_url=f"http://{envs['NGINX_NAME']}/message-broker",
-            headers={"Authorization": f"Bearer {envs['KEYCLOAK_TOKEN']}", "Accept": "application/json"}
+            base_url=f"http://{nginx_name}/message-broker",
+            headers={"Authorization": f"Bearer {keycloak_token}", "Accept": "application/json"}
         )
         asyncio.run(self._connect())
         self.list_of_incoming_messages: list[dict] = []
