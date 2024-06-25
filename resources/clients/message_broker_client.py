@@ -1,13 +1,40 @@
 import os
+import uuid
 import asyncio
+import datetime
 
 from httpx import AsyncClient, HTTPError
 
+from resources.analysis_config import AnalysisConfig
+
 
 class Message:
-    def __init__(self, recipients: list[str], message: dict) -> None:
+    def __init__(self, recipients: list[str], message: dict, category: str, config: AnalysisConfig,
+                 message_number: int) -> None:
         self.recipients = recipients
-        self.message = message
+        self.meta = self._meta_dict(category, message_number, config)
+        self.message_acknowledged = False
+        self.message = self._combine_message_and_meta(message, self.meta)
+
+    def _combine_message_and_meta(self, message: dict, meta: dict) -> dict:
+        message["meta"] = meta
+        return message
+
+    def accnowledge_message(self):
+        self.message_acknowledged = True
+
+    def _add_meta_data(self, category: str, message_number: int, config: AnalysisConfig) -> dict:
+        messae_meta_data = {}
+        messae_meta_data["type"] = "message"
+        messae_meta_data["category"] = category
+        messae_meta_data["id"] = uuid.uuid4()
+        messae_meta_data["akn_msg"] = False
+        messae_meta_data["status"] = "unread"
+        messae_meta_data["sender"] = config.node_id
+        messae_meta_data["created_at"] = str(datetime.datetime.now())
+        messae_meta_data["arrived_at"] = None
+        messae_meta_data["number"] = message_number
+        return messae_meta_data
 
 
 class MessageBrokerClient:
@@ -77,4 +104,25 @@ class MessageBrokerClient:
     def receive_message(self, body: dict) -> None:
         self.list_of_incoming_messages.append(body)
         print(f"incoming messages {body}")
+
+
+
+class MessageWaiter:
+    def __init__(self,message_broker_client: MessageBrokerClient, message: Message, message_orgin: str):
+        self.message_orgin = message_orgin
+        self._message_broker_client = message_broker_client
+        self.message = message
+
+    async def await_message_acknowledgement(self) -> bool:
+        pass
+        # todo observer message borker client for incoming messages
+        # todo check if the message is the acknowledgment of the message we are waiting for
+        # return True if the message is the acknowledgment of the message we are waiting for
+
+
+    def get_origin(self):
+        return self.message_orgin
+
+
+
 

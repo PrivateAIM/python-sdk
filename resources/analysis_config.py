@@ -1,5 +1,7 @@
 # TODO keep under resources or move to flame folder ?
 import os
+
+
 class AnalysisConfig:
 
     def __init__(self, ):
@@ -14,6 +16,7 @@ class AnalysisConfig:
         self.nginx_name = f'service-nginx-{os.getenv("DEPLOYMENT_NAME")}'
         #
         self.role = None
+        self.node_id = None
 
     def set_analysis_id(self, analysis_id):
         self.analysis_id = analysis_id
@@ -23,6 +26,9 @@ class AnalysisConfig:
 
     def set_role(self, role):
         self.role = role
+
+    def set_node_id(self, node_id):
+        self.node_id = node_id
 
     def finish_analysis(self):
         self.finished = True

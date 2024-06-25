@@ -1,5 +1,6 @@
 from httpx import AsyncClient
 
+from flame.message_broker_api import MessageBrokerAPI
 from resources.analysis_config import AnalysisConfig
 from resources.clients.message_broker_client import MessageBrokerClient
 from resources.clients.result_client import ResultClient
@@ -16,7 +17,7 @@ class FlameCoreSDK:
 
     def __init__(self):
         print("Starting Flame core SDK")
-        # Setup the connection to all the services needed
+        # Set up the connection to all the services needed
 
         print("Getting environment variables")
         config = AnalysisConfig()
@@ -26,7 +27,8 @@ class FlameCoreSDK:
 
         print("Connecting to message broker")
         # connect to message broker
-        self._message_broker = MessageBrokerClient(config.nginx_name, config.keycloak_token)
+
+        self._message_broker = MessageBrokerAPI(config)
 
         print("Extracting node config")
         # extract node config
@@ -70,11 +72,7 @@ class FlameCoreSDK:
         :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinetly
         :return: the message id
         """
-        pass
-        #TODO Implement this
-
-        # Send the message
-        # Wait for the response
+        return self._message_broker.send_message(receivers, message_category, message, timeout)
 
     def await_responses(self, node_ids: List[str], message_id: str, message_category: str, timeout: int = None) -> List[
         dict]:
