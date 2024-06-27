@@ -2,7 +2,7 @@
 import os
 
 
-class AnalysisConfig:
+class NodeConfig:
 
     def __init__(self, ):
         # analysis id and project id

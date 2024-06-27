@@ -1,7 +1,7 @@
 from httpx import AsyncClient
 
 from flame.message_broker_api import MessageBrokerAPI
-from resources.analysis_config import AnalysisConfig
+from resources.node_config import NodeConfig
 from resources.clients.message_broker_client import MessageBrokerClient
 from resources.clients.result_client import ResultClient
 
@@ -20,7 +20,7 @@ class FlameCoreSDK:
         # Set up the connection to all the services needed
 
         print("Getting environment variables")
-        config = AnalysisConfig()
+        config = NodeConfig()
 
         # wait until nginx is online
         wait_until_nginx_online(config.nginx_name)

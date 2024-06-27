@@ -3,19 +3,19 @@ from typing import Literal
 
 from typing import List, Literal, IO
 
-from resources.analysis_config import AnalysisConfig
-from resources.clients.message_broker_client import MessageBrokerClient, Message, MessageWaiter
+from resources.node_config import NodeConfig
+from resources.clients.message_broker_client import MessageBrokerClient, Message
 
 
 class MessageBrokerAPI:
-    def __init__(self, config: AnalysisConfig):
+    def __init__(self, config: NodeConfig):
         self._message_broker_client = MessageBrokerClient(config.nginx_name, config.keycloak_token)
         self._config = config
-        self.message_counter = 0
-        self._send_messages = []
+
+        self._sent_messages = []
 
     async def send_message(self, receivers: list[str], message_category: str, message: dict,
-                           timeout: int = None) -> str:
+                           timeout: int = None) -> tuple[list[str], list[str]]:
         """
         Sends a message to all specified nodes.
         :param receivers:  list of node ids to send the message to
@@ -24,51 +24,87 @@ class MessageBrokerAPI:
         :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinetly
         :return: the message id
         """
-        self.message_counter += 1
         # Create a message object
-        message = Message(receivers, message, message_category, self._config, self.message_counter)
+        message = Message(recipients=receivers,
+                          message=message,
+                          category=message_category,
+                          config=self._config,
+                          message_number=self._message_broker_client.message_number,
+                          outgoing=True)
+
         # Send the message
         await self._message_broker_client.send_message(message)
+
         # Add the message to the list of sent messages
-        self._send_messages.append(message)
+        self._sent_messages.append(message)
+
         # await the message acknowledgement
         await_list = []
-        for receiver in message.recipients:
-            await_list.append(MessageWaiter(
-                self._message_broker_client, message, receiver).await_message_acknowledgement())
+
+        # Create a list of tasks to await the message acknowledgement
+        for receiver in receivers:
+            await_list.append(
+                asyncio.create_task(
+                    self._message_broker_client.await_message_acknowledgement(message, receiver)
+                )
+            )
+
+        # Run the tasks and wait for the message acknowledgement until the timeout or all messages are acknowledged
         done, pending = await asyncio.wait(await_list, timeout=timeout, return_when=asyncio.ALL_COMPLETED)
+
         # Check if the message was acknowledged
-        not_acknowledged = []
+        acknowledged = []
         for task in done:
             if not task.result():
-                not_acknowledged.append(task)
+                acknowledged.append(task.result())
 
-    def await_responses(self, node_ids: list[str], message_id: str, message_category: str, timeout: int = None) \
-            -> list[dict]:
+        # If the message was not acknowledged raise an error
+        # not_acknowledged = receivers - acknowledged
+        not_acknowledged = [receiver for receiver in receivers if receiver not in acknowledged]
+
+        return acknowledged, not_acknowledged
+
+    async def await_and_return_responses(self, node_ids: list[str], message_category: str, timeout: int = None) \
+            -> dict[str, list[Message] | None]:
         """
         Wait for responses from the specified nodes
         :param node_ids: list of node ids to wait for
-        :param message_id: the message id to wait for
         :param message_category: the message category to wait for
         :param timeout: time in seconds to wait for the message, if None waits indefinetly
         :return:
         """
-        pass
-        # TODO Implement this
-        while True:
-            pass
-            # Check if the message has been received6
-            # If received return the message
-            # If not received wait for the message
+        await_list = []
+        for node_id in node_ids:
+            await_list.append(
+                asyncio.create_task(
+                    self._message_broker_client.await_message(node_id, message_category)
+                )
+            )
+        done, pending = await asyncio.wait(await_list, timeout=timeout, return_when=asyncio.ALL_COMPLETED)
 
-    def get_messages(self, status: Literal["read", "unread", "all"] = "unread") -> list[dict]:
+        responses = {}
+        for node_id in node_ids:
+            for task in done:
+                id, response_list = task.result()
+                if id == node_id:
+                    responses[node_id] = response_list
+                    for response in response_list:
+                        response.set_read()
+                    break
+            if node_id not in responses.keys():
+                responses[node_id] = None
+
+
+        return responses
+
+    def get_messages(self) -> list[Message]:
         """
         Get all messages that have been sent to the node
         :param status: the status of the messages to get
         :return:
         """
-        pass
-        # TODO Implement this
+        return [msg for msg in self._message_broker_client.list_of_incoming_messages
+                if msg.body["meta"]["status"] == "read"]
 
     def delete_messages(self, message_ids: list[str]) -> int:
         """
@@ -76,8 +112,20 @@ class MessageBrokerAPI:
         :param message_ids: list of message ids to delete
         :return: the number of messages deleted
         """
-        pass
-        # TODO Implement this
+        for id in message_ids:
+            if id in [msg.body["meta"]["id"] for msg in self._message_broker_client.list_of_incoming_messages]:
+                filtered_list = filter(lambda x: x.body["meta"]["id"] != id,
+                                       self._message_broker_client.list_of_incoming_messages)
+                self._message_broker_client.list_of_incoming_messages = filtered_list
+            else:
+                raise ValueError(f"Could not find message with id={id}.")
+
+            if id in [msg.body["meta"]["id"] for msg in self._message_broker_client.list_of_outgoing_messages]:
+                filtered_list = filter(lambda x: x.body["meta"]["id"] != id,
+                                       self._message_broker_client.list_of_outgoing_messages)
+                self._message_broker_client.list_of_outgoing_messages = filtered_list
+
+
 
     def clear_messages(self, status: Literal["read", "unread", "all"] = "read", time_limit: int = None) -> int:
         """
