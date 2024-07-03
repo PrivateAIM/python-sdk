@@ -2,7 +2,7 @@ import os
 import uuid
 import asyncio
 import datetime
-from typing import Optional
+from typing import Optional, Literal
 from httpx import AsyncClient, HTTPError
 
 from resources.node_config import NodeConfig
@@ -58,11 +58,12 @@ class Message:
         :return:
         """
         self.body["meta"]["status"] = "read"
+
     def _update_meta_data(self,
-                       outgoing: bool,
-                       config: NodeConfig,
-                       category: Optional[str] = None,
-                       message_number: Optional[int] = None) -> None:
+                          outgoing: bool,
+                          config: NodeConfig,
+                          category: Optional[str] = None,
+                          message_number: Optional[int] = None) -> None:
         """
         Adds meta data to the outgoing message or update it for incoming.
         :param outgoing:
@@ -165,9 +166,47 @@ class MessageBrokerClient:
             self.acknowledge_message(message)
         print(f"incoming messages {body}")
 
+    def delete_incoming_message(self, message_id: str) -> int:
+        """
+        Delete a message from the incoming messages list.
+        :param message_id:
+        :return:
+        """
+        number_of_deleted_messages = 0
+        for message in self.list_of_incoming_messages:
+            if message.body["meta"]["id"] == message_id:
+                self.list_of_incoming_messages.remove(message)
+                number_of_deleted_messages += 1
+        if number_of_deleted_messages == 0:
+            raise ValueError(f"Could not find message with id={message_id} in incoming messages.")
+        return number_of_deleted_messages
+
+    def delete_message(self, message_id: str, type=Literal["outgoing", "incoming"]) -> int:
+        """
+        Delete a message from the outgoing messages list.
+        :param type:
+        :param message_id:
+        :return:
+        """
+        number_of_deleted_messages = 0
+        if type == "outgoing":
+            for message in self.list_of_outgoing_messages:
+                if message.body["meta"]["id"] == message_id:
+                    self.list_of_outgoing_messages.remove(message)
+                    number_of_deleted_messages += 1
+            if number_of_deleted_messages == 0:
+                raise ValueError(f"Could not find message with id={message_id} in outgoing messages.")
+        if type == "incoming":
+            for message in self.list_of_outgoing_messages:
+                if message.body["meta"]["id"] == message_id:
+                    self.list_of_outgoing_messages.remove(message)
+                    number_of_deleted_messages += 1
+            if number_of_deleted_messages == 0:
+                raise ValueError(f"Could not find message with id={message_id} in outgoing messages.")
+        return number_of_deleted_messages
+
     async def await_message(self, node_id: str, message_category: str) -> tuple[str, list[Message]]:
         possible_responses = []
-
         for msg in self.list_of_incoming_messages:
             if ((node_id == msg.body["meta"]["sender"]) and
                     (message_category == msg.body["meta"]["category"]) and
@@ -204,3 +243,37 @@ class MessageBrokerClient:
                             (incoming_message.body['meta']['akn_id'] == receiver):
                         return receiver
             await asyncio.sleep(1)
+
+    def clear_messages(self, status: Literal["read", "unread", "all"] = "read", time_limit: int = None, type=Literal["outgoing", "incoming"]) -> int:
+        """
+        Clear the incoming messages list.
+        :param time_limit:
+        :param status: the status of the messages to clear
+        :return:
+        """
+        number_of_deleted_messages = 0
+
+        if type == "incoming":
+            for message in self.list_of_incoming_messages:
+                if message.body["meta"]["status"] == status:
+                    if time_limit is not None:
+                        created_at = datetime.datetime.strptime(message.body["meta"]["created_at"], "%Y-%m-%d %H:%M:%S.%f")
+                        if (datetime.datetime.now() - created_at).seconds > time_limit:
+                            self.list_of_incoming_messages.remove(message)
+                            number_of_deleted_messages += 1
+                    else:
+                        self.list_of_incoming_messages.remove(message)
+                        number_of_deleted_messages += 1
+        if type == "outgoing":
+            for message in self.list_of_outgoing_messages:
+                if message.body["meta"]["status"] == status:
+                    if time_limit is not None:
+                        created_at = datetime.datetime.strptime(message.body["meta"]["created_at"], "%Y-%m-%d %H:%M:%S.%f")
+                        if (datetime.datetime.now() - created_at).seconds > time_limit:
+                            self.list_of_outgoing_messages.remove(message)
+                            number_of_deleted_messages += 1
+                    else:
+                        self.list_of_outgoing_messages.remove(message)
+                        number_of_deleted_messages += 1
+
+        return number_of_deleted_messages
