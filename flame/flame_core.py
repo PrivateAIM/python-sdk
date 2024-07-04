@@ -46,14 +46,14 @@ class FlameCoreSDK:
         print("Flame core SDK started")
 
     ########################################Internal###############################################
-    def _start_flame_api(self, node_mode: str, message_broker: MessageBrokerClient) -> None:
+    def _start_flame_api(self, node_mode: str) -> None:
         """
         Start the flame api, this is used for incoming messages from the message broker and health checks
         :param node_mode:
         :param message_broker:
         :return:
         """
-        self.flame_api = FlameAPI(node_mode, message_broker, self._converged)
+        self.flame_api = FlameAPI(self._message_broker.message_broker_client, self._converged)
 
     def _converged(self) -> bool:
         """

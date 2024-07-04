@@ -1,18 +1,21 @@
 from typing import List, Literal, IO
 
+from resources.clients.result_client import ResultClient
+from resources.node_config import NodeConfig
+
 
 class StorageAPI:
-    def __init__(self):
-        pass
+    def __init__(self, config: NodeConfig):
+        self.result_client = ResultClient(config.nginx_name, config.keycloak_token)
 
-    def submit_final_result(self, result: IO) -> str:
+    async def submit_final_result(self, result: IO) -> dict[str, str]:
         """
         sends the final result to the hub. Making it available for analysts to download.
         This method is only available for nodes for which the method `get_role(self)` returns "aggregator”.
         :param result: the final result
         :return: the request status code
         """
-        pass
+        self.result_client.push_result(result)
         # TODO Implement this
 
     def save_intermediate_data(self, location: Literal["local", "global"], data: IO) -> str:

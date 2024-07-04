@@ -4,12 +4,12 @@ from httpx import AsyncClient, HTTPError
 
 
 class DataApiClient:
-    def __init__(self, project_id: str, envs: dict[str, str]) -> None:
-        self.client = AsyncClient(base_url=f"http://{envs['NGINX_NAME']}/kong",
-                                  headers={"apikey": envs["DATA_SOURCE_TOKEN"],
+    def __init__(self, project_id: str, nginx_name: str, data_source_token: str, keycloak_token: str) -> None:
+        self.client = AsyncClient(base_url=f"http://{nginx_name}/kong",
+                                  headers={"apikey": data_source_token,
                                            "Content-Type": "application/json"})
-        self.hub_client = AsyncClient(base_url=f"http://{envs['NGINX_NAME']}/hub-adapter",
-                                      headers={"Authorization": f"Bearer {envs['KEYCLOAK_TOKEN']}",
+        self.hub_client = AsyncClient(base_url=f"http://{nginx_name}/hub-adapter",
+                                      headers={"Authorization": f"Bearer {keycloak_token}",
                                                "accept": "application/json"})
 
         self.project_id = project_id
@@ -47,6 +47,21 @@ class DataApiClient:
             response.raise_for_status()
             datasets.append(response.json())
         return datasets
+
+    def get_data_source_client(self, data_id: str) -> AsyncClient:
+        """
+        Returns the data client for a specific fhir or S3 store used for this project.
+        :param data_id:
+        :return:
+        """
+        path = None
+        for sources in self.available_sources:
+            if sources["id"] == data_id:
+                path = sources["paths"][0]
+        if path is None:
+            raise ValueError(f"Data source with id {data_id} not found")
+        client = AsyncClient(base_url=f"{path}",)
+        return client
 
     def parse_data(self, json_data: dict) -> list[Any]:
         pass

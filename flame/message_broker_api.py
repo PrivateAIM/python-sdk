@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 from typing import Literal, Dict, Any
 
 from typing import List, Literal, IO
@@ -9,7 +10,7 @@ from resources.clients.message_broker_client import MessageBrokerClient, Message
 
 class MessageBrokerAPI:
     def __init__(self, config: NodeConfig):
-        self._message_broker_client = MessageBrokerClient(config.nginx_name, config.keycloak_token)
+        self.message_broker_client = MessageBrokerClient(config.nginx_name, config.keycloak_token)
         self._config = config
 
     async def send_message(self, receivers: list[str], message_category: str, message: dict,
@@ -27,11 +28,11 @@ class MessageBrokerAPI:
                           message=message,
                           category=message_category,
                           config=self._config,
-                          message_number=self._message_broker_client.message_number,
+                          message_number=self.message_broker_client.message_number,
                           outgoing=True)
 
         # Send the message
-        await self._message_broker_client.send_message(message)
+        await self.message_broker_client.send_message(message)
 
         # await the message acknowledgement
         await_list = []
@@ -40,7 +41,7 @@ class MessageBrokerAPI:
         for receiver in receivers:
             await_list.append(
                 asyncio.create_task(
-                    self._message_broker_client.await_message_acknowledgement(message, receiver)
+                    self.message_broker_client.await_message_acknowledgement(message, receiver)
                 )
             )
 
@@ -72,7 +73,7 @@ class MessageBrokerAPI:
         for node_id in node_ids:
             await_list.append(
                 asyncio.create_task(
-                    self._message_broker_client.await_message(node_id, message_category)
+                    self.message_broker_client.await_message(node_id, message_category)
                 )
             )
         done, pending = await asyncio.wait(await_list, timeout=timeout, return_when=asyncio.ALL_COMPLETED)
@@ -97,7 +98,7 @@ class MessageBrokerAPI:
         :param status: the status of the messages to get
         :return:
         """
-        return [msg for msg in self._message_broker_client.list_of_incoming_messages
+        return [msg for msg in self.message_broker_client.list_of_incoming_messages
                 if msg.body["meta"]["status"] == "read"]
 
     def delete_messages_by_id(self, message_ids: list[str]) -> int:
@@ -108,8 +109,8 @@ class MessageBrokerAPI:
         """
         number_of_deleted_messages = 0
         for message_id in message_ids:
-            number_of_deleted_messages += self._message_broker_client.delete_incoming_message(message_id)
-            number_of_deleted_messages += self._message_broker_client.delete_outgoing_message(message_id)
+            number_of_deleted_messages += self.message_broker_client.delete_incoming_message(message_id)
+            number_of_deleted_messages += self.message_broker_client.delete_outgoing_message(message_id)
         return number_of_deleted_messages
 
     def clear_messages(self, status: Literal["read", "unread", "all"] = "read", time_limit: int = None) -> int:
@@ -122,8 +123,8 @@ class MessageBrokerAPI:
         :return: the number of messages cleared
         """
         number_of_deleted_messages = 0
-        number_of_deleted_messages += self._message_broker_client.clear_messages(status, time_limit, type="incoming")
-        number_of_deleted_messages += self._message_broker_client.clear_messages(status, time_limit, type="outgoing")
+        number_of_deleted_messages += self.message_broker_client.clear_messages(status, time_limit, type="incoming")
+        number_of_deleted_messages += self.message_broker_client.clear_messages(status, time_limit, type="outgoing")
         return number_of_deleted_messages
 
     def send_message_and_wait_for_responses(self, receivers: list[str], message_category: str, message: dict,
@@ -136,7 +137,13 @@ class MessageBrokerAPI:
         :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinetly
         :return: the responses
         """
+        # TODO
+        time_start = datetime.now()
         asyncio.run(self.send_message(receivers, message_category, message, timeout))  # send the message
+        timeout = timeout - (datetime.now() - time_start).seconds
+        if timeout < 0:
+            timeout = 1
         responses = asyncio.run(
             self.await_and_return_responses(receivers, message_category, timeout))  # wait for the responses
         return responses
+

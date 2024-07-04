@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any , IO
 from httpx import AsyncClient, HTTPError
 
 
@@ -10,7 +10,7 @@ class ResultClient:
     async def test_connection(self) -> None:
         await self.push_result("test_image_main.py")
 
-    async def push_result(self, result: Any) -> dict:
+    async def push_result(self, result: IO) -> dict:
         result_path = "result.txt"
         self._write_result(result, result_path)
         response = await self.client.put("/upload/",

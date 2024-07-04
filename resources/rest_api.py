@@ -13,8 +13,8 @@ from resources.clients.message_broker_client import MessageBrokerClient
 
 
 class FlameAPI:
-    def __init__(self, node_mode: str, message_broker: MessageBrokerClient, converged: Callable) -> None:
-        app = FastAPI(title=f"FLAME {'Analysis' if node_mode == 'analyzer' else 'Aggregation'}",
+    def __init__(self, message_broker: MessageBrokerClient, converged: Callable) -> None:
+        app = FastAPI(title=f"FLAME node",
                       docs_url="/api/docs",
                       redoc_url="/api/redoc",
                       openapi_url="/api/v1/openapi.json", )
