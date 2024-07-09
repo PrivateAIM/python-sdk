@@ -16,12 +16,12 @@ class MessageBrokerAPI:
     async def send_message(self, receivers: list[str], message_category: str, message: dict,
                            timeout: int = None) -> tuple[list[str], list[str]]:
         """
-        Sends a message to all specified nodes.
-        :param receivers:  list of node ids to send the message to
+        Send a message to the specified nodes
+        :param receivers: list of node ids to send the message to
         :param message_category: a string that specifies the message category,
-        :param message:  the message to send
+        :param message: the message to send
         :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinetly
-        :return: the message id
+        :return: a tuple of nodes ids that  acknowledged and not acknowledged the message
         """
         # Create a message object
         message = Message(recipients=receivers,
@@ -94,8 +94,7 @@ class MessageBrokerAPI:
 
     def get_messages(self) -> list[Message]:
         """
-        Get all messages that have been sent to the node
-        :param status: the status of the messages to get
+        Get all messages that have been sent to the node and have not been read
         :return:
         """
         return [msg for msg in self.message_broker_client.list_of_incoming_messages
@@ -109,8 +108,8 @@ class MessageBrokerAPI:
         """
         number_of_deleted_messages = 0
         for message_id in message_ids:
-            number_of_deleted_messages += self.message_broker_client.delete_incoming_message(message_id)
-            number_of_deleted_messages += self.message_broker_client.delete_outgoing_message(message_id)
+            number_of_deleted_messages += self.message_broker_client.delete_message(message_id, type="incoming")
+            number_of_deleted_messages += self.message_broker_client.delete_message(message_id, type="outgoing")
         return number_of_deleted_messages
 
     def clear_messages(self, status: Literal["read", "unread", "all"] = "read", time_limit: int = None) -> int:

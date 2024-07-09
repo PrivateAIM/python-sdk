@@ -1,13 +1,15 @@
+import asyncio
+
 from httpx import AsyncClient
 
 from flame.message_broker_api import MessageBrokerAPI
 from resources.node_config import NodeConfig
-from resources.clients.message_broker_client import MessageBrokerClient
+from resources.clients.message_broker_client import MessageBrokerClient, Message
 from resources.clients.result_client import ResultClient
 
 from resources.rest_api import FlameAPI
 
-from typing import List, Literal, IO
+from typing import List, Literal, IO, Any, Tuple, Coroutine, Dict
 
 from threading import Thread
 from resources.utils import wait_until_nginx_online
@@ -63,19 +65,21 @@ class FlameCoreSDK:
         return self.config.node_finished()
 
     ########################################Message Broker Client####################################
-    def send_message(self, receivers: List[str], message_category: str, message: dict, timeout: int = None) -> str:
+    def send_message(self, receivers: List[str], message_category: str, message: dict, timeout: int = None) -> \
+            tuple[list[str], list[str]]:
         """
-        Sends a message to all specified nodes.
-        :param receivers:  list of node ids to send the message to
+        Send a message to the specified nodes
+        :param receivers: list of node ids to send the message to
         :param message_category: a string that specifies the message category,
-        :param message:  the message to send
+        :param message: the message to send
         :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinetly
-        :return: the message id
+        :return: a tuple of nodes ids that  acknowledged and not acknowledged the message
         """
-        return self._message_broker.send_message(receivers, message_category, message, timeout)
+        return asyncio.run(self._message_broker.send_message(receivers, message_category, message, timeout))
 
-    def await_responses(self, node_ids: List[str], message_id: str, message_category: str, timeout: int = None) -> List[
-        dict]:
+    def await_and_return_responses(self, node_ids: List[str], message_id: str, message_category: str,
+                                   timeout: int = None) -> \
+            dict[str, list[Message] | None]:
         """
         Wait for responses from the specified nodes
         :param node_ids: list of node ids to wait for
@@ -84,22 +88,16 @@ class FlameCoreSDK:
         :param timeout: time in seconds to wait for the message, if None waits indefinetly
         :return:
         """
-        pass
-        #TODO Implement this
-        while True:
-            pass
-            # Check if the message has been received6
-            # If received return the message
-            # If not received wait for the message
+        return asyncio.run(
+            self._message_broker.await_and_return_responses(node_ids, message_id, message_category, timeout))
 
-    def get_messages(self, status: Literal["read", "unread", "all"] = "unread") -> List[dict]:
+    def get_messages(self) -> list[Message]:
         """
         Get all messages that have been sent to the node
         :param status: the status of the messages to get
         :return:
         """
-        pass
-        #TODO Implement this
+        return self._message_broker.get_messages()
 
     def delete_messages(self, message_ids: List[str]) -> int:
         """
@@ -107,8 +105,7 @@ class FlameCoreSDK:
         :param message_ids: list of message ids to delete
         :return: the number of messages deleted
         """
-        pass
-        #TODO Implement this
+        return self._message_broker.delete_messages_by_id(message_ids)
 
     def clear_messages(self, status: Literal["read", "unread", "all"] = "read", time_limit: int = None) -> int:
         """
@@ -117,8 +114,7 @@ class FlameCoreSDK:
         :param time_limit: is set, only the messages with the specified status that are older than the limit in seconds are deleted
         :return: the number of messages cleared
         """
-        pass
-        #TODO Implement this
+        return self._message_broker.clear_messages(status, time_limit)
 
     def send_message_and_wait_for_responses(self, receivers: List[str], message_category: str, message: dict,
                                             timeout: int = None) -> dict:
@@ -130,8 +126,8 @@ class FlameCoreSDK:
         :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinetly
         :return: the responses
         """
-        pass
-        #TODO Implement this
+        return self._message_broker.send_message_and_wait_for_responses(receivers, message_category, message,
+                                                                                   timeout)
 
     ########################################Storage Client###########################################
     def submit_final_result(self, result: IO) -> str:

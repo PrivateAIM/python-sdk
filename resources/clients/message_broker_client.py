@@ -166,21 +166,6 @@ class MessageBrokerClient:
             self.acknowledge_message(message)
         print(f"incoming messages {body}")
 
-    def delete_incoming_message(self, message_id: str) -> int:
-        """
-        Delete a message from the incoming messages list.
-        :param message_id:
-        :return:
-        """
-        number_of_deleted_messages = 0
-        for message in self.list_of_incoming_messages:
-            if message.body["meta"]["id"] == message_id:
-                self.list_of_incoming_messages.remove(message)
-                number_of_deleted_messages += 1
-        if number_of_deleted_messages == 0:
-            raise ValueError(f"Could not find message with id={message_id} in incoming messages.")
-        return number_of_deleted_messages
-
     def delete_message(self, message_id: str, type=Literal["outgoing", "incoming"]) -> int:
         """
         Delete a message from the outgoing messages list.
@@ -212,6 +197,7 @@ class MessageBrokerClient:
                     (message_category == msg.body["meta"]["category"]) and
                     ("unread" == msg.body["meta"]["status"])):
                 possible_responses.append(msg)
+
 
         if len(possible_responses) == 0:
             number_of_incoming_messages = len(self.list_of_incoming_messages)
