@@ -1,4 +1,4 @@
-from typing import Any , IO
+from typing import Any, IO
 from httpx import AsyncClient, HTTPError
 
 
@@ -10,11 +10,11 @@ class ResultClient:
     async def test_connection(self) -> None:
         await self.push_result("test_image_main.py")
 
-    async def push_result(self, result: IO) -> dict:
+    async def push_result(self, result: IO) -> dict[str, str]:
         result_path = "result.txt"
         self._write_result(result, result_path)
         response = await self.client.put("/upload/",
-                                         files={"file": open(result_path, "rb")},
+                                         data=result,
                                          headers=[('Connection', 'close')])
         response.raise_for_status()
         if response.status_code != 204:
@@ -25,3 +25,14 @@ class ResultClient:
         with open(result_path, 'w') as f:
             f.write(str(result))
 
+    def list_local_results(self):
+        pass
+
+    def list_global_results(self):
+        pass
+
+    def get_intermediate_data_local(self, id):
+        pass
+
+    def get_intermediate_data_global(self, id):
+        pass

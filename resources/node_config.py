@@ -15,7 +15,7 @@ class NodeConfig:
         self.data_source_token = os.getenv('DATA_SOURCE_TOKEN')
         self.nginx_name = f'service-nginx-{os.getenv("DEPLOYMENT_NAME")}'
         #
-        self.role = None
+        self.node_role = None
         self.node_id = None
 
     def set_analysis_id(self, analysis_id):
@@ -25,7 +25,7 @@ class NodeConfig:
         self.project_id = project_id
 
     def set_role(self, role):
-        self.role = role
+        self.node_role = role
 
     def set_node_id(self, node_id):
         self.node_id = node_id

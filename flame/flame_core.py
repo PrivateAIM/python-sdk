@@ -2,7 +2,9 @@ import asyncio
 
 from httpx import AsyncClient
 
+from flame.data_api import DataAPI
 from flame.message_broker_api import MessageBrokerAPI
+from flame.storage_api import StorageAPI
 from resources.node_config import NodeConfig
 from resources.clients.message_broker_client import MessageBrokerClient, Message
 from resources.clients.result_client import ResultClient
@@ -22,22 +24,26 @@ class FlameCoreSDK:
         # Set up the connection to all the services needed
 
         print("Getting environment variables")
-        config = NodeConfig()
+        self.config = NodeConfig()
 
         # wait until nginx is online
-        wait_until_nginx_online(config.nginx_name)
+        wait_until_nginx_online(self.config.nginx_name)
 
         print("Connecting to message broker")
         # connect to message broker
 
-        self._message_broker = MessageBrokerAPI(config)
+        self._message_broker_api = MessageBrokerAPI(self.config)
 
         print("Extracting node config")
         # extract node config
 
         print("Connecting to result service")
         # connection to result service
-        self._result_service_client = ResultClient(config.nginx_name, config.keycloak_token)
+        self._storage_api = StorageAPI(self.config)
+        #self._result_service_client = ResultClient(config.nginx_name, config.keycloak_token)
+
+        # connection to data service
+        self._data_api = DataAPI(self.config)
 
         print("Starting flame api thread")
         # start the flame api thread , this is uesed for incoming messages from the message broker and health checks
@@ -55,7 +61,7 @@ class FlameCoreSDK:
         :param message_broker:
         :return:
         """
-        self.flame_api = FlameAPI(self._message_broker.message_broker_client, self._converged)
+        self.flame_api = FlameAPI(self._message_broker_api.message_broker_client, self._converged)
 
     def _converged(self) -> bool:
         """
@@ -75,7 +81,7 @@ class FlameCoreSDK:
         :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinetly
         :return: a tuple of nodes ids that  acknowledged and not acknowledged the message
         """
-        return asyncio.run(self._message_broker.send_message(receivers, message_category, message, timeout))
+        return asyncio.run(self._message_broker_api.send_message(receivers, message_category, message, timeout))
 
     def await_and_return_responses(self, node_ids: List[str], message_id: str, message_category: str,
                                    timeout: int = None) -> \
@@ -89,7 +95,7 @@ class FlameCoreSDK:
         :return:
         """
         return asyncio.run(
-            self._message_broker.await_and_return_responses(node_ids, message_id, message_category, timeout))
+            self._message_broker_api.await_and_return_responses(node_ids, message_id, message_category, timeout))
 
     def get_messages(self) -> list[Message]:
         """
@@ -97,7 +103,7 @@ class FlameCoreSDK:
         :param status: the status of the messages to get
         :return:
         """
-        return self._message_broker.get_messages()
+        return self._message_broker_api.get_messages()
 
     def delete_messages(self, message_ids: List[str]) -> int:
         """
@@ -105,7 +111,7 @@ class FlameCoreSDK:
         :param message_ids: list of message ids to delete
         :return: the number of messages deleted
         """
-        return self._message_broker.delete_messages_by_id(message_ids)
+        return self._message_broker_api.delete_messages_by_id(message_ids)
 
     def clear_messages(self, status: Literal["read", "unread", "all"] = "read", time_limit: int = None) -> int:
         """
@@ -114,7 +120,7 @@ class FlameCoreSDK:
         :param time_limit: is set, only the messages with the specified status that are older than the limit in seconds are deleted
         :return: the number of messages cleared
         """
-        return self._message_broker.clear_messages(status, time_limit)
+        return self._message_broker_api.clear_messages(status, time_limit)
 
     def send_message_and_wait_for_responses(self, receivers: List[str], message_category: str, message: dict,
                                             timeout: int = None) -> dict:
@@ -126,19 +132,18 @@ class FlameCoreSDK:
         :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinetly
         :return: the responses
         """
-        return self._message_broker.send_message_and_wait_for_responses(receivers, message_category, message,
-                                                                                   timeout)
+        return self._message_broker_api.send_message_and_wait_for_responses(receivers, message_category, message,
+                                                                            timeout)
 
     ########################################Storage Client###########################################
-    def submit_final_result(self, result: IO) -> str:
+    def submit_final_result(self, result: IO) -> Coroutine[Any, Any, dict[str, str]]:
         """
         sends the final result to the hub. Making it available for analysts to download.
         This method is only available for nodes for which the method `get_role(self)` returns "aggregator”.
         :param result: the final result
         :return: the request status code
         """
-        pass
-        #TODO Implement this
+        return self._storage_api.submit_final_result(result)
 
     def save_intermediate_data(self, location: Literal["local", "global"], data: IO) -> str:
         """
@@ -147,8 +152,7 @@ class FlameCoreSDK:
         :param data: the result to save
         :return: the request status code
         """
-        pass
-        #TODO Implement this
+        return self._storage_api.save_intermediate_data(location, data)
 
     def list_intermediate_data(self, location: Literal["local", "global"]) -> List[str]:
         """
@@ -156,9 +160,7 @@ class FlameCoreSDK:
         :param location: the location to list the result, local lists in the node, global lists in central instance of MinIO
         :return: the list of results
         """
-        pass
-        #TODO Implement this
-
+        return self._storage_api.list_intermediate_data(location)
     def get_intermediate_data(self, location: Literal["local", "global"], id: str) -> IO:
         """
         returns the intermediate data with the specified id
@@ -166,8 +168,7 @@ class FlameCoreSDK:
         :param id: the id of the result to get
         :return: the result
         """
-        pass
-        #TODO Implement this
+        return self._storage_api.get_intermediate_data(location, id)
 
     ########################################Data Source Client#######################################
     def get_data_client(self, data_id: str) -> AsyncClient:
@@ -176,16 +177,14 @@ class FlameCoreSDK:
         :param data_id: the id of the data source
         :return: the data client
         """
-        pass
-        #TODO Implement this
+        return self._data_api.get_data_client(data_id)
 
     def get_data_sources(self) -> List[str]:
         """
         Returns a list of all data sources available for this project.
         :return: the list of data sources
         """
-        pass
-        #TODO Implement this
+        return self._data_api.get_data_sources()
 
     def get_fhir_data(self, data_id: str, queries: List[str]) -> List[dict]:
         """
@@ -194,8 +193,7 @@ class FlameCoreSDK:
         :param query: the query to get the data
         :return: the data
         """
-        pass
-        #TODO Implement this
+        return self._data_api.get_fhir_data(data_id, queries)
 
     def get_s3_data(self, key: str, local_path: str) -> IO:
         """
@@ -204,6 +202,7 @@ class FlameCoreSDK:
         :param local_path:
         :return:
         """
+        return self._data_api.get_s3_data(key, local_path)
 
     ########################################General##################################################
     def get_participants(self) -> List[str]:
@@ -211,8 +210,7 @@ class FlameCoreSDK:
         Returns a list of all participants in the analysis
         :return: the list of participants
         """
-        pass
-        #TODO Implement this
+        return self._message_broker_api.get_participants()
 
     def get_node_status(self, timeout: int = None) -> dict[str, Literal["online", "offline", "not_connected"]]:
         """
@@ -220,32 +218,30 @@ class FlameCoreSDK:
         :param timeout:  time in seconds to wait for the response, if None waits indefinetly
         :return:
         """
-        pass
-        #TODO Implement this
+
+
 
     def get_analysis_id(self) -> str:
         """
         Returns the analysis id
         :return: the analysis id
         """
-        pass
-        #TODO Implement this
+        return self.config.analysis_id
 
     def get_project_id(self) -> str:
         """
         Returns the project id
         :return: the project id
         """
-        pass
-        #TODO Implement this
+        return self.config.project_id
 
     def get_id(self) -> str:
         """
         Returns the node id
         :return: the node id
         """
-        pass
-        #TODO Implement this
+        return self.config.node_id
+
 
     def get_role(self) -> Literal["aggregator", "analyzer"]:
         """
@@ -253,8 +249,7 @@ class FlameCoreSDK:
         (this my change with futer permission settings for more function,)
         :return: the role of the node
         """
-        pass
-        #TODO Implement this
+        return self.config.node_role
 
     def send_intermediate_result(self, receivers: List[str], result: IO) -> str:
         """
@@ -263,8 +258,8 @@ class FlameCoreSDK:
         :param result: the result to send
         :return: the request status code
         """
+        #self._storage_api.send_intermediate_result(receivers, result)
         pass
-        #TODO Implement this
 
     def node_finished(self) -> bool:
         """
@@ -280,5 +275,5 @@ class FlameCoreSDK:
         Sends a signal to all nodes to set their node_finished to True, then calles node_finished
         :return:
         """
-        # TODO: Implement this
-        pass
+
+        self.send_message(self.get_participants(), "analysis_finished", {}, timeout=None)

@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime
-from typing import Literal, Dict, Any
+from typing import Literal, Dict, Any, List, Coroutine
 
 from typing import List, Literal, IO
 
@@ -12,6 +12,10 @@ class MessageBrokerAPI:
     def __init__(self, config: NodeConfig):
         self.message_broker_client = MessageBrokerClient(config.nginx_name, config.keycloak_token)
         self._config = config
+        message_node_info = asyncio.run(self.message_broker_client.get_self_config())
+        self._config.set_role(message_node_info["nodeType"])
+        self._config.set_node_id(message_node_info["nodeId"])
+        self.participants  = asyncio.run(self.message_broker_client.get_partner_nodes(self._config.node_id, self._config.analysis_id))
 
     async def send_message(self, receivers: list[str], message_category: str, message: dict,
                            timeout: int = None) -> tuple[list[str], list[str]]:
@@ -136,7 +140,6 @@ class MessageBrokerAPI:
         :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinetly
         :return: the responses
         """
-        # TODO
         time_start = datetime.now()
         asyncio.run(self.send_message(receivers, message_category, message, timeout))  # send the message
         timeout = timeout - (datetime.now() - time_start).seconds
@@ -146,3 +149,9 @@ class MessageBrokerAPI:
             self.await_and_return_responses(receivers, message_category, timeout))  # wait for the responses
         return responses
 
+    def get_participants(self):
+        """
+        Get the list of participants that have sent messages to the node
+        :return:
+        """
+        return self.participants
