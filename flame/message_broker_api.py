@@ -137,7 +137,7 @@ class MessageBrokerAPI:
         :param receivers:  list of node ids to send the message to
         :param message_category: a string that specifies the message category,
         :param message:  the message to send
-        :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinetly
+        :param timeout: time in seconds to wait for the message acknowledgement and response, if None waits indefinetly
         :return: the responses
         """
         time_start = datetime.now()
@@ -149,9 +149,3 @@ class MessageBrokerAPI:
             self.await_and_return_responses(receivers, message_category, timeout))  # wait for the responses
         return responses
 
-    def get_participants(self):
-        """
-        Get the list of participants that have sent messages to the node
-        :return:
-        """
-        return self.participants

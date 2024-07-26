@@ -44,6 +44,8 @@ class FlameAPI:
         @router.post("/webhook", response_class=JSONResponse)
         def get_message(msg: dict = Depends(get_body)) -> None:
             print(f"Received message webhook: {msg}")
+            #TODO  check message category for finsihed
+
             message_broker.receive_message(msg)
 
         app.include_router(

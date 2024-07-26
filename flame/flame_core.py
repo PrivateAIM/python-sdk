@@ -136,7 +136,7 @@ class FlameCoreSDK:
                                                                             timeout)
 
     ########################################Storage Client###########################################
-    def submit_final_result(self, result: IO) -> Coroutine[Any, Any, dict[str, str]]:
+    def submit_final_result(self, result: IO) -> dict[str, str]:
         """
         sends the final result to the hub. Making it available for analysts to download.
         This method is only available for nodes for which the method `get_role(self)` returns "aggregator”.
@@ -210,7 +210,7 @@ class FlameCoreSDK:
         Returns a list of all participants in the analysis
         :return: the list of participants
         """
-        return self._message_broker_api.get_participants()
+        return self._message_broker_api.participants
 
     def get_node_status(self, timeout: int = None) -> dict[str, Literal["online", "offline", "not_connected"]]:
         """
