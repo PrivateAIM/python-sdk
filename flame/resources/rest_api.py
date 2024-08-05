@@ -12,7 +12,7 @@ from flame.resources.client_apis.clients.message_broker_client import MessageBro
 
 
 class FlameAPI:
-    def __init__(self, message_broker: MessageBrokerClient, converged: Callable) -> None:
+    def __init__(self, message_broker: MessageBrokerClient, finished_check: Callable, finishing_call: Callable) -> None:
         app = FastAPI(title=f"FLAME node",
                       docs_url="/api/docs",
                       redoc_url="/api/redoc",
@@ -30,7 +30,9 @@ class FlameAPI:
         )
         router = APIRouter()
 
-        self.converged = converged
+        self.finished = False
+        self.finished_check = finished_check
+        self.finishing_call = finishing_call
 
         @router.get("/healthz", response_class=JSONResponse)
         def health() -> dict[str, str]:
@@ -43,9 +45,13 @@ class FlameAPI:
         @router.post("/webhook", response_class=JSONResponse)
         def get_message(msg: dict = Depends(get_body)) -> None:
             print(f"Received message webhook: {msg}")
-            #TODO  check message category for finsihed
 
-            message_broker.receive_message(msg)
+            # check message category for finished
+            if msg['meta']['category'] == "analysis_finished":
+                self.finished = True
+                self.finishing_call()
+            else:
+                message_broker.receive_message(msg)
 
         app.include_router(
             router,
@@ -56,7 +62,10 @@ class FlameAPI:
 
     def _finished(self) -> str:
         try:
-            if self.converged():
+            if self.finished:
+                return "finished"
+            elif self.finished_check():
+                self.finished = True
                 return "finished"
             else:
                 return "ongoing"
