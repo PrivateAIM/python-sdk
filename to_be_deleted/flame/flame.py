@@ -3,10 +3,10 @@ from enum import Enum
 
 from typing import Any, Callable, Optional, Type
 
-from resources.rest_api import FlameAPI
-from resources.clients.data_api_client import DataApiClient
-from resources.clients.result_client import ResultClient
-from resources.clients.message_broker_client import MessageBrokerClient, Message
+from flame.resources.rest_api import FlameAPI
+from flame.resources.client_apis.clients import DataApiClient
+from flame.resources.client_apis.clients import ResultClient
+from flame.resources.client_apis.clients import MessageBrokerClient, Message
 from flame.federated.aggregator_client import Aggregator
 from schemas.star.analyzer_client import Analyzer
 from flame.federated.node_base_client import Node, NodeConfig

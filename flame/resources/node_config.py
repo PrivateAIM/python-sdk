@@ -1,10 +1,9 @@
-# TODO keep under resources or move to flame folder ?
 import os
 
 
 class NodeConfig:
 
-    def __init__(self, ):
+    def __init__(self):
         # analysis id and project id
         self.analysis_id = None
         self.project_id = None

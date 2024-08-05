@@ -1,21 +1,21 @@
 import asyncio
 from datetime import datetime
-from typing import Literal, Dict, Any, List, Coroutine
 
-from typing import List, Literal, IO
+from typing import Literal, Optional
 
-from resources.node_config import NodeConfig
-from resources.clients.message_broker_client import MessageBrokerClient, Message
+from flame.resources.node_config import NodeConfig
+from flame.resources.client_apis.clients.message_broker_client import MessageBrokerClient, Message
 
 
 class MessageBrokerAPI:
     def __init__(self, config: NodeConfig):
-        self.message_broker_client = MessageBrokerClient(config.nginx_name, config.keycloak_token)
+        self.message_broker_client = MessageBrokerClient(config)
         self._config = config
-        message_node_info = asyncio.run(self.message_broker_client.get_self_config())
+        message_node_info = asyncio.run(self.message_broker_client.get_self_config(config.analysis_id))
         self._config.set_role(message_node_info["nodeType"])
         self._config.set_node_id(message_node_info["nodeId"])
-        self.participants  = asyncio.run(self.message_broker_client.get_partner_nodes(self._config.node_id, self._config.analysis_id))
+        self.participants = asyncio.run(self.message_broker_client.get_partner_nodes(self._config.node_id,
+                                                                                     self._config.analysis_id))
 
     async def send_message(self, receivers: list[str], message_category: str, message: dict,
                            timeout: int = None) -> tuple[list[str], list[str]]:
@@ -24,8 +24,8 @@ class MessageBrokerAPI:
         :param receivers: list of node ids to send the message to
         :param message_category: a string that specifies the message category,
         :param message: the message to send
-        :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinetly
-        :return: a tuple of nodes ids that  acknowledged and not acknowledged the message
+        :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinitely
+        :return: a tuple of nodes ids that acknowledged and not acknowledged the message
         """
         # Create a message object
         message = Message(recipients=receivers,
@@ -64,12 +64,14 @@ class MessageBrokerAPI:
 
         return acknowledged, not_acknowledged
 
-    async def await_and_return_responses(self, node_ids: list[str], message_category: str, timeout: int = None) \
+    async def await_and_return_responses(self, node_ids: list[str], message_category: str,
+                                         message_id: Optional[str] = None, timeout: int = None) \
             -> dict[str, list[Message] | None]:
         """
         Wait for responses from the specified nodes
         :param node_ids: list of node ids to wait for
         :param message_category: the message category to wait for
+        :param message_id: optional message id to wait for
         :param timeout: time in seconds to wait for the message, if None waits indefinetly
         :return:
         """
@@ -77,7 +79,7 @@ class MessageBrokerAPI:
         for node_id in node_ids:
             await_list.append(
                 asyncio.create_task(
-                    self.message_broker_client.await_message(node_id, message_category)
+                    self.message_broker_client.await_message(node_id, message_category, message_id)
                 )
             )
         done, pending = await asyncio.wait(await_list, timeout=timeout, return_when=asyncio.ALL_COMPLETED)
@@ -112,8 +114,8 @@ class MessageBrokerAPI:
         """
         number_of_deleted_messages = 0
         for message_id in message_ids:
-            number_of_deleted_messages += self.message_broker_client.delete_message(message_id, type="incoming")
-            number_of_deleted_messages += self.message_broker_client.delete_message(message_id, type="outgoing")
+            number_of_deleted_messages += self.message_broker_client.delete_message_by_id(message_id, type="incoming")
+            number_of_deleted_messages += self.message_broker_client.delete_message_by_id(message_id, type="outgoing")
         return number_of_deleted_messages
 
     def clear_messages(self, status: Literal["read", "unread", "all"] = "read", time_limit: int = None) -> int:
@@ -137,15 +139,18 @@ class MessageBrokerAPI:
         :param receivers:  list of node ids to send the message to
         :param message_category: a string that specifies the message category,
         :param message:  the message to send
+        :param message_id: optional message id to wait for
         :param timeout: time in seconds to wait for the message acknowledgement and response, if None waits indefinetly
         :return: the responses
         """
         time_start = datetime.now()
-        asyncio.run(self.send_message(receivers, message_category, message, timeout))  # send the message
+        # Send the message
+        asyncio.run(self.send_message(receivers, message_category, message, timeout))
         timeout = timeout - (datetime.now() - time_start).seconds
         if timeout < 0:
             timeout = 1
+        # Wait for the responses
         responses = asyncio.run(
-            self.await_and_return_responses(receivers, message_category, timeout))  # wait for the responses
+            self.await_and_return_responses(receivers, message_category, timeout=timeout))
         return responses
 

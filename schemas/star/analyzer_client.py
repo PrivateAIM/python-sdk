@@ -2,8 +2,8 @@ import time
 from abc import abstractmethod
 from typing import Any, Optional
 
-from resources.clients.message_broker_client import MessageBrokerClient
-from flame.federated.node_base_client import Node, NodeConfig
+from flame.resources.client_apis.clients.message_broker_client import MessageBrokerClient
+from schemas.star.node_base_client import Node, NodeConfig
 
 
 class Analyzer(Node):

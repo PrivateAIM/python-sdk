@@ -6,9 +6,9 @@ from fastapi import FastAPI, APIRouter, Request, Depends
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from flame import (FlameSDK,
-                   Aggregator,
-                   Analyzer)
+from schemas.star.flame_star import (FlameSDK,
+                                     Aggregator,
+                                     Analyzer)
 
 
 class My_Analyzer(Analyzer):
@@ -56,11 +56,11 @@ def main():
     if flame.is_analyzer():
         print("Analyzer")
         my_analyzer = My_Analyzer  # or My_Analyzer(flame.node_config, **kwargs), if implemented with custom params
-        asyncio.run(flame.start_analyzer(my_analyzer, 'Patient?_summary=count'))
+        asyncio.run(flame.start_analyzer(my_analyzer, query='Patient?_summary=count'))
     elif flame.is_aggregator():
         print("Aggregator")
         my_aggregator = My_Aggregator
-        asyncio.run(flame.start_aggregator(my_aggregator, is_federated=False))
+        asyncio.run(flame.start_aggregator(my_aggregator, cutoff=1.0, is_federated=False))
     else:
         print("What happened??")
         raise BrokenPipeError("Has to be either analyzer or aggregator")

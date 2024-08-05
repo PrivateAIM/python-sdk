@@ -8,7 +8,7 @@ class ResultClient:
                                   headers={"Authorization": f"Bearer {keycloak_token}"})
 
     async def test_connection(self) -> None:
-        await self.push_result("test_image_main.py")
+        await self.push_result("../tests/test_images/test_image_main.py")
 
     async def push_result(self, result: IO) -> dict[str, str]:
         result_path = "result.txt"

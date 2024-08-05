@@ -1,10 +1,10 @@
 from httpx import AsyncClient
 
-from resources.clients.message_broker_client import MessageBrokerClient
+from flame.resources.client_apis.clients import MessageBrokerClient
 from flame.federated.node_base_client import NodeConfig
-from resources.clients.result_client import ResultClient
+from flame.resources.client_apis.clients import ResultClient
 
-from resources.rest_api import FlameAPI
+from flame.resources.rest_api import FlameAPI
 
 from typing import List, Literal, IO
 

@@ -5,7 +5,7 @@ import datetime
 from typing import Optional, Literal
 from httpx import AsyncClient, HTTPError
 
-from resources.node_config import NodeConfig
+from flame.resources.node_config import NodeConfig
 
 
 class Message:
@@ -91,11 +91,11 @@ class Message:
 
 
 class MessageBrokerClient:
-    def __init__(self, nginx_name: str, keycloak_token: str, config: NodeConfig) -> None:
+    def __init__(self, config: NodeConfig) -> None:
         self.nodeConfig = config
         self._message_broker = AsyncClient(
-            base_url=f"http://{nginx_name}/message-broker",
-            headers={"Authorization": f"Bearer {keycloak_token}", "Accept": "application/json"}
+            base_url=f"http://{config.nginx_name}/message-broker",
+            headers={"Authorization": f"Bearer {config.keycloak_token}", "Accept": "application/json"}
         )
         asyncio.run(self._connect())
         self.list_of_incoming_messages: list[Message] = []
@@ -152,10 +152,9 @@ class MessageBrokerClient:
                                                    headers=[('Connection', 'close'),
                                                             ("Content-Type", "application/json")])
         print(f"message broker send response  {response}")
-        #print(f"message  send   response json {response}")
         print(f"message  send   {body}")
 
-        self.list_of_outgoing_messages.append(body)
+        self.list_of_outgoing_messages.append(message)
 
     def receive_message(self, body: dict) -> None:
         message = Message(message=body, config=self.nodeConfig, outgoing=False)
@@ -166,7 +165,7 @@ class MessageBrokerClient:
             self.acknowledge_message(message)
         print(f"incoming messages {body}")
 
-    def delete_message(self, message_id: str, type=Literal["outgoing", "incoming"]) -> int:
+    def delete_message_by_id(self, message_id: str, type: Literal["outgoing", "incoming"]) -> int:
         """
         Delete a message from the outgoing messages list.
         :param type:
@@ -190,14 +189,19 @@ class MessageBrokerClient:
                 raise ValueError(f"Could not find message with id={message_id} in outgoing messages.")
         return number_of_deleted_messages
 
-    async def await_message(self, node_id: str, message_category: str) -> tuple[str, list[Message]]:
+    async def await_message(self, node_id: str,
+                            message_category: str,
+                            message_id: Optional[str] = None) -> tuple[str, list[Message]]:
         possible_responses = []
         for msg in self.list_of_incoming_messages:
             if ((node_id == msg.body["meta"]["sender"]) and
                     (message_category == msg.body["meta"]["category"]) and
                     ("unread" == msg.body["meta"]["status"])):
-                possible_responses.append(msg)
-
+                if message_id is not None:
+                    if message_id == msg.body["meta"]["id"]:
+                        possible_responses.append(msg)
+                else:
+                    possible_responses.append(msg)
 
         if len(possible_responses) == 0:
             number_of_incoming_messages = len(self.list_of_incoming_messages)
@@ -208,7 +212,11 @@ class MessageBrokerClient:
                         if ((node_id == msg.body["meta"]["sender"]) and
                                 (message_category == msg.body["meta"]["category"]) and
                                 ("unread" == msg.body["meta"]["status"])):
-                            possible_responses.append(msg)
+                            if message_id is not None:
+                                if message_id == msg.body["meta"]["id"]:
+                                    possible_responses.append(msg)
+                            else:
+                                possible_responses.append(msg)
                 return node_id, possible_responses
         else:
             return node_id, possible_responses

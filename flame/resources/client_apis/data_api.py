@@ -1,13 +1,13 @@
 from httpx import AsyncClient
 
-from typing import List, Literal, IO
+from typing import List, IO
 
-from resources.clients.data_api_client import DataApiClient
-from resources.node_config import NodeConfig
+from flame.resources.client_apis.clients.data_api_client import DataApiClient
+from flame.resources.node_config import NodeConfig
 
 
 class DataAPI:
-    def __init__(self,config: NodeConfig):
+    def __init__(self, config: NodeConfig):
         self.data_clients = DataApiClient(config.project_id,
                                           config.nginx_name,
                                           config.data_source_token,
@@ -32,7 +32,7 @@ class DataAPI:
         """
         Returns the data from the FHIR store for each of the specified queries.
         :param data_id: the id of the data source
-        :param query: the query to get the data
+        :param queries: list of queries to get the data
         :return: the data
         """
         pass

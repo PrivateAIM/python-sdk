@@ -2,73 +2,110 @@ import asyncio
 
 from httpx import AsyncClient
 
-from flame.data_api import DataAPI
-from flame.message_broker_api import MessageBrokerAPI
-from flame.storage_api import StorageAPI
-from resources.node_config import NodeConfig
-from resources.clients.message_broker_client import MessageBrokerClient, Message
-from resources.clients.result_client import ResultClient
+from flame.resources.client_apis.data_api import DataAPI
+from flame.resources.client_apis.message_broker_api import MessageBrokerAPI, Message
+from flame.resources.client_apis.storage_api import StorageAPI
+from flame.resources.node_config import NodeConfig
+from flame.resources.rest_api import FlameAPI
+from flame.resources.utils import wait_until_nginx_online
 
-from resources.rest_api import FlameAPI
-
-from typing import List, Literal, IO, Any, Tuple, Coroutine, Dict
+from typing import List, Literal, IO, Optional
 
 from threading import Thread
-from resources.utils import wait_until_nginx_online
 
 
 class FlameCoreSDK:
 
     def __init__(self):
         print("Starting Flame core SDK")
-        # Set up the connection to all the services needed
-
-        print("Getting environment variables")
-        self.config = NodeConfig()
-
-        # wait until nginx is online
-        wait_until_nginx_online(self.config.nginx_name)
-
-        print("Connecting to message broker")
-        # connect to message broker
-
-        self._message_broker_api = MessageBrokerAPI(self.config)
 
         print("Extracting node config")
-        # extract node config
+        # Extract node config
+        self.config = NodeConfig()
 
+        # Wait until nginx is online
+        wait_until_nginx_online(self.config.nginx_name)
+
+        # Set up the connection to all the services needed
+        ## Connect to message broker
+        print("Connecting to message broker")
+        self._message_broker_api = MessageBrokerAPI(self.config)
+
+        ## Connect to result service
         print("Connecting to result service")
-        # connection to result service
         self._storage_api = StorageAPI(self.config)
-        #self._result_service_client = ResultClient(config.nginx_name, config.keycloak_token)
 
-        # connection to data service
+        ## Connection to data service
         self._data_api = DataAPI(self.config)
 
+        # Start the flame api thread used for incoming messages and health checks
         print("Starting flame api thread")
-        # start the flame api thread , this is uesed for incoming messages from the message broker and health checks
-        self._flame_api_thread = Thread(target=self._start_flame_api,
-                                        args=('analyzer', self.message_broker))
+        self._flame_api_thread = Thread(target=self._start_flame_api)
         self._flame_api_thread.start()
 
         print("Flame core SDK started")
 
-    ########################################Internal###############################################
-    def _start_flame_api(self, node_mode: str) -> None:
+    ########################################General##################################################
+    def get_participants(self) -> List[str]:
         """
-        Start the flame api, this is used for incoming messages from the message broker and health checks
-        :param node_mode:
-        :param message_broker:
-        :return:
+        Returns a list of all participants in the analysis
+        :return: the list of participants
         """
-        self.flame_api = FlameAPI(self._message_broker_api.message_broker_client, self._converged)
+        return self._message_broker_api.participants
 
-    def _converged(self) -> bool:
+    def get_node_status(self, timeout: int = None) -> dict[str, Literal["online", "offline", "not_connected"]]:
         """
-        Check if the node has finished processing used by the flame api to check if the node has finished processing
+        Returns the status of all nodes.
+        :param timeout:  time in seconds to wait for the response, if None waits indefinetly
         :return:
         """
-        return self.config.node_finished()
+
+    def get_analysis_id(self) -> str:
+        """
+        Returns the analysis id
+        :return: the analysis id
+        """
+        return self.config.analysis_id
+
+    def get_project_id(self) -> str:
+        """
+        Returns the project id
+        :return: the project id
+        """
+        return self.config.project_id
+
+    def get_id(self) -> str:
+        """
+        Returns the node id
+        :return: the node id
+        """
+        return self.config.node_id
+
+    def get_role(self) -> str:
+        """
+        get the role of the node. "aggregator" means that the node can submit final results using "submit_final_result",
+         else "default" (this may change with further permission settings).
+        :return: the role of the node
+        """
+        return self.config.node_role
+
+    def send_intermediate_result(self, receivers: List[str], result: IO) -> str:  # TODO: tba (when messagebroker submissions are outdated)
+        """
+        Sends an intermediate result using Result Service and Message Broker.
+        :param receivers: list of node ids to send the result to
+        :param result: the result to send
+        :return: the request status code
+        """
+        pass
+
+    def analysis_finished(self) -> bool:
+        """
+        Sends a signal to all nodes to set their node_finished to True, then sets the node to finished
+        :return:
+        """
+        self.send_message(self.get_participants(), "analysis_finished", {}, timeout=None)
+
+        return self._node_finished()
 
     ########################################Message Broker Client####################################
     def send_message(self, receivers: List[str], message_category: str, message: dict, timeout: int = None) -> \
@@ -83,19 +120,19 @@ class FlameCoreSDK:
         """
         return asyncio.run(self._message_broker_api.send_message(receivers, message_category, message, timeout))
 
-    def await_and_return_responses(self, node_ids: List[str], message_id: str, message_category: str,
+    def await_and_return_responses(self, node_ids: List[str], message_category: str, message_id: Optional[str] = None,
                                    timeout: int = None) -> \
             dict[str, list[Message] | None]:
         """
         Wait for responses from the specified nodes
         :param node_ids: list of node ids to wait for
-        :param message_id: the message id to wait for
         :param message_category: the message category to wait for
+        :param message_id: optional message id to wait for
         :param timeout: time in seconds to wait for the message, if None waits indefinetly
         :return:
         """
         return asyncio.run(
-            self._message_broker_api.await_and_return_responses(node_ids, message_id, message_category, timeout))
+            self._message_broker_api.await_and_return_responses(node_ids, message_category, message_id, timeout))
 
     def get_messages(self) -> list[Message]:
         """
@@ -132,7 +169,9 @@ class FlameCoreSDK:
         :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinetly
         :return: the responses
         """
-        return self._message_broker_api.send_message_and_wait_for_responses(receivers, message_category, message,
+        return self._message_broker_api.send_message_and_wait_for_responses(receivers,
+                                                                            message_category,
+                                                                            message,
                                                                             timeout)
 
     ########################################Storage Client###########################################
@@ -145,7 +184,7 @@ class FlameCoreSDK:
         """
         return self._storage_api.submit_final_result(result)
 
-    def save_intermediate_data(self, location: Literal["local", "global"], data: IO) -> str:
+    def save_intermediate_data(self, location: Literal["local", "global"], data: IO) -> dict[str, str]:
         """
         saves intermediate results/data either on the hub (location="global"), or locally
         :param location: the location to save the result, local saves in the node, global saves in central instance of MinIO
@@ -161,6 +200,7 @@ class FlameCoreSDK:
         :return: the list of results
         """
         return self._storage_api.list_intermediate_data(location)
+
     def get_intermediate_data(self, location: Literal["local", "global"], id: str) -> IO:
         """
         returns the intermediate data with the specified id
@@ -190,7 +230,7 @@ class FlameCoreSDK:
         """
         Returns the data from the FHIR store for each of the specified queries.
         :param data_id: the id of the data source
-        :param query: the query to get the data
+        :param queries: list of queries to get the data
         :return: the data
         """
         return self._data_api.get_fhir_data(data_id, queries)
@@ -204,76 +244,28 @@ class FlameCoreSDK:
         """
         return self._data_api.get_s3_data(key, local_path)
 
-    ########################################General##################################################
-    def get_participants(self) -> List[str]:
+    ########################################Internal###############################################
+    def _start_flame_api(self) -> None:
         """
-        Returns a list of all participants in the analysis
-        :return: the list of participants
-        """
-        return self._message_broker_api.participants
-
-    def get_node_status(self, timeout: int = None) -> dict[str, Literal["online", "offline", "not_connected"]]:
-        """
-        Returns the status of all nodes.
-        :param timeout:  time in seconds to wait for the response, if None waits indefinetly
+        Start the flame api, this is used for incoming messages from the message broker and health checks
         :return:
         """
+        self.flame_api = FlameAPI(self._message_broker_api.message_broker_client,
+                                  finished_check=self._has_finished,
+                                  finishing_call=self._node_finished)
 
-
-
-    def get_analysis_id(self) -> str:
-        """
-        Returns the analysis id
-        :return: the analysis id
-        """
-        return self.config.analysis_id
-
-    def get_project_id(self) -> str:
-        """
-        Returns the project id
-        :return: the project id
-        """
-        return self.config.project_id
-
-    def get_id(self) -> str:
-        """
-        Returns the node id
-        :return: the node id
-        """
-        return self.config.node_id
-
-
-    def get_role(self) -> Literal["aggregator", "analyzer"]:
-        """
-        get the role of the node. "aggregator" means that the node can submit final results using "submit_final_result", else "default".
-        (this my change with futer permission settings for more function,)
-        :return: the role of the node
-        """
-        return self.config.node_role
-
-    def send_intermediate_result(self, receivers: List[str], result: IO) -> str:
-        """
-        SSends an intermediate result using Result Service and Message Broker.
-        :param receivers: list of node ids to send the result to
-        :param result: the result to send
-        :return: the request status code
-        """
-        #self._storage_api.send_intermediate_result(receivers, result)
-        pass
-
-    def node_finished(self) -> bool:
+    def _node_finished(self) -> bool:
         """
         Set the node to finished, this will stop signal to stop the container from running.
         Need to be called when all processing is done
         :return:
         """
         self.config.finish_analysis()
-        return self.config.finished()
+        return self.config.finished
 
-    def analysis_finished(self) -> bool:
+    def _has_finished(self) -> bool:
         """
-        Sends a signal to all nodes to set their node_finished to True, then calles node_finished
+        Check if the node itself has finished processing (used by the flame api)
         :return:
         """
-
-        self.send_message(self.get_participants(), "analysis_finished", {}, timeout=None)
+        return self.config.finished
