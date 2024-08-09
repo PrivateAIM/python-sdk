@@ -1,54 +1,43 @@
 from abc import abstractmethod
 from typing import Any, Optional
-import time
 
-from schemas.star.node_base_client import Node, NodeConfig
-from flame.resources.client_apis.clients.message_broker_client import Message, MessageBrokerClient
+from flame import FlameCoreSDK
+
+from schemas.star.node_base_client import Node
 
 
 class Aggregator(Node):
-    node: Node
-    nodes: list[Node]
-    num_iterations: float = 0
+    partner_node_ids: list[str]
+    num_iterations: int
     model_params: Optional[dict[str, str | float | int | bool]]
-    aggr_weights: Optional[list[Any]]
-    gradients: Optional[list[list[float]]]
-    converged: bool = False
-    is_federated: bool = False
+    weights: Optional[list[Any]]
+    gradients: list[list[Optional[float]]]
 
     def __init__(self,
-                 node_config: NodeConfig,
-                 is_federated: bool,
+                 flame: FlameCoreSDK,
                  model_params: Optional[dict[str, str | float | int | bool]] = None,
-                 weights: Optional[list[Any]] = None,
-                 gradients: Optional[list[list[float]]] = None) -> None:
-        if node_config.node.node_mode != 'aggregator':
+                 weights: Optional[list[Any]] = None) -> None:
+        node_config = flame.config
+
+        if node_config.node_role != 'aggregator':
             raise ValueError(f'Attempted to initialize aggregator node with mismatching configuration '
-                             f'(expected: node_mode="aggregator", received="{node_config.node.node_mode}").')
-        super().__init__(node_config.node.node_id, 'aggregator')
+                             f'(expected: node_role="aggregator", received="{node_config.node_role}").')
+        super().__init__(node_config.node_id, flame.get_participant_ids(), node_config.node_role)
 
-        self.node = node_config.node
-        self.is_federated = is_federated
-        self.nodes = node_config.partner_nodes
         self.model_params = model_params
-        self.aggr_weights = weights
-        self.gradients = gradients
-        self.is_federated = is_federated
+        self.weights = weights
+        self.gradients = [[None for _ in weights]] if weights is not None else None
 
-    async def aggregate(self, message_broker: MessageBrokerClient) -> str:
-        result = self.aggregation_method([node.get_result(message_broker) for node in self.nodes])
-        result_file = self.set_result(result)
+    def aggregate(self, node_results: list[str], simple_analysis: bool = True) -> tuple[Any, bool]:
+        result = self.aggregation_method([res for res in node_results if res])
 
-        # Check convergence status
-        if (not self.is_federated) or self.has_converged(result):
-            await self._converge(message_broker)
-
+        self.latest_result = result
         self.num_iterations += 1
 
-        return result_file
+        return self.latest_result, simple_analysis or self.has_converged(result, self.latest_result)
 
     @abstractmethod
-    def aggregation_method(self, analysis_results: list[Any]) -> Any:
+    def aggregation_method(self, analysis_results: list[str]) -> Any:
         """
         This method will be used to aggregate the data. It has to be overridden.
         :return: aggregated_result
@@ -56,42 +45,9 @@ class Aggregator(Node):
         pass
 
     @abstractmethod
-    def has_converged(self, aggregator_results: list[Any]) -> bool:
+    def has_converged(self, result: Any, last_result: Optional[Any]) -> bool:
         """
         This method will be used to check if the aggregator has converged. It has to be overridden.
         :return: converged
         """
         pass
-
-    # def _calc_gradients(self, new_weights: list[Any]) -> None:
-    #     if self.gradients is not None:
-    #         old_weights = self.aggr_weights
-    #         self.gradients = old_weights - new_weights
-    #         # converged?
-    #     else:
-    #         self.gradients = new_weights
-
-    def get_weights(self) -> list[Any]:
-        return self.aggr_weights
-
-    async def _converge(self, message_broker: MessageBrokerClient) -> None:
-        self.converged = True
-        await message_broker.send_message(Message([node.node_id for node in self.nodes], {"convStatus": True,
-                                                                                    "sender": self.node.node_id}))
-
-    def await_results(self,
-                      message_broker: MessageBrokerClient,
-                      cutoff: float) -> None:
-        # Calculate number of necessary nodes (number of nodes * cutoff)
-        num_necessary_nodes = int(len(self.nodes) * cutoff)
-
-        # Await node responses
-        node_responded = {node: False for node in self.nodes}
-        while sum(node_responded.values()) < num_necessary_nodes:
-            for msg in message_broker.list_of_incoming_messages:
-                for node in self.nodes:
-                    if (node.node_id == msg["sender"]) and ("resultData" in msg.keys()):
-                        node_responded[node] = True
-
-            time.sleep(5)
-            print(f"Waiting for responses (current count: {sum(node_responded.values())} of {num_necessary_nodes})")
