@@ -3,7 +3,7 @@ from typing import Any, Optional
 
 from flame import FlameCoreSDK
 
-from schemas.star.node_base_client import Node
+from flame.schemas.star.node_base_client import Node
 
 
 class Analyzer(Node):

@@ -8,7 +8,7 @@ from flame.resources.client_apis.clients import DataApiClient
 from flame.resources.client_apis.clients import ResultClient
 from flame.resources.client_apis.clients import MessageBrokerClient, Message
 from flame.federated.aggregator_client import Aggregator
-from schemas.star.analyzer_client import Analyzer
+from flame.schemas.star.analyzer_client import Analyzer
 from flame.federated.node_base_client import Node, NodeConfig
 from flame.utils.envs import get_envs
 from flame.utils.nginx import wait_until_nginx_online

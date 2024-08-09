@@ -5,8 +5,8 @@ import asyncio
 from typing import Any, Optional, Type
 
 from flame import FlameCoreSDK
-from schemas.star.aggregator_client import Aggregator
-from schemas.star.analyzer_client import Analyzer
+from flame.schemas.star.aggregator_client import Aggregator
+from flame.schemas.star.analyzer_client import Analyzer
 
 
 class _ERROR_MESSAGES(Enum):

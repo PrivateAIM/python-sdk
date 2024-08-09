@@ -4,7 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["Alexander Röhl <alexander.roehl@uni-tuebingen.de>", "David Hieber <david.hieber@uni-tuebingen.de>"]
 readme = "README.md"
-packages = [{ include = "project" }]
+packages = [{ include = "flame" }]
 license = "Apache-2.0"
 
 [tool.poetry.dependencies]

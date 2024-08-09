@@ -1,4 +1,4 @@
-from schemas import StarModel, StarAnalyzer, StarAggregator
+from flame.schemas import StarModel, StarAnalyzer, StarAggregator
 
 
 class MyAnalyzer(StarAnalyzer):

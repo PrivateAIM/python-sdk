@@ -1,14 +1,9 @@
 import asyncio
 from typing import Any
 
-import uvicorn
-from fastapi import FastAPI, APIRouter, Request, Depends
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-
-from schemas.star.flame_star import (FlameSDK,
-                                     Aggregator,
-                                     Analyzer)
+from flame.schemas.star import (FlameSDK,
+                                Aggregator,
+                                Analyzer)
 
 
 class My_Analyzer(Analyzer):
