@@ -1,5 +1,6 @@
 from io import StringIO
 from enum import Enum
+import asyncio
 
 from typing import Any, Optional, Type
 
@@ -75,7 +76,9 @@ class StarModel:
                 aggregator_id = self.flame.get_aggregator_id()
 
                 # Get data
-                data = self.flame.get_fhir_data(data_id='', queries=[query])  # TODO (get_fhir_data is missing in data_api_client)
+                data = asyncio.run(self.get_data(query=query))
+                print(f"Data extracted: {data}")
+                # data = self.flame.get_fhir_data(data_id='', queries=[query])  # TODO (get_fhir_data is missing in data_api_client)
 
                 aggregator_results = None
                 # Check converged status on Hub
@@ -100,6 +103,15 @@ class StarModel:
                 raise BrokenPipeError(_ERROR_MESSAGES.IS_INCORRECT_CLASS.value)
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_AGGREGATOR.value)
+
+    async def get_data(self, query: str):
+        response = await self.flame.get_data_client(self.flame.get_data_sources()[0])\
+            .get(f"/{self.flame.config.project_id}/fhir/{query}", headers=[('Connection', 'close')])
+        try:
+            response.raise_for_status()
+            return response.json()
+        except:
+            return False
 
     def converged(self) -> bool:
         return self.flame.config.finished
