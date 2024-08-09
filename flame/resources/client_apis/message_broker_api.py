@@ -66,13 +66,13 @@ class MessageBrokerAPI:
 
     async def await_and_return_responses(self, node_ids: list[str], message_category: str,
                                          message_id: Optional[str] = None, timeout: int = None) \
-            -> dict[str, list[Message] | None]:
+            -> dict[str, Optional[list[Message]]]:
         """
         Wait for responses from the specified nodes
         :param node_ids: list of node ids to wait for
         :param message_category: the message category to wait for
         :param message_id: optional message id to wait for
-        :param timeout: time in seconds to wait for the message, if None waits indefinetly
+        :param timeout: time in seconds to wait for the message, if None waits indefinitely
         :return:
         """
         await_list = []

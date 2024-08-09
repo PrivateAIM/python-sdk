@@ -17,7 +17,7 @@ from threading import Thread
 class FlameCoreSDK:
 
     def __init__(self):
-        print("Starting Flame core SDK")
+        print("Starting FlameCoreSDK")
 
         print("Extracting node config")
         # Extract node config
@@ -56,7 +56,7 @@ class FlameCoreSDK:
     def get_node_status(self, timeout: int = None) -> dict[str, Literal["online", "offline", "not_connected"]]:
         """
         Returns the status of all nodes.
-        :param timeout:  time in seconds to wait for the response, if None waits indefinetly
+        :param timeout:  time in seconds to wait for the response, if None waits indefinitely
         :return:
         """
 
@@ -115,20 +115,19 @@ class FlameCoreSDK:
         :param receivers: list of node ids to send the message to
         :param message_category: a string that specifies the message category,
         :param message: the message to send
-        :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinetly
-        :return: a tuple of nodes ids that  acknowledged and not acknowledged the message
+        :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinitely
+        :return: a tuple of nodes ids that acknowledged and not acknowledged the message
         """
         return asyncio.run(self._message_broker_api.send_message(receivers, message_category, message, timeout))
 
     def await_and_return_responses(self, node_ids: List[str], message_category: str, message_id: Optional[str] = None,
-                                   timeout: int = None) -> \
-            dict[str, list[Message] | None]:
+                                   timeout: int = None) -> dict[str, Optional[list[Message]]]:
         """
         Wait for responses from the specified nodes
         :param node_ids: list of node ids to wait for
         :param message_category: the message category to wait for
         :param message_id: optional message id to wait for
-        :param timeout: time in seconds to wait for the message, if None waits indefinetly
+        :param timeout: time in seconds to wait for the message, if None waits indefinitely
         :return:
         """
         return asyncio.run(
@@ -162,11 +161,11 @@ class FlameCoreSDK:
     def send_message_and_wait_for_responses(self, receivers: List[str], message_category: str, message: dict,
                                             timeout: int = None) -> dict:
         """
-        Sends a message to all specified nodes and waits for responses,( combines send_message and await_responses)
+        Sends a message to all specified nodes and waits for responses, (combines send_message and await_responses)
         :param receivers:  list of node ids to send the message to
         :param message_category: a string that specifies the message category,
         :param message:  the message to send
-        :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinetly
+        :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinitely
         :return: the responses
         """
         return self._message_broker_api.send_message_and_wait_for_responses(receivers,
@@ -231,7 +230,7 @@ class FlameCoreSDK:
         Returns the data from the FHIR store for each of the specified queries.
         :param data_id: the id of the data source
         :param queries: list of queries to get the data
-        :return: the data
+        :return:
         """
         return self._data_api.get_fhir_data(data_id, queries)
 
@@ -256,8 +255,8 @@ class FlameCoreSDK:
 
     def _node_finished(self) -> bool:
         """
-        Set the node to finished, this will stop signal to stop the container from running.
-        Need to be called when all processing is done
+        Set the node to finished, this will send a signal to stop the container from running.
+        Needs to be called when all processing is done.
         :return:
         """
         self.config.finish_analysis()
