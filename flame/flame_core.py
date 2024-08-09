@@ -48,12 +48,29 @@ class FlameCoreSDK:
         print("Flame core SDK started")
 
     ########################################General##################################################
-    def get_participants(self) -> List[str]:
+    def get_aggregator_id(self) -> Optional[str]:
+        """
+        Returns node_id of node dedicated as aggregator
+        :return:
+        """
+        for participant in self.get_participants():
+            if participant['nodeType'] == 'aggregator':
+                return participant['nodeId']
+        return None
+
+    def get_participants(self) -> List[dict[str, str]]:
         """
         Returns a list of all participants in the analysis
         :return: the list of participants
         """
         return self._message_broker_api.participants
+
+    def get_participant_ids(self) -> List[str]:
+        """
+        Returns a list of all participant ids in the analysis
+        :return: the list of participants
+        """
+        return [participant['nodeId'] for participant in self._message_broker_api.participants]
 
     def get_node_status(self, timeout: int = None) -> dict[str, Literal["online", "offline", "not_connected"]]:
         """
@@ -105,7 +122,7 @@ class FlameCoreSDK:
         Sends a signal to all nodes to set their node_finished to True, then sets the node to finished
         :return:
         """
-        self.send_message(self.get_participants(), "analysis_finished", {}, timeout=None)
+        self.send_message(self.get_participant_ids(), "analysis_finished", {}, timeout=None)
 
         return self._node_finished()
 
