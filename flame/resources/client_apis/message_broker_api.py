@@ -10,12 +10,12 @@ from flame.resources.client_apis.clients.message_broker_client import MessageBro
 class MessageBrokerAPI:
     def __init__(self, config: NodeConfig):
         self.message_broker_client = MessageBrokerClient(config)
-        self._config = config
+        self.config = config
         message_node_info = asyncio.run(self.message_broker_client.get_self_config(config.analysis_id))
-        self._config.set_role(message_node_info["nodeType"])
-        self._config.set_node_id(message_node_info["nodeId"])
-        self.participants = asyncio.run(self.message_broker_client.get_partner_nodes(self._config.node_id,
-                                                                                     self._config.analysis_id))
+        self.config.set_role(message_node_info["nodeType"])
+        self.config.set_node_id(message_node_info["nodeId"])
+        self.participants = asyncio.run(self.message_broker_client.get_partner_nodes(self.config.node_id,
+                                                                                     self.config.analysis_id))
 
     async def send_message(self, receivers: list[str], message_category: str, message: dict,
                            timeout: int = None) -> tuple[list[str], list[str]]:
@@ -31,7 +31,7 @@ class MessageBrokerAPI:
         message = Message(recipients=receivers,
                           message=message,
                           category=message_category,
-                          config=self._config,
+                          config=self.config,
                           message_number=self.message_broker_client.message_number,
                           outgoing=True)
 

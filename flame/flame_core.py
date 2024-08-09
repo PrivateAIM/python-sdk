@@ -30,6 +30,8 @@ class FlameCoreSDK:
         ## Connect to message broker
         print("Connecting to message broker")
         self._message_broker_api = MessageBrokerAPI(self.config)
+        ### Update config with self_config from Messagebroker
+        self.config = self._message_broker_api.config
 
         ## Connect to result service
         print("Connecting to result service")
