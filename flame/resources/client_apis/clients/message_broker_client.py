@@ -95,7 +95,8 @@ class MessageBrokerClient:
         self.nodeConfig = config
         self._message_broker = AsyncClient(
             base_url=f"http://{config.nginx_name}/message-broker",
-            headers={"Authorization": f"Bearer {config.keycloak_token}", "Accept": "application/json"}
+            headers={"Authorization": f"Bearer {config.keycloak_token}", "Accept": "application/json"},
+            follow_redirects=True
         )
         asyncio.run(self._connect())
         self.list_of_incoming_messages: list[Message] = []

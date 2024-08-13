@@ -7,10 +7,12 @@ class DataApiClient:
     def __init__(self, project_id: str, nginx_name: str, data_source_token: str, keycloak_token: str) -> None:
         self.client = AsyncClient(base_url=f"http://{nginx_name}/kong",
                                   headers={"apikey": data_source_token,
-                                           "Content-Type": "application/json"})
+                                           "Content-Type": "application/json"},
+                                  follow_redirects=True)
         self.hub_client = AsyncClient(base_url=f"http://{nginx_name}/hub-adapter",
                                       headers={"Authorization": f"Bearer {keycloak_token}",
-                                               "accept": "application/json"})
+                                               "accept": "application/json"},
+                                      follow_redirects=True)
 
         self.project_id = project_id
         self.available_sources = asyncio.run(self.get_available_sources())

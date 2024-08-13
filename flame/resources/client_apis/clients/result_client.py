@@ -6,7 +6,8 @@ from httpx import AsyncClient, HTTPError
 class ResultClient:
     def __init__(self, nginx_name, keycloak_token) -> None:
         self.client = AsyncClient(base_url=f"http://{nginx_name}/storage",
-                                  headers={"Authorization": f"Bearer {keycloak_token}"})
+                                  headers={"Authorization": f"Bearer {keycloak_token}"},
+                                  follow_redirects=True)
 
     async def test_connection(self) -> None:
         await self.push_result(BytesIO(open("../tests/test_images/test_image_main.py", 'rb').read()))
