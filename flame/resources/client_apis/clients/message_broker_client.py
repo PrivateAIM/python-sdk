@@ -238,7 +238,10 @@ class MessageBrokerClient:
                         return receiver
             await asyncio.sleep(1)
 
-    def clear_messages(self, status: Literal["read", "unread", "all"] = "read", time_limit: int = None, type=Literal["outgoing", "incoming"]) -> int:
+    def clear_messages(self,
+                       status: Literal["read", "unread", "all"] = "read",
+                       time_limit: int = None,
+                       type=Literal["outgoing", "incoming"]) -> int:
         """
         Clear the incoming messages list.
         :param time_limit:

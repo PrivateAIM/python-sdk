@@ -1,5 +1,8 @@
 import asyncio
+from io import BytesIO
 
+from typing import List, Literal, IO, Optional
+from threading import Thread
 from httpx import AsyncClient
 
 from flame.resources.client_apis.data_api import DataAPI
@@ -9,17 +12,13 @@ from flame.resources.node_config import NodeConfig
 from flame.resources.rest_api import FlameAPI
 from flame.resources.utils import wait_until_nginx_online
 
-from typing import List, Literal, IO, Optional
-
-from threading import Thread
-
 
 class FlameCoreSDK:
 
     def __init__(self):
         print("Starting FlameCoreSDK")
 
-        print("Extracting node config")
+        print("\tExtracting node config")
         # Extract node config
         self.config = NodeConfig()
 
@@ -28,24 +27,29 @@ class FlameCoreSDK:
 
         # Set up the connection to all the services needed
         ## Connect to message broker
-        print("Connecting to message broker")
+        print("\tConnecting to MessageBroker...", end='')
         self._message_broker_api = MessageBrokerAPI(self.config)
+        print("success")
         ### Update config with self_config from Messagebroker
         self.config = self._message_broker_api.config
 
         ## Connect to result service
-        print("Connecting to result service")
+        print("\tConnecting to ResultService", end='')
         self._storage_api = StorageAPI(self.config)
+        print("success")
 
         ## Connection to data service
+        print("\tConnecting to DataApi", end='')
         self._data_api = DataAPI(self.config)
+        print("success")
 
         # Start the flame api thread used for incoming messages and health checks
-        print("Starting flame api thread")
+        print("\tStarting FlameApi thread", end='')
         self._flame_api_thread = Thread(target=self._start_flame_api)
         self._flame_api_thread.start()
+        print("success")
 
-        print("Flame core SDK started")
+        print("FlameCoreSDK started")
 
     ########################################General##################################################
     def get_aggregator_id(self) -> Optional[str]:
@@ -108,7 +112,7 @@ class FlameCoreSDK:
         """
         return self.config.node_role
 
-    def send_intermediate_result(self, receivers: List[str], result: IO) -> str:  # TODO: tba (when messagebroker submissions are outdated)
+    def send_intermediate_result(self, receivers: List[str], result: BytesIO) -> str:  # TODO: tba (when messagebroker submissions are outdated)
         """
         Sends an intermediate result using Result Service and Message Broker.
         :param receivers: list of node ids to send the result to
@@ -193,7 +197,7 @@ class FlameCoreSDK:
                                                                             timeout)
 
     ########################################Storage Client###########################################
-    def submit_final_result(self, result: IO) -> dict[str, str]:
+    def submit_final_result(self, result: BytesIO) -> dict[str, str]:
         """
         sends the final result to the hub. Making it available for analysts to download.
         This method is only available for nodes for which the method `get_role(self)` returns "aggregator”.

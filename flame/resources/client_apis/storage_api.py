@@ -1,4 +1,5 @@
 import asyncio
+from io import BytesIO
 from typing import List, Literal, IO
 
 from flame.resources.client_apis.clients.result_client import ResultClient
@@ -9,7 +10,7 @@ class StorageAPI:
     def __init__(self, config: NodeConfig):
         self.result_client = ResultClient(config.nginx_name, config.keycloak_token)
 
-    def submit_final_result(self, result: IO) -> dict[str, str]:
+    def submit_final_result(self, result: BytesIO) -> dict[str, str]:
         """
         sends the final result to the hub. Making it available for analysts to download.
         This method is only available for nodes for which the method `get_role(self)` returns "aggregator”.
@@ -18,7 +19,7 @@ class StorageAPI:
         """
         return asyncio.run(self.result_client.push_result(result))
 
-    def save_intermediate_data(self, location: Literal["local", "global"], data: IO) -> dict[str, str]:
+    def save_intermediate_data(self, location: Literal["local", "global"], data: BytesIO) -> dict[str, str]:
         """
         saves intermediate results/data either on the hub (location="global"), or locally
         :param location: the location to save the result, local saves in the node, global saves in central instance of MinIO

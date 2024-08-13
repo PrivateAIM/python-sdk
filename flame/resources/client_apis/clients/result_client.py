@@ -1,4 +1,5 @@
-from typing import Any, IO
+from io import BytesIO
+from typing import Any
 from httpx import AsyncClient, HTTPError
 
 
@@ -8,14 +9,11 @@ class ResultClient:
                                   headers={"Authorization": f"Bearer {keycloak_token}"})
 
     async def test_connection(self) -> None:
-        await self.push_result("../tests/test_images/test_image_main.py")
+        await self.push_result(BytesIO(open("../tests/test_images/test_image_main.py", 'rb').read()))
 
-    async def push_result(self, result: IO) -> dict[str, str]:
-        result_path = "result.txt"
-        self._write_result(result, result_path)
-        response = await self.client.put("/upload/",
-                                         data=result,
-                                         headers=[('Connection', 'close')])
+    async def push_result(self, result: BytesIO) -> dict[str, str]:
+        response = await self.client.put("/final",
+                                         files={"file": result})
         response.raise_for_status()
         if response.status_code != 204:
             raise HTTPError
