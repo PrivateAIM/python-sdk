@@ -13,7 +13,7 @@ class ResultClient:
         await self.push_result(BytesIO(open("../tests/test_images/test_image_main.py", 'rb').read()))
 
     async def push_result(self, result: BytesIO) -> dict[str, str]:
-        response = await self.client.put("/final",
+        response = await self.client.put("/final/",
                                          files={"file": result})
         response.raise_for_status()
         if response.status_code != 204:
