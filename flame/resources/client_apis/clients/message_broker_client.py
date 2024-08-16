@@ -163,7 +163,7 @@ class MessageBrokerClient:
         self.list_of_incoming_messages.append(message)
 
         if message.body["meta"]['akn_id'] is None:
-            self.acknowledge_message(message)
+            asyncio.run(self.acknowledge_message(message))
         print(f"incoming messages {body}")
 
     def delete_message_by_id(self, message_id: str, type: Literal["outgoing", "incoming"]) -> int:
@@ -222,8 +222,8 @@ class MessageBrokerClient:
         else:
             return node_id, possible_responses
 
-    def acknowledge_message(self, message: Message) -> None:
-        self.send_message(message)
+    async def acknowledge_message(self, message: Message) -> None:
+        await self.send_message(message)
 
     async def await_message_acknowledgement(self, message: Message, receiver: str) -> str:
         number_of_incoming_messages = len(self.list_of_incoming_messages)
