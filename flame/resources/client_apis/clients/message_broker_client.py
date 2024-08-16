@@ -130,7 +130,7 @@ class MessageBrokerClient:
     async def _connect(self) -> None:
         response = await self._message_broker.post(
             f'/analyses/{os.getenv("ANALYSIS_ID")}/messages/subscriptions',
-            json={'webhookUrl': f'http://nginx-{os.getenv("DEPLOYMENT_NAME")}/analysis/webhook'}
+            json={'webhookUrl': f'http://analysis-nginx-{os.getenv("DEPLOYMENT_NAME")}/analysis/webhook'}
         )
         # print(f"message broker connect response  {response}")
         # print(f'/analyses/{os.getenv("ANALYSIS_ID")}/messages/subscriptions')
