@@ -158,13 +158,14 @@ class MessageBrokerClient:
         self.list_of_outgoing_messages.append(message)
 
     def receive_message(self, body: dict) -> None:
+        acknowledged_message = body["meta"]["akn_id"] is not None
         message = Message(message=body, config=self.nodeConfig, outgoing=False)
 
         self.list_of_incoming_messages.append(message)
 
         print(f"message acknowledged: {not message.body['meta']['akn_id'] is None} "
               f"(status: {message.body['meta']['akn_id']})")
-        if message.body["meta"]['akn_id'] is None:
+        if not acknowledged_message:
             print(f"acknowledging message {message.body}")
             asyncio.run(self.acknowledge_message(message))
         else:
