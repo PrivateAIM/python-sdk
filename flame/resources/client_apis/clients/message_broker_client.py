@@ -50,7 +50,7 @@ class Message:
         self._update_meta_data(outgoing, config, category, message_number)
 
         if not outgoing:
-            self.recipients = self.body["meta"]["sender"]
+            self.recipients = [self.body["meta"]["sender"]]
 
     def set_read(self) -> None:
         """
