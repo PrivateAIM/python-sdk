@@ -123,8 +123,8 @@ class MessageBrokerAPI:
         Deletes all messages by status (default: read messages) and if they are older than the specified time_limit. It
         returns the number of deleted messages.
         :param status: the status of the messages to clear
-        :param time_limit: is set, only the messages with the specified status that are older than the limit in seconds are
-        deleted
+        :param time_limit: is set, only the messages with the specified status that are older than the limit in seconds
+        are deleted
         :return: the number of messages cleared
         """
         number_of_deleted_messages = 0
@@ -135,12 +135,12 @@ class MessageBrokerAPI:
     def send_message_and_wait_for_responses(self, receivers: list[str], message_category: str, message: dict,
                                             timeout: int = None) -> dict:
         """
-        Sends a message to all specified nodes and waits for responses,( combines send_message and await_responses)
+        Sends a message to all specified nodes and waits for responses, (combines send_message and await_responses)
         :param receivers:  list of node ids to send the message to
         :param message_category: a string that specifies the message category,
         :param message:  the message to send
         :param message_id: optional message id to wait for
-        :param timeout: time in seconds to wait for the message acknowledgement and response, if None waits indefinetly
+        :param timeout: time in seconds to wait for the message acknowledgement and response, if None waits indefinitely
         :return: the responses
         """
         time_start = datetime.now()
@@ -149,6 +149,7 @@ class MessageBrokerAPI:
         timeout = timeout - (datetime.now() - time_start).seconds
         if timeout < 0:
             timeout = 1
+
         # Wait for the responses
         responses = asyncio.run(
             self.await_and_return_responses(receivers, message_category, timeout=timeout))

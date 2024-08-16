@@ -132,9 +132,9 @@ class MessageBrokerClient:
             f'/analyses/{os.getenv("ANALYSIS_ID")}/messages/subscriptions',
             json={'webhookUrl': f'http://nginx-{os.getenv("DEPLOYMENT_NAME")}/analysis/webhook'}
         )
-        print(f"message broker connect response  {response}")
-        print(f'/analyses/{os.getenv("ANALYSIS_ID")}/messages/subscriptions')
-        print({'webhookUrl': f'http://nginx-{os.getenv("DEPLOYMENT_NAME")}/analysis/webhook'})
+        # print(f"message broker connect response  {response}")
+        # print(f'/analyses/{os.getenv("ANALYSIS_ID")}/messages/subscriptions')
+        # print({'webhookUrl': f'http://nginx-{os.getenv("DEPLOYMENT_NAME")}/analysis/webhook'})
 
         response = await self._message_broker.get(f'/analyses/{os.getenv("ANALYSIS_ID")}/participants/self',
                                                   headers=[('Connection', 'close')])

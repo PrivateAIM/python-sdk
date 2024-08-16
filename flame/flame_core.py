@@ -34,22 +34,22 @@ class FlameCoreSDK:
         self.config = self._message_broker_api.config
 
         ## Connect to result service
-        print("\tConnecting to ResultService", end='')
+        print("\tConnecting to ResultService...", end='')
         self._storage_api = StorageAPI(self.config)
         print("success")
 
         ## Connection to data service
-        print("\tConnecting to DataApi", end='')
+        print("\tConnecting to DataApi...", end='')
         self._data_api = DataAPI(self.config)
         print("success")
 
         # Start the flame api thread used for incoming messages and health checks
-        print("\tStarting FlameApi thread", end='')
+        print("\tStarting FlameApi thread...", end='')
         self._flame_api_thread = Thread(target=self._start_flame_api)
         self._flame_api_thread.start()
         print("success")
 
-        print("FlameCoreSDK started")
+        print("FlameCoreSDK ready")
 
     ########################################General##################################################
     def get_aggregator_id(self) -> Optional[str]:
