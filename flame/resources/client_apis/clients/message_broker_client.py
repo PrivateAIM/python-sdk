@@ -162,9 +162,13 @@ class MessageBrokerClient:
 
         self.list_of_incoming_messages.append(message)
 
+        print(f"message acknowledged: {not message.body['meta']['akn_id'] is None} "
+              f"(status: {message.body['meta']['akn_id']})")
         if message.body["meta"]['akn_id'] is None:
+            print(f"acknowledging message {message.body}")
             asyncio.run(self.acknowledge_message(message))
-        print(f"incoming messages {body}")
+        else:
+            print(f"incoming message {message.body}")
 
     def delete_message_by_id(self, message_id: str, type: Literal["outgoing", "incoming"]) -> int:
         """
