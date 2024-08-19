@@ -146,14 +146,14 @@ class MessageBrokerClient:
             "recipients": message.recipients,
             "message": message.body
         }
-        print('body type:', type(body))
-        print('body:', body)
+        # print('body type:', type(body))
+        # print('body:', body)
         response = await self._message_broker.post(f'/analyses/{os.getenv("ANALYSIS_ID")}/messages',
                                                    json=body,
                                                    headers=[('Connection', 'close'),
                                                             ("Content-Type", "application/json")])
-        print(f"message broker send response  {response}")
         print(f"message  send   {body}")
+        print(f"message broker send response  {response}")
 
         self.list_of_outgoing_messages.append(message)
 
@@ -163,8 +163,6 @@ class MessageBrokerClient:
 
         self.list_of_incoming_messages.append(message)
 
-        print(f"message acknowledged: {not message.body['meta']['akn_id'] is None} "
-              f"(status: {message.body['meta']['akn_id']})")
         if not acknowledged_message:
             print(f"acknowledging message {message.body}")
             asyncio.run(self.acknowledge_message(message))
