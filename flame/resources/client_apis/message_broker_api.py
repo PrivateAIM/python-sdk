@@ -10,10 +10,7 @@ from flame.resources.client_apis.clients.message_broker_client import MessageBro
 class MessageBrokerAPI:
     def __init__(self, config: NodeConfig):
         self.message_broker_client = MessageBrokerClient(config)
-        self.config = config
-        message_node_info = asyncio.run(self.message_broker_client.get_self_config(config.analysis_id))
-        self.config.set_role(message_node_info["nodeType"])
-        self.config.set_node_id(message_node_info["nodeId"])
+        self.config = self.message_broker_client.nodeConfig
         self.participants = asyncio.run(self.message_broker_client.get_partner_nodes(self.config.node_id,
                                                                                      self.config.analysis_id))
 

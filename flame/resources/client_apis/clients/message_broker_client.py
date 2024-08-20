@@ -92,7 +92,6 @@ class Message:
 
 class MessageBrokerClient:
     def __init__(self, config: NodeConfig) -> None:
-        self.nodeConfig = config
         self._message_broker = AsyncClient(
             base_url=f"http://{config.nginx_name}/message-broker",
             headers={"Authorization": f"Bearer {config.keycloak_token}", "Accept": "application/json"},
@@ -102,6 +101,10 @@ class MessageBrokerClient:
         self.list_of_incoming_messages: list[Message] = []
         self.list_of_outgoing_messages: list[Message] = []
         self.message_number = 0
+        self.nodeConfig = config
+        message_node_info = asyncio.run(self.get_self_config(config.analysis_id))
+        self.nodeConfig.set_role(message_node_info["nodeType"])
+        self.nodeConfig.set_node_id(message_node_info["nodeId"])
 
     async def get_self_config(self, analysis_id: str) -> dict[str, str]:
         response = await self._message_broker.get(f'/analyses/{analysis_id}/participants/self',
