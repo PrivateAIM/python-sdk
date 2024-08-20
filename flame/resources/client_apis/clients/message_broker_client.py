@@ -164,6 +164,8 @@ class MessageBrokerClient:
         message = Message(message=body, config=self.nodeConfig, outgoing=False)
         self.list_of_incoming_messages.append(message)
 
+        print("body: ", body, body["meta"]["akn_id"] is None)
+        print("config: ", self.nodeConfig.node_id, body["meta"]["sender"] != self.nodeConfig.node_id)
         if body["meta"]["akn_id"] is None:
             print("acknowledging message")
             asyncio.run(self.acknowledge_message(message))
