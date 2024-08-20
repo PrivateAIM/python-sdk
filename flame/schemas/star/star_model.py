@@ -48,28 +48,30 @@ class StarModel:
                     # Await number of responses reaching number of necessary nodes
                     node_response_dict = self.flame.await_and_return_responses(node_ids=self.aggregator.partner_node_ids,
                                                                                message_category='intermediate_results')
-                    node_results = [response[-1].body['result'] for response in list(node_response_dict.values())
-                                    if response is not None]
-                    print(f"Node results received: {node_results}")
+                    print(f"Node responses: {node_response_dict}")
+                    if list(node_response_dict.values()):
+                        node_results = [response[-1].body['result'] for response in list(node_response_dict.values())
+                                        if response is not None]
+                        print(f"Node results received: {node_results}")
 
-                    # Aggregate results
-                    aggregated_res, converged = self.aggregator.aggregate(node_results=node_results,
-                                                                          simple_analysis=simple_analysis)
-                    print(f"Aggregated results: {aggregated_res}")
+                        # Aggregate results
+                        aggregated_res, converged = self.aggregator.aggregate(node_results=node_results,
+                                                                              simple_analysis=simple_analysis)
+                        print(f"Aggregated results: {aggregated_res}")
 
-                    # If converged send aggregated result over StorageAPI to Hub
-                    if converged:
-                        print("Submitting final results...", end='')
-                        response = self.flame.submit_final_result(BytesIO(str(aggregated_res).encode('utf8')))
-                        print(f"success (response={response})")
-                        self.flame.analysis_finished()  # LOOP BREAK
-                        # self.flame.config.finished = True
+                        # If converged send aggregated result over StorageAPI to Hub
+                        if converged:
+                            print("Submitting final results...", end='')
+                            response = self.flame.submit_final_result(BytesIO(str(aggregated_res).encode('utf8')))
+                            print(f"success (response={response})")
+                            self.flame.analysis_finished()  # LOOP BREAK
+                            # self.flame.config.finished = True
 
-                    # Else send aggregated results to MinIO for analyzers, loop back to (**)
-                    else:
-                        self.flame.send_message(self.aggregator.partner_node_ids,
-                                                'aggregated_results',
-                                                {'result': str(aggregated_res)})
+                        # Else send aggregated results to MinIO for analyzers, loop back to (**)
+                        else:
+                            self.flame.send_message(self.aggregator.partner_node_ids,
+                                                    'aggregated_results',
+                                                    {'result': str(aggregated_res)})
                 self.aggregator.node_finished()
             else:
                 raise BrokenPipeError(_ERROR_MESSAGES.IS_INCORRECT_CLASS.value)

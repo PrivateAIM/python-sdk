@@ -43,7 +43,8 @@ class FlameAPI:
 
         @router.post("/webhook", response_class=JSONResponse)
         def get_message(msg: dict = Depends(get_body)) -> None:
-            print(f"received message webhook: {msg}")
+            if msg['meta']['sender'] != message_broker.nodeConfig.node_id:
+                print(f"received message webhook: {msg}")
 
             # check message category for finished
             if msg['meta']['category'] == "analysis_finished":

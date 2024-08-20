@@ -158,15 +158,13 @@ class MessageBrokerClient:
         self.list_of_outgoing_messages.append(message)
 
     def receive_message(self, body: dict) -> None:
-        acknowledged_message = body["meta"]["akn_id"] is not None
         message = Message(message=body, config=self.nodeConfig, outgoing=False)
-
         self.list_of_incoming_messages.append(message)
 
-        if not acknowledged_message:
+        if body["meta"]["akn_id"] is None:
             print("acknowledging message")
             asyncio.run(self.acknowledge_message(message))
-        else:
+        elif body["meta"]["sender"] != self.nodeConfig.node_id:
             print("incoming message")
 
     def delete_message_by_id(self, message_id: str, type: Literal["outgoing", "incoming"]) -> int:
@@ -231,14 +229,14 @@ class MessageBrokerClient:
     async def await_message_acknowledgement(self, message: Message, receiver: str) -> str:
         number_of_incoming_messages = len(self.list_of_incoming_messages)
         for incoming_message in self.list_of_incoming_messages:
-            if (incoming_message.body['meta']['id'] == message.body["meta"]['id']) and \
-                    (incoming_message.body['meta']['akn_id'] == receiver):
+            if (incoming_message.body["meta"]["id"] == message.body["meta"]["id"]) and \
+                    (incoming_message.body["meta"]["akn_id"] == receiver):
                 return receiver
         while True:
             if len(self.list_of_incoming_messages) > number_of_incoming_messages:
                 for incoming_message in self.list_of_incoming_messages:
-                    if (incoming_message.body['meta']['id'] == message.body["meta"]['id']) and \
-                            (incoming_message.body['meta']['akn_id'] == receiver):
+                    if (incoming_message.body["meta"]["id"] == message.body["meta"]["id"]) and \
+                            (incoming_message.body["meta"]["akn_id"] == receiver):
                         return receiver
             await asyncio.sleep(1)
 
