@@ -1,4 +1,6 @@
-from flame.schemas import StarModel, StarAnalyzer, StarAggregator
+import time
+
+from flame.schemas.star import StarModel, StarAnalyzer, StarAggregator
 
 
 class MyAnalyzer(StarAnalyzer):
@@ -19,21 +21,25 @@ class MyAggregator(StarAggregator):
         return sum([float(res) for res in analysis_results])
 
     def has_converged(self, result, last_result):
-        pass
+        return True
 
 
 def main():
     starmodel = StarModel()
 
     if starmodel.is_analyzer():
-        print("Analyzer")
+        print("Analyzer started")
         my_analyzer = MyAnalyzer  # or MyAnalyzer(starmodel.flame, **kwargs), if implemented with custom params
         starmodel.start_analyzer(my_analyzer, query='Patient?_summary=count')
     elif starmodel.is_aggregator():
-        print("Aggregator")
-        starmodel.start_aggregator(MyAggregator)
+        print("Aggregator started")
+        my_aggregator = MyAggregator
+        starmodel.start_aggregator(my_aggregator)
     else:
         raise BrokenPipeError("Has to be either analyzer or aggregator")
+
+    print("Analysis finished!")
+    time.sleep(5)
 
 
 if __name__ == "__main__":

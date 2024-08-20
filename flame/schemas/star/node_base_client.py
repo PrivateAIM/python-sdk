@@ -15,10 +15,13 @@ class Node:
     partner_node_ids: list[str]
     num_iterations: int
 
-    def __init__(self, id: str, partner_nodes: list[str], role: Literal['analyzer', 'aggregator']):
+    def __init__(self, id: str, partner_node_ids: list[str], role: Literal['analyzer', 'aggregator']):
         self.id = id
         self.role = role
         self.status = NodeStatus.STARTED.value
         self.latest_result = None
-        self.partner_node_ids: list[str]
+        self.partner_node_ids = partner_node_ids
         self.num_iterations: int = 0
+
+    def node_finished(self):
+        self.status = NodeStatus.FINISHED.value

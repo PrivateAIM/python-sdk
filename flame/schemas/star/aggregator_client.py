@@ -7,8 +7,6 @@ from flame.schemas.star.node_base_client import Node
 
 
 class Aggregator(Node):
-    partner_node_ids: list[str]
-    num_iterations: int
     model_params: Optional[dict[str, str | float | int | bool]]
     weights: Optional[list[Any]]
     gradients: list[list[Optional[float]]]
