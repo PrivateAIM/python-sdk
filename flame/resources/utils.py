@@ -4,6 +4,7 @@ import time
 
 
 def wait_until_nginx_online(nginx_name) -> None:
+    print("\tConnecting to nginx...", end='')
     nginx_is_online = False
     while not nginx_is_online:
         try:
@@ -13,4 +14,4 @@ def wait_until_nginx_online(nginx_name) -> None:
             nginx_is_online = True
         except ConnectError:
             time.sleep(1)
-    print(f"Connected to {nginx_name}")
+    print("success")

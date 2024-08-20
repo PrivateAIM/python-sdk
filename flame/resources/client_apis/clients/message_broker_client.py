@@ -152,8 +152,8 @@ class MessageBrokerClient:
                                                    json=body,
                                                    headers=[('Connection', 'close'),
                                                             ("Content-Type", "application/json")])
-        print(f"message  send   {body}")
-        print(f"message broker send response  {response}")
+        print(f"send message {body}")
+        # print(f"message broker send response {response}")
 
         self.list_of_outgoing_messages.append(message)
 
@@ -164,10 +164,10 @@ class MessageBrokerClient:
         self.list_of_incoming_messages.append(message)
 
         if not acknowledged_message:
-            print(f"acknowledging message {message.body}")
+            print("acknowledging message")
             asyncio.run(self.acknowledge_message(message))
         else:
-            print(f"incoming message {message.body}")
+            print("incoming message")
 
     def delete_message_by_id(self, message_id: str, type: Literal["outgoing", "incoming"]) -> int:
         """
