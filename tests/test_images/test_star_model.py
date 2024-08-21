@@ -9,7 +9,7 @@ class MyAnalyzer(StarAnalyzer):
         pass
 
     def analysis_method(self, data, aggregator_results):
-        return float(data)
+        return float(data["total"])
 
 
 class MyAggregator(StarAggregator):

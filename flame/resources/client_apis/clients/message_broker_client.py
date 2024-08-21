@@ -155,8 +155,9 @@ class MessageBrokerClient:
                                                    json=body,
                                                    headers=[('Connection', 'close'),
                                                             ("Content-Type", "application/json")])
-        print(f"send message {body}")
-        # print(f"message broker send response {response}")
+        if message.body["meta"]["sender"] == self.nodeConfig.node_id:
+            print(f"send message: {body}")
+            # print(f"message broker send response {response}")
 
         self.list_of_outgoing_messages.append(message)
 

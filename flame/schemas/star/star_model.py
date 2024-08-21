@@ -65,7 +65,6 @@ class StarModel:
                             response = self.flame.submit_final_result(BytesIO(str(aggregated_res).encode('utf8')))
                             print(f"success (response={response})")
                             self.flame.analysis_finished()  # LOOP BREAK
-                            # self.flame.config.finished = True
 
                         # Else send aggregated results to MinIO for analyzers, loop back to (**)
                         else:
@@ -78,7 +77,7 @@ class StarModel:
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_ANALYZER.value)
 
-    def start_analyzer(self, analyzer: Type[Analyzer] | Any, query: str, simple_analysis: bool = True) -> None:
+    def start_analyzer(self, analyzer: Type[Analyzer] | Any, query: str | list[str], simple_analysis: bool = True) -> None:
 
         if self.is_analyzer():
             if isinstance(analyzer, Analyzer) or issubclass(analyzer, Analyzer):
@@ -92,7 +91,7 @@ class StarModel:
                 self._wait_until_partners_ready()
 
                 # Get data
-                data = asyncio.run(self._get_data(query=query))["total"]
+                data = asyncio.run(self._get_data(query=query))
                 print(f"Data extracted: {data}")
 
                 aggregator_results = None
@@ -155,14 +154,27 @@ class StarModel:
 
             print("Awaiting contact with analyzer nodes...success")
 
-    async def _get_data(self, query: str):
-        response = await self.flame._data_api.data_clients.client.get(f"/{self.flame.config.project_id}/fhir/{query}",
-                                                                      headers=[('Connection', 'close')])  # TODO: Hacks!
-        try:
-            response.raise_for_status()
-            return response.json()
-        except:
-            return False
+    async def _get_data(self, query: str | list[str]):
+        if type(query) == str:
+            response = await self.flame._data_api.data_clients.client.get(f"/{self.flame.config.project_id}/fhir/{query}",
+                                                                          headers=[('Connection', 'close')])
+            try:
+                response.raise_for_status()
+                return response.json()
+            except:
+                return False
+        else:
+            responses = {}
+            for q in query:
+                response = await self.flame._data_api.data_clients.client.get(f"/{self.flame.config.project_id}/fhir/{q}",
+                                                                              headers=[('Connection', 'close')])
+                try:
+                    response.raise_for_status()
+                    responses[q] = response.json()
+                except:
+                    print(f"Failed to extract data from fhir dataset with query={q}")
+                    pass
+            return responses if responses else False
 
     def converged(self) -> bool:
         return self.flame.config.finished
