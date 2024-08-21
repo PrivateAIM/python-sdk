@@ -49,7 +49,7 @@ class StarModel:
                     node_response_dict = self.flame.await_and_return_responses(node_ids=self.aggregator.partner_node_ids,
                                                                                message_category='intermediate_results')
                     print(f"Node responses: {node_response_dict}")
-                    if list(node_response_dict.values()):
+                    if all([v for v in list(node_response_dict.values())]):
                         node_results = [response[-1].body['result'] for response in list(node_response_dict.values())
                                         if response is not None]
                         print(f"Node results received: {node_results}")
