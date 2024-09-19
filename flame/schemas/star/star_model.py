@@ -3,7 +3,7 @@ from io import BytesIO
 from enum import Enum
 import asyncio
 
-from typing import Any, Optional, Type
+from typing import Any, Optional, Type, Literal
 
 from flame import FlameCoreSDK
 
@@ -27,14 +27,16 @@ class StarModel:
     def __init__(self) -> None:
         self.flame = FlameCoreSDK()
 
+
     def is_aggregator(self) -> bool:
         return self.flame.get_role() == 'aggregator'
+
 
     def is_analyzer(self) -> bool:
         return self.flame.get_role() == 'default'
 
-    def start_aggregator(self, aggregator: Type[Aggregator] | Any, simple_analysis: bool = True) -> None:
 
+    def start_aggregator(self, aggregator: Type[Aggregator] | Any, simple_analysis: bool = True) -> None:
         if self.is_aggregator():
             if isinstance(aggregator, Aggregator) or issubclass(aggregator, Aggregator):
                 # init subclass, if not an object
@@ -77,8 +79,11 @@ class StarModel:
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_ANALYZER.value)
 
-    def start_analyzer(self, analyzer: Type[Analyzer] | Any, query: str | list[str], simple_analysis: bool = True) -> None:
 
+    def start_analyzer(self, analyzer: Type[Analyzer] | Any,
+                       query: str | list[str],
+                       data_type: Literal['fhir', 's3'],
+                       simple_analysis: bool = True) -> None:
         if self.is_analyzer():
             if isinstance(analyzer, Analyzer) or issubclass(analyzer, Analyzer):
                 # init subclass, if not an object
@@ -91,7 +96,7 @@ class StarModel:
                 self._wait_until_partners_ready()
 
                 # Get data
-                data = asyncio.run(self._get_data(query=query))
+                data = self._get_data(query=query, data_type=data_type)
                 print(f"Data extracted: {data}")
 
                 aggregator_results = None
@@ -117,6 +122,7 @@ class StarModel:
                 raise BrokenPipeError(_ERROR_MESSAGES.IS_INCORRECT_CLASS.value)
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_AGGREGATOR.value)
+
 
     def _wait_until_partners_ready(self):
         if self.is_analyzer():
@@ -154,27 +160,17 @@ class StarModel:
 
             print("Awaiting contact with analyzer nodes...success")
 
-    async def _get_data(self, query: str | list[str]):
+
+    def _get_data(self, query: str | list[str], data_type: Literal['fhir', 's3']):
         if type(query) == str:
-            response = await self.flame._data_api.data_clients.client.get(f"/{self.flame.config.project_id}/fhir/{query}",
-                                                                          headers=[('Connection', 'close')])
-            try:
-                response.raise_for_status()
-                return response.json()
-            except:
-                return False
+            query = [query]
+
+        if data_type == 'fhir':
+            response = self.flame.get_fhir_data(query)
         else:
-            responses = {}
-            for q in query:
-                response = await self.flame._data_api.data_clients.client.get(f"/{self.flame.config.project_id}/fhir/{q}",
-                                                                              headers=[('Connection', 'close')])
-                try:
-                    response.raise_for_status()
-                    responses[q] = response.json()
-                except:
-                    print(f"Failed to extract data from fhir dataset with query={q}")
-                    pass
-            return responses if responses else False
+            response = self.flame.get_s3_data(query)
+        return response
+
 
     def converged(self) -> bool:
         return self.flame.config.finished

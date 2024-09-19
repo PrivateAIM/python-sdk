@@ -1,7 +1,7 @@
-from typing import Any
+from typing import Any, Optional
 import asyncio
 from httpx import AsyncClient, HTTPError
-
+import re
 
 class DataApiClient:
     def __init__(self, project_id: str, nginx_name: str, data_source_token: str, keycloak_token: str) -> None:
@@ -15,40 +15,44 @@ class DataApiClient:
                                       follow_redirects=True)
 
         self.project_id = project_id
-        self.available_sources = asyncio.run(self.get_available_sources())
+        self.available_sources = asyncio.run(self._retrieve_available_sources())
 
-        asyncio.run(self.test_connection(project_id))
-
-    async def test_connection(self, project_id: str) -> bool:
-        # TODO: find a better way to test the connection
-        response = await self.client.get(f"/{project_id}/fhir/Patient?_summary=count",
-                                         headers=[('Connection', 'close')])
-        try:
-            response.raise_for_status()
-            return True
-        except HTTPError:
-            return False
-
-    async def get_available_sources(self) -> list[dict]:
+    async def _retrieve_available_sources(self) -> list[dict[str, str]]:
         response = await self.hub_client.get(f"/kong/datastore/{self.project_id}")
-
         response.raise_for_status()
-        return response.json()
+        return [{'name': source['name']} for source in response.json()['data']]
 
-    def query_in_image(self, image: str) -> bool:
-        return False
+    def get_available_sources(self):
+        return self.available_sources
 
-    async def get_data(self, query: str = "Patient?_summary=count") -> list[dict]:
-        print(self.available_sources)
-        paths = [set["paths"][0] for set in self.available_sources["data"]]
+    async def get_data(self, s3_keys: Optional[list[str]] = None, fhir_queries: Optional[list[str]] = None) \
+            -> list[dict[str, dict | str]]:
+        dataset_sources = []
+        for source in self.available_sources:
+            datasets = {}
+            if fhir_queries is not None:
+                for fhir_query in fhir_queries:  # premise: retrieves data for each fhir_query from each data source
+                    response = await self.client.get(f"{source['name']}/fhir/{fhir_query}",
+                                                     headers=[('Connection', 'close')])
+                    response.raise_for_status()
+                    datasets[fhir_query] = response.json()
+            else:
+                response_names = asyncio.run(self._get_s3_dataset_names(source['name']))
+                for res_name in response_names:  # premise: only retrieves data corresponding to s3_keys from each data source
+                    if (s3_keys is None) or (res_name in s3_keys):
+                        response = await self.client.get(f"{source['name']}/s3/{res_name}",
+                                                         headers=[('Connection', 'close')])
+                        response.raise_for_status()
+                        datasets[res_name] = response.text
+            dataset_sources.append(datasets)
+        return dataset_sources
 
-        datasets = []
-        for path in paths:
-            response = await self.client.get(f"{path}/{query}",
-                                             headers=[('Connection', 'close')])
-            response.raise_for_status()
-            datasets.append(response.json())
-        return datasets
+    async def _get_s3_dataset_names(self, source_name: str) -> list[str]:
+        response = await self.client.get(f"{source_name}/s3", headers=[('Connection', 'close')])
+        response.raise_for_status()
+
+        responses = re.findall(r'<Key>(.*?)</Key>', str(response.text))
+        return responses
 
     def get_data_source_client(self, data_id: str) -> AsyncClient:
         """

@@ -1,7 +1,7 @@
 import asyncio
 from io import BytesIO
 
-from typing import List, Literal, IO, Optional
+from typing import Literal, IO, Optional
 from threading import Thread
 from httpx import AsyncClient
 
@@ -62,14 +62,14 @@ class FlameCoreSDK:
                 return participant['nodeId']
         return None
 
-    def get_participants(self) -> List[dict[str, str]]:
+    def get_participants(self) -> list[dict[str, str]]:
         """
         Returns a list of all participants in the analysis
         :return: the list of participants
         """
         return self._message_broker_api.participants
 
-    def get_participant_ids(self) -> List[str]:
+    def get_participant_ids(self) -> list[str]:
         """
         Returns a list of all participant ids in the analysis
         :return: the list of participants
@@ -112,7 +112,7 @@ class FlameCoreSDK:
         """
         return self.config.node_role
 
-    def send_intermediate_result(self, receivers: List[str], result: BytesIO) -> str:  # TODO: tba (when messagebroker submissions are outdated)
+    def send_intermediate_result(self, receivers: list[str], result: BytesIO) -> str:  # TODO: tba (when messagebroker submissions are outdated)
         """
         Sends an intermediate result using Result Service and Message Broker.
         :param receivers: list of node ids to send the result to
@@ -131,7 +131,7 @@ class FlameCoreSDK:
         return self._node_finished()
 
     ########################################Message Broker Client####################################
-    def send_message(self, receivers: List[str], message_category: str, message: dict, timeout: int = None) -> \
+    def send_message(self, receivers: list[str], message_category: str, message: dict, timeout: int = None) -> \
             tuple[list[str], list[str]]:
         """
         Send a message to the specified nodes
@@ -143,7 +143,7 @@ class FlameCoreSDK:
         """
         return asyncio.run(self._message_broker_api.send_message(receivers, message_category, message, timeout))
 
-    def await_and_return_responses(self, node_ids: List[str], message_category: str, message_id: Optional[str] = None,
+    def await_and_return_responses(self, node_ids: list[str], message_category: str, message_id: Optional[str] = None,
                                    timeout: int = None) -> dict[str, Optional[list[Message]]]:
         """
         Wait for responses from the specified nodes
@@ -164,7 +164,7 @@ class FlameCoreSDK:
         """
         return self._message_broker_api.get_messages()
 
-    def delete_messages(self, message_ids: List[str]) -> int:
+    def delete_messages(self, message_ids: list[str]) -> int:
         """
         Delete messages from the node
         :param message_ids: list of message ids to delete
@@ -181,7 +181,7 @@ class FlameCoreSDK:
         """
         return self._message_broker_api.clear_messages(status, time_limit)
 
-    def send_message_and_wait_for_responses(self, receivers: List[str], message_category: str, message: dict,
+    def send_message_and_wait_for_responses(self, receivers: list[str], message_category: str, message: dict,
                                             timeout: int = None) -> dict:
         """
         Sends a message to all specified nodes and waits for responses, (combines send_message and await_responses)
@@ -215,7 +215,7 @@ class FlameCoreSDK:
         """
         return self._storage_api.save_intermediate_data(location, data)
 
-    def list_intermediate_data(self, location: Literal["local", "global"]) -> List[str]:
+    def list_intermediate_data(self, location: Literal["local", "global"]) -> list[str]:
         """
         returns a list of all locally/globally saved intermediate data available
         :param location: the location to list the result, local lists in the node, global lists in central instance of MinIO
@@ -232,7 +232,7 @@ class FlameCoreSDK:
         """
         return self._storage_api.get_intermediate_data(location, id)
 
-    ########################################Data Source Client#######################################
+    ########################################Data Client#######################################
     def get_data_client(self, data_id: str) -> AsyncClient:
         """
         Returns the data client for a specific fhir or S3 store used for this project.
@@ -241,30 +241,28 @@ class FlameCoreSDK:
         """
         return self._data_api.get_data_client(data_id)
 
-    def get_data_sources(self) -> List[str]:
+    def get_data_sources(self) -> list[str]:
         """
         Returns a list of all data sources available for this project.
         :return: the list of data sources
         """
         return self._data_api.get_data_sources()
 
-    def get_fhir_data(self, data_id: str, queries: List[str]) -> List[dict]:
+    def get_fhir_data(self, fhir_queries: list[str]) -> list[dict[str, dict]]:
         """
         Returns the data from the FHIR store for each of the specified queries.
-        :param data_id: the id of the data source
-        :param queries: list of queries to get the data
+        :param fhir_queries: list of queries to get the data
         :return:
         """
-        return self._data_api.get_fhir_data(data_id, queries)
+        return asyncio.run(self._data_api.get_fhir_data(fhir_queries))
 
-    def get_s3_data(self, key: str, local_path: str) -> IO:
+    def get_s3_data(self, s3_keys: list[str]) -> list[dict[str, str]]:
         """
         Returns the data from the S3 store associated with the given key.
-        :param key:
-        :param local_path:
+        :param s3_keys:
         :return:
         """
-        return self._data_api.get_s3_data(key, local_path)
+        return asyncio.run(self._data_api.get_s3_data(s3_keys))
 
     ########################################Internal###############################################
     def _start_flame_api(self) -> None:
