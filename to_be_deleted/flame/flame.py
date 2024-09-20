@@ -1,7 +1,7 @@
 from threading import Thread
 from enum import Enum
 
-from typing import Any, Callable, Optional, Type
+from typing import Any, Callable, Optional, Type, Union
 
 from flame.resources.rest_api import FlameAPI
 from flame.resources.client_apis.clients import DataApiClient
@@ -74,7 +74,7 @@ class FlameSDK:
     def get_node_config(self) -> NodeConfig:
         return self.node_config
 
-    async def start_aggregator(self, aggregator: Type[Aggregator] | Aggregator,
+    async def start_aggregator(self, aggregator: Union[ Type[Aggregator] , Aggregator],
                                cutoff: float = 1.0,
                                is_federated: Optional[bool] = False) -> None:
         if self.is_aggregator():
@@ -102,7 +102,7 @@ class FlameSDK:
         else:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_ANALYZER.value)
 
-    async def start_analyzer(self, analyzer: Type[Analyzer] | Analyzer, query: str) -> None:
+    async def start_analyzer(self, analyzer: Union [Type[Analyzer] , Analyzer], query: str) -> None:
         if self.is_analyzer():
             # Init
             self.analyzer = analyzer(self.node_config) if issubclass(analyzer, Analyzer) else analyzer

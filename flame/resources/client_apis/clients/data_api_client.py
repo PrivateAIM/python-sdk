@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, Union
 import asyncio
 from httpx import AsyncClient, HTTPError
 import re
@@ -26,7 +26,7 @@ class DataApiClient:
         return self.available_sources
 
     async def get_data(self, s3_keys: Optional[list[str]] = None, fhir_queries: Optional[list[str]] = None) \
-            -> list[dict[str, dict | str]]:
+            -> list[dict[str, Union[dict, str]]]:
         dataset_sources = []
         for source in self.available_sources:
             datasets = {}

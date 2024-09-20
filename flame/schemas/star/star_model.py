@@ -3,7 +3,7 @@ from io import BytesIO
 from enum import Enum
 import asyncio
 
-from typing import Any, Optional, Type, Literal
+from typing import Any, Optional, Type, Literal, Union
 
 from flame import FlameCoreSDK
 
@@ -36,7 +36,7 @@ class StarModel:
         return self.flame.get_role() == 'default'
 
 
-    def start_aggregator(self, aggregator: Type[Aggregator] | Any, simple_analysis: bool = True) -> None:
+    def start_aggregator(self, aggregator:Union[ Type[Aggregator] , Any], simple_analysis: bool = True) -> None:
         if self.is_aggregator():
             if isinstance(aggregator, Aggregator) or issubclass(aggregator, Aggregator):
                 # init subclass, if not an object
@@ -80,8 +80,8 @@ class StarModel:
             raise BrokenPipeError(_ERROR_MESSAGES.IS_ANALYZER.value)
 
 
-    def start_analyzer(self, analyzer: Type[Analyzer] | Any,
-                       query: str | list[str],
+    def start_analyzer(self, analyzer: Union[Type[Analyzer], Any],
+                       query: Union[str , list[str]],
                        data_type: Literal['fhir', 's3'],
                        simple_analysis: bool = True) -> None:
         if self.is_analyzer():
@@ -161,7 +161,7 @@ class StarModel:
             print("Awaiting contact with analyzer nodes...success")
 
 
-    def _get_data(self, query: str | list[str], data_type: Literal['fhir', 's3']):
+    def _get_data(self, query: Union[str, list[str]], data_type: Literal['fhir', 's3']):
         if type(query) == str:
             query = [query]
 

@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Any, Optional
+from typing import Any, Optional, Union
 import time
 
 from flame.federated.node_base_client import Node, NodeConfig
@@ -10,7 +10,7 @@ class Aggregator(Node):
     node: Node
     nodes: list[Node]
     num_iterations: float = 0
-    model_params: Optional[dict[str, str | float | int | bool]]
+    model_params: Optional[dict[str, Union[str , float , int , bool]]]
     aggr_weights: Optional[list[Any]]
     gradients: Optional[list[list[float]]]
     converged: bool = False
@@ -19,7 +19,7 @@ class Aggregator(Node):
     def __init__(self,
                  node_config: NodeConfig,
                  is_federated: bool,
-                 model_params: Optional[dict[str, str | float | int | bool]] = None,
+                 model_params: Optional[dict[str, Union[str, float, int, bool]]] = None,
                  weights: Optional[list[Any]] = None,
                  gradients: Optional[list[list[float]]] = None) -> None:
         if node_config.node.node_mode != 'aggregator':

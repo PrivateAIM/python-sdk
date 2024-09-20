@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from flame import FlameCoreSDK
 
@@ -7,13 +7,13 @@ from flame.schemas.star.node_base_client import Node
 
 
 class Aggregator(Node):
-    model_params: Optional[dict[str, str | float | int | bool]]
+    model_params: Optional[dict[str, Union[str , float , int , bool]]]
     weights: Optional[list[Any]]
     gradients: list[list[Optional[float]]]
 
     def __init__(self,
                  flame: FlameCoreSDK,
-                 model_params: Optional[dict[str, str | float | int | bool]] = None,
+                 model_params: Optional[dict[str, Union[str, float, int, bool]]] = None,
                  weights: Optional[list[Any]] = None) -> None:
         node_config = flame.config
 
