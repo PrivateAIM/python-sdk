@@ -81,8 +81,8 @@ class StarModel:
 
 
     def start_analyzer(self, analyzer: Union[Type[Analyzer], Any],
-                       query: Union[str , list[str]],
                        data_type: Literal['fhir', 's3'],
+                       query: Optional[Union[str , list[str]]] = None,
                        simple_analysis: bool = True) -> None:
         if self.is_analyzer():
             if isinstance(analyzer, Analyzer) or issubclass(analyzer, Analyzer):
@@ -161,7 +161,7 @@ class StarModel:
             print("Awaiting contact with analyzer nodes...success")
 
 
-    def _get_data(self, query: Union[str, list[str]], data_type: Literal['fhir', 's3']):
+    def _get_data(self, data_type: Literal['fhir', 's3'], query: Optional[Union[str, list[str]]] = None):
         if type(query) == str:
             query = [query]
 

@@ -248,7 +248,7 @@ class FlameCoreSDK:
         """
         return self._data_api.get_data_sources()
 
-    def get_fhir_data(self, fhir_queries: list[str]) -> list[dict[str, dict]]:
+    def get_fhir_data(self, fhir_queries: Optional[list[str]] = None) -> list[dict[str, dict]]:
         """
         Returns the data from the FHIR store for each of the specified queries.
         :param fhir_queries: list of queries to get the data
@@ -256,7 +256,7 @@ class FlameCoreSDK:
         """
         return asyncio.run(self._data_api.get_fhir_data(fhir_queries))
 
-    def get_s3_data(self, s3_keys: list[str]) -> list[dict[str, str]]:
+    def get_s3_data(self, s3_keys: Optional[list[str]] = None) -> list[dict[str, str]]:
         """
         Returns the data from the S3 store associated with the given key.
         :param s3_keys:

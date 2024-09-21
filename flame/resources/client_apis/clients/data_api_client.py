@@ -38,14 +38,10 @@ class DataApiClient:
                     datasets[fhir_query] = response.json()
             else:
                 response_names = asyncio.run(self._get_s3_dataset_names(source['name']))
-                print(f"dataset names {response_names}")
                 for res_name in response_names:  # premise: only retrieves data corresponding to s3_keys from each data source
-                    print(f"res_name {res_name}")
                     if (s3_keys is None) or (res_name in s3_keys):
                         response = asyncio.run(self.client.get(f"{source['name']}/s3/{res_name}",
                                                          headers=[('Connection', 'close')]))
-                        print(f"response {response}")
-                        print(f"response.text {response.text}")
                         response.raise_for_status()
                         datasets[res_name] = response.text
             dataset_sources.append(datasets)
