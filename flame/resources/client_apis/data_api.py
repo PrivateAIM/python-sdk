@@ -35,10 +35,10 @@ class DataAPI:
         """
         return await self.data_client.get_data(fhir_queries)
 
-    async def get_s3_data(self, s3_keys: list[str]) -> list[dict[str, str]]:
+    def get_s3_data(self, s3_keys: list[str]) -> list[dict[str, str]]:
         """
         Returns s3 data for each key
         :param s3_keys: name of s3 datasets
         :return:
         """
-        return await self.data_client.get_data(s3_keys)
+        return self.data_client.get_data(s3_keys)

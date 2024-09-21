@@ -262,7 +262,7 @@ class FlameCoreSDK:
         :param s3_keys:
         :return:
         """
-        return asyncio.run(self._data_api.get_s3_data(s3_keys))
+        return self._data_api.get_s3_data(s3_keys)
 
     ########################################Internal###############################################
     def _start_flame_api(self) -> None:
