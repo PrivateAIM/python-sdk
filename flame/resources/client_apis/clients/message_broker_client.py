@@ -224,7 +224,7 @@ class MessageBrokerClient:
                                     possible_responses.append(msg)
                             else:
                                 possible_responses.append(msg)
-                return node_id, possible_responses
+                            return node_id, possible_responses
         else:
             return node_id, possible_responses
 
