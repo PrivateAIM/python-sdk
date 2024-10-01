@@ -1,6 +1,7 @@
 from io import BytesIO
-from typing import Any
+from typing import Any, Literal
 from httpx import AsyncClient, HTTPError
+import pickle
 
 
 class ResultClient:
@@ -9,29 +10,28 @@ class ResultClient:
                                   headers={"Authorization": f"Bearer {keycloak_token}"},
                                   follow_redirects=True)
 
-    async def test_connection(self) -> None:
-        await self.push_result(BytesIO(open("../tests/test_images/test_image_main.py", 'rb').read()))
-
-    async def push_result(self, result: BytesIO) -> dict[str, str]:
-        response = await self.client.put("/final/",
-                                         files={"file": result})
+    async def push_result(self, result: Any, type: Literal["final", "global", "local"] = "final") -> dict[str, str]:
+        type = "intermediate" if type == "global" else type
+        response = await self.client.put(f"/{type}/",
+                                         files={"file": BytesIO(pickle.dumps(result))})
         response.raise_for_status()
         if response.status_code != 204:
             raise HTTPError
-        return {"status": "success"}
+        return {"status": "success",
+                "url": response.json()["url"],
+                "id": response.json()["url"].split('/')[-1]}
 
     def _write_result(self, result: Any, result_path: str) -> None:
         with open(result_path, 'w') as f:
             f.write(str(result))
 
-    def list_local_results(self):
+    def list_results(self, type: Literal["local", "global"] = "global") -> list[str]:
+        # Endpoint not implemented in the result service
         pass
 
-    def list_global_results(self):
-        pass
+    async def get_intermediate_data(self, id: str, type: Literal["local", "global"] = "global") -> Any:
+        type = "intermediate" if type == "global" else type
+        response = await self.client.get(f"/{type}/{id}/")
+        response.raise_for_status()
 
-    def get_intermediate_data_local(self, id):
-        pass
-
-    def get_intermediate_data_global(self, id):
-        pass
+        return pickle.loads(BytesIO(response.content).read())

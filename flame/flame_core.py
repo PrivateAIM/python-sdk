@@ -1,7 +1,7 @@
 import asyncio
 from io import BytesIO
 
-from typing import Literal, IO, Optional
+from typing import Any, Literal, Optional
 from threading import Thread
 from httpx import AsyncClient
 
@@ -197,7 +197,7 @@ class FlameCoreSDK:
                                                                             timeout)
 
     ########################################Storage Client###########################################
-    def submit_final_result(self, result: BytesIO) -> dict[str, str]:
+    def submit_final_result(self, result: Any) -> dict[str, str]:
         """
         sends the final result to the hub. Making it available for analysts to download.
         This method is only available for nodes for which the method `get_role(self)` returns "aggregator”.
@@ -206,7 +206,7 @@ class FlameCoreSDK:
         """
         return self._storage_api.submit_final_result(result)
 
-    def save_intermediate_data(self, location: Literal["local", "global"], data: IO) -> dict[str, str]:
+    def save_intermediate_data(self, location: Literal["local", "global"], data: Any) -> dict[str, str]:
         """
         saves intermediate results/data either on the hub (location="global"), or locally
         :param location: the location to save the result, local saves in the node, global saves in central instance of MinIO
@@ -223,7 +223,7 @@ class FlameCoreSDK:
         """
         return self._storage_api.list_intermediate_data(location)
 
-    def get_intermediate_data(self, location: Literal["local", "global"], id: str) -> IO:
+    def get_intermediate_data(self, location: Literal["local", "global"], id: str) -> Any:
         """
         returns the intermediate data with the specified id
         :param location: the location to get the result, local gets in the node, global gets in central instance of MinIO
