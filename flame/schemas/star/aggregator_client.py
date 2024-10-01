@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from flame import FlameCoreSDK
 
@@ -7,14 +7,8 @@ from flame.schemas.star.node_base_client import Node
 
 
 class Aggregator(Node):
-    model_params: Optional[dict[str, Union[str , float , int , bool]]]
-    weights: Optional[list[Any]]
-    gradients: list[list[Optional[float]]]
 
-    def __init__(self,
-                 flame: FlameCoreSDK,
-                 model_params: Optional[dict[str, Union[str, float, int, bool]]] = None,
-                 weights: Optional[list[Any]] = None) -> None:
+    def __init__(self, flame: FlameCoreSDK) -> None:
         node_config = flame.config
 
         if node_config.node_role != 'aggregator':
@@ -22,11 +16,7 @@ class Aggregator(Node):
                              f'(expected: node_role="aggregator", received="{node_config.node_role}").')
         super().__init__(node_config.node_id, flame.get_participant_ids(), node_config.node_role)
 
-        self.model_params = model_params
-        self.weights = weights
-        self.gradients = [[None for _ in weights]] if weights is not None else None
-
-    def aggregate(self, node_results: list[str], simple_analysis: bool = True) -> tuple[Any, bool]:
+    def aggregate(self, node_results: list[Any], simple_analysis: bool = True) -> tuple[Any, bool]:
         result = self.aggregation_method([res for res in node_results if res])
 
         self.latest_result = result
@@ -35,7 +25,7 @@ class Aggregator(Node):
         return self.latest_result, simple_analysis or self.has_converged(result, self.latest_result)
 
     @abstractmethod
-    def aggregation_method(self, analysis_results: list[str]) -> Any:
+    def aggregation_method(self, analysis_results: list[Any]) -> Any:
         """
         This method will be used to aggregate the data. It has to be overridden.
         :return: aggregated_result

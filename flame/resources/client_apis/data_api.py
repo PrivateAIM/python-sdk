@@ -27,13 +27,13 @@ class DataAPI:
         """
         return self.data_client.available_sources
 
-    async def get_fhir_data(self, fhir_queries: Optional[list[str]] = None) -> list[dict[str, dict]]:
+    def get_fhir_data(self, fhir_queries: Optional[list[str]] = None) -> list[dict[str, dict]]:
         """
         Returns the data from the FHIR store for each of the specified fhir queries.
         :param fhir_queries: list of fhir queries to get the data
         :return: the data
         """
-        return await self.data_client.get_data(fhir_queries)
+        return self.data_client.get_data(fhir_queries)
 
     def get_s3_data(self, s3_keys: Optional[list[str]] = None) -> list[dict[str, str]]:
         """

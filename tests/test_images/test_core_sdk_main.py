@@ -1,6 +1,7 @@
 from flame import FlameCoreSDK
 import time
 
+
 def main():
     print("Starting Flame")
     flame = FlameCoreSDK()
