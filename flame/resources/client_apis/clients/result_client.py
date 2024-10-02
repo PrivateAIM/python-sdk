@@ -13,7 +13,8 @@ class ResultClient:
     async def push_result(self, result: Any, type: Literal["final", "global", "local"] = "final") -> dict[str, str]:
         type = "intermediate" if type == "global" else type
         response = await self.client.put(f"/{type}/",
-                                         files={"file": BytesIO(pickle.dumps(result))})
+                                         files={"file": BytesIO(pickle.dumps(result))},
+                                         headers=[('Connection', 'close')])
         response.raise_for_status()
 
         return {"status": "success",
@@ -30,7 +31,7 @@ class ResultClient:
 
     async def get_intermediate_data(self, id: str, type: Literal["local", "global"] = "global") -> Any:
         type = "intermediate" if type == "global" else type
-        response = await self.client.get(f"/{type}/{id}/")
+        response = await self.client.get(f"/{type}/{id}/",headers=[('Connection', 'close')])
         response.raise_for_status()
 
         return pickle.loads(BytesIO(response.content).read())
