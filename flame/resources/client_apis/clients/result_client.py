@@ -31,7 +31,7 @@ class ResultClient:
 
     async def get_intermediate_data(self, id: str, type: Literal["local", "global"] = "global") -> Any:
         type = "intermediate" if type == "global" else type
-        response = await self.client.get(f"/{type}/{id}/",headers=[('Connection', 'close')])
+        response = await self.client.get(f"/{type}/{id}",headers=[('Connection', 'close')])
         response.raise_for_status()
 
         return pickle.loads(BytesIO(response.content).read())
