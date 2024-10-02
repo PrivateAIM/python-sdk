@@ -15,8 +15,7 @@ class ResultClient:
         response = await self.client.put(f"/{type}/",
                                          files={"file": BytesIO(pickle.dumps(result))})
         response.raise_for_status()
-        if response.status_code != 204:
-            raise HTTPError
+
         return {"status": "success",
                 "url": response.json()["url"],
                 "id": response.json()["url"].split('/')[-1]}
