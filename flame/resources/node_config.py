@@ -12,7 +12,7 @@ class NodeConfig:
         self.project_id = os.getenv('PROJECT_ID')
         self.keycloak_token = os.getenv('KEYCLOAK_TOKEN')
         self.data_source_token = os.getenv('DATA_SOURCE_TOKEN')
-        self.nginx_name = f'analysis-nginx-{os.getenv("DEPLOYMENT_NAME")}'
+        self.nginx_name = f'nginx-{os.getenv("DEPLOYMENT_NAME")}'
 
         # tbd by MessageBroker
         self.node_role = None
