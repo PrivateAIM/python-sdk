@@ -20,7 +20,7 @@ class ResultClient:
 
         return {"status": "success",
                 "url": response.json()["url"],
-                "id": response.json()["object_id"]}
+                "id":  response.json()["url"].split("/")[-1]}
 
     def _write_result(self, result: Any, result_path: str) -> None:
         with open(result_path, 'w') as f:
