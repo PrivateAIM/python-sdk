@@ -16,6 +16,7 @@ class ResultClient:
                                          files={"file": BytesIO(pickle.dumps(result))},
                                          headers=[('Connection', 'close')])
         response.raise_for_status()
+        print(f"respones push_results: {response.json()}")
 
         return {"status": "success",
                 "url": response.json()["url"],
