@@ -27,6 +27,7 @@ class StarModel:
                  data_type: Literal['fhir', 's3'],
                  query: Optional[Union[str, list[str]]] = None,
                  simple_analysis: bool = True,
+                 output_type: Literal['str', 'bytes', 'pickle'] = 'str',
                  analyzer_kwargs: Optional[dict] = None,
                  aggregator_kwargs: Optional[dict] = None) -> None:
         self.flame = FlameCoreSDK()
@@ -42,6 +43,7 @@ class StarModel:
             print("Aggregator started")
             self._start_aggregator(aggregator,
                                    simple_analysis=simple_analysis,
+                                   output_type=output_type,
                                    aggregator_kwargs=aggregator_kwargs)
         else:
             raise BrokenPipeError("Has to be either analyzer or aggregator")
@@ -56,6 +58,7 @@ class StarModel:
     def _start_aggregator(self,
                           aggregator: Type[Aggregator],
                           simple_analysis: bool = True,
+                          output_type: Literal['str', 'bytes', 'pickle'] = 'str',
                           aggregator_kwargs: Optional[dict] = None) -> None:
         if self._is_aggregator():
             if issubclass(aggregator, Aggregator):
@@ -69,17 +72,18 @@ class StarModel:
                 self._wait_until_partners_ready()
 
                 while not self._converged():  # (**)
-                    # TODO: receive storage ids
                     # Await number of responses reaching number of necessary nodes
                     node_response_dict = self.flame.await_and_return_responses(node_ids=aggregator.partner_node_ids,
                                                                                message_category='intermediate_results')
+
                     print(f"Node responses: {node_response_dict}")
                     if all([v for v in list(node_response_dict.values())]):
-                        # TODO: read results from storage wit storage id, and unpickle data
-                        node_results = [response[-1].body['result'] for response in list(node_response_dict.values())
-                                        if response is not None]
-                        print(f"Node results received: {node_results}")
-
+                        intermediate_res_ids = [response[-1].body['result']
+                                                for response in list(node_response_dict.values())
+                                                if response is not None]
+                        print(f"Intermediate result ids received: {intermediate_res_ids}")
+                        node_results = [self.flame.get_intermediate_data(location='global', id=intermediate_res_id)
+                                        for intermediate_res_id in intermediate_res_ids]
                         # Aggregate results
                         aggregated_res, converged = aggregator.aggregate(node_results=node_results,
                                                                          simple_analysis=simple_analysis)
@@ -88,8 +92,7 @@ class StarModel:
                         # If converged send aggregated result over StorageAPI to Hub
                         if converged:
                             print("Submitting final results...", end='')
-                            # TODO: pickle the aggregated results
-                            response = self.flame.submit_final_result(BytesIO(str(aggregated_res).encode('utf8')))
+                            response = self.flame.submit_final_result(aggregated_res, output_type)
                             print(f"success (response={response})")
                             self.flame.analysis_finished()  # LOOP BREAK
 
@@ -136,11 +139,13 @@ class StarModel:
                         analyzer_res, converged = analyzer.analyze(data=data,
                                                                    aggregator_results=aggregator_results,
                                                                    simple_analysis=simple_analysis)
-                        # TODO: pickle results and use StorageService, get storage id
+
+                        submission_response = self.flame.save_intermediate_data("global", analyzer_res)
+
                         # Send result to (MinIO for) aggregator
                         self.flame.send_message(receivers=[aggregator_id],
                                                 message_category='intermediate_results',
-                                                message={'result': str(analyzer_res)})  # TODO: send storage id to aggregator
+                                                message={'result': str(submission_response['id'])})
                     if (not self._converged()) and (not converged):
                         # Check for aggregated results
                         aggregator_results = self.flame.await_and_return_responses(node_ids=[aggregator_id],

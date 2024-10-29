@@ -197,14 +197,15 @@ class FlameCoreSDK:
                                                                             timeout)
 
     ########################################Storage Client###########################################
-    def submit_final_result(self, result: Any) -> dict[str, str]:
+    def submit_final_result(self, result: Any, output_type: Literal['str', 'bytes', 'pickle'] = 'str') -> dict[str, str]:
         """
         sends the final result to the hub. Making it available for analysts to download.
         This method is only available for nodes for which the method `get_role(self)` returns "aggregator”.
         :param result: the final result
+        :param output_type: output type of final results (default: string)
         :return: the request status code
         """
-        return self._storage_api.submit_final_result(result)
+        return self._storage_api.submit_final_result(result, output_type)
 
     def save_intermediate_data(self, location: Literal["local", "global"], data: Any) -> dict[str, str]:
         """
@@ -215,13 +216,13 @@ class FlameCoreSDK:
         """
         return self._storage_api.save_intermediate_data(location, data)
 
-    def list_intermediate_data(self, location: Literal["local", "global"]) -> list[str]:
-        """
-        returns a list of all locally/globally saved intermediate data available
-        :param location: the location to list the result, local lists in the node, global lists in central instance of MinIO
-        :return: the list of results
-        """
-        return self._storage_api.list_intermediate_data(location)
+    # def list_intermediate_data(self, location: Literal["local", "global"]) -> list[str]:
+    #     """
+    #     returns a list of all locally/globally saved intermediate data available
+    #     :param location: the location to list the result, local lists in the node, global lists in central instance of MinIO
+    #     :return: the list of results
+    #     """
+    #     return self._storage_api.list_intermediate_data(location)
 
     def get_intermediate_data(self, location: Literal["local", "global"], id: str) -> Any:
         """

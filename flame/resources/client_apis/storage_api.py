@@ -9,14 +9,15 @@ class StorageAPI:
     def __init__(self, config: NodeConfig):
         self.result_client = ResultClient(config.nginx_name, config.keycloak_token)
 
-    def submit_final_result(self, result: Any) -> dict[str, str]:
+    def submit_final_result(self, result: Any, output_type: Literal['str', 'bytes', 'pickle'] = 'str') -> dict[str, str]:
         """
         sends the final result to the hub. Making it available for analysts to download.
         This method is only available for nodes for which the method `get_role(self)` returns "aggregator”.
         :param result: the final result
+        :param output_type: output type of final results (default: string)
         :return: the request status code
         """
-        return asyncio.run(self.result_client.push_result(result, "final"))
+        return asyncio.run(self.result_client.push_result(result, "final", output_type))
 
     def save_intermediate_data(self, location: Literal["global", "local"], data: Any) -> dict[str, str]:
         """
@@ -27,13 +28,13 @@ class StorageAPI:
         """
         return asyncio.run(self.result_client.push_result(data, type=location))
 
-    def list_intermediate_data(self, location: Literal["local", "global"]) -> list[str]:
-        """
-        returns a list of all locally/globally saved intermediate data available
-        :param location: the location to list the result, local lists in the node, global lists in central instance of MinIO
-        :return: the list of results
-        """
-        return self.result_client.list_results(type=location)
+    # def list_intermediate_data(self, location: Literal["local", "global"]) -> list[str]:
+    #     """
+    #     returns a list of all locally/globally saved intermediate data available
+    #     :param location: the location to list the result, local lists in the node, global lists in central instance of MinIO
+    #     :return: the list of results
+    #     """
+    #     return self.result_client.list_results(type=location)
 
     def get_intermediate_data(self, location: Literal["local", "global"], id: str) -> Any:
         """
