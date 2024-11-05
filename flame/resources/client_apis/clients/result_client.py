@@ -37,7 +37,10 @@ class ResultClient:
                                          headers=[('Connection', 'close')])
 
         response.raise_for_status()
-        print(f"response push_results: {response.json()}")
+        if type != "final":
+            print(f"response push_results: {response.json()}")
+        else:
+            return {"status": "success"}
 
         return {"status": "success",
                 "url": response.json()["url"],
