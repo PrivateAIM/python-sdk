@@ -92,8 +92,9 @@ class Message:
 
 class MessageBrokerClient:
     def __init__(self, config: NodeConfig) -> None:
+        self.nodeConfig = config
         self._message_broker = AsyncClient(
-            base_url=f"http://{config.nginx_name}/message-broker",
+            base_url=f"http://{self.nodeConfig.nginx_name}/message-broker",
             headers={"Authorization": f"Bearer {config.keycloak_token}", "Accept": "application/json"},
             follow_redirects=True
         )
@@ -101,7 +102,6 @@ class MessageBrokerClient:
         self.list_of_incoming_messages: list[Message] = []
         self.list_of_outgoing_messages: list[Message] = []
         self.message_number = 0
-        self.nodeConfig = config
         message_node_info = asyncio.run(self.get_self_config(config.analysis_id))
         self.nodeConfig.set_role(message_node_info["nodeType"])
         self.nodeConfig.set_node_id(message_node_info["nodeId"])
@@ -133,7 +133,7 @@ class MessageBrokerClient:
     async def _connect(self) -> None:
         response = await self._message_broker.post(
             f'/analyses/{os.getenv("ANALYSIS_ID")}/messages/subscriptions',
-            json={'webhookUrl': f'http://analysis-nginx-{os.getenv("DEPLOYMENT_NAME")}/analysis/webhook'}
+            json={'webhookUrl': f'http://{self.nodeConfig.nginx_name}/analysis/webhook'}
         )
         # print(f"message broker connect response  {response}")
         # print(f'/analyses/{os.getenv("ANALYSIS_ID")}/messages/subscriptions')
