@@ -33,7 +33,7 @@ class DataAPI:
         :param fhir_queries: list of fhir queries to get the data
         :return: the data
         """
-        return self.data_client.get_data(fhir_queries)
+        return self.data_client.get_data(fhir_queries=fhir_queries)
 
     def get_s3_data(self, s3_keys: Optional[list[str]] = None) -> list[dict[str, str]]:
         """
@@ -41,4 +41,4 @@ class DataAPI:
         :param s3_keys: name of s3 datasets
         :return:
         """
-        return self.data_client.get_data(s3_keys)
+        return self.data_client.get_data(s3_keys=s3_keys)
