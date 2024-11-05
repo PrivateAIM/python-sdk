@@ -169,27 +169,35 @@ class StarModel:
                                                            message_category='ready_check',
                                                            message={},
                                                            timeout=120)
+                print(f"Aggregator ID: {aggregator_id}\n"
+                      f"Received List: {received_list}\n"
+                      f"ReadyCheck done: {aggregator_id in received_list}")
             if aggregator_id not in received_list:
                 raise BrokenPipeError("Could not contact aggregator")
 
             print("Awaiting contact with aggregator node...success")
         else:
             analyzer_ids = self.flame.get_participant_ids()
-            latest_num_responses, num_responses = (-1, 0)
-            while True:
+            all_received_list = []
+            all_received_len = len(all_received_list)
+            while len(all_received_list) < len(analyzer_ids):
                 time.sleep(1)
 
-                if latest_num_responses < num_responses:
-                    latest_num_responses = num_responses
-                    print(f"Awaiting contact with analyzer nodes...({num_responses}/{len(analyzer_ids)})")
+                if len(all_received_list) != all_received_len:
+                    print(f"Awaiting contact with analyzer nodes...({len(all_received_list)}/{len(analyzer_ids)})")
+                    all_received_len = len(all_received_list)
 
                 received_list, _ = self.flame.send_message(receivers=analyzer_ids,
                                                            message_category='ready_check',
                                                            message={},
                                                            timeout=120)
-                num_responses = len(received_list)
-                if num_responses == len(analyzer_ids):
-                    break
+                for received in received_list:
+                    if received not in all_received_list:
+                        all_received_list.append(received)
+
+                print(f"Analyzer IDs: {analyzer_ids}\n"
+                      f"All received List: {all_received_list}\n"
+                      f"ReadyCheck done: {len(all_received_list) == len(analyzer_ids)}")
 
             print("Awaiting contact with analyzer nodes...success")
 
