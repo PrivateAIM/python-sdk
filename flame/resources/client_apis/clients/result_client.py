@@ -26,7 +26,7 @@ class ResultClient:
         type = "intermediate" if type == "global" else type
 
         if (type == 'final') and (output_type == 'str'):
-            file_body = str(result)
+            file_body = str(result).encode('utf-8')
         elif (type == 'final') and (output_type == 'bytes'):
             file_body = bytes(result)
         else:
@@ -37,19 +37,11 @@ class ResultClient:
                                          headers=[('Connection', 'close')])
 
         response.raise_for_status()
-        print(f"respones push_results: {response.json()}")
+        print(f"response push_results: {response.json()}")
 
         return {"status": "success",
                 "url": response.json()["url"],
                 "id":  response.json()["url"].split("/")[-1]}
-
-    # def _write_result(self, result: Any, result_path: str) -> None:
-    #     with open(result_path, 'w') as f:
-    #         f.write(str(result))
-
-    # def list_results(self, type: Literal["local", "global"] = "global") -> list[str]:
-    #     # Endpoint not implemented in the result service
-    #     pass
 
     async def get_intermediate_data(self, id: str, type: Literal["local", "global"] = "global") -> Any:
         """
@@ -61,8 +53,7 @@ class ResultClient:
         """
         type = "intermediate" if type == "global" else type
         print(f"URL : /{type}/{id}")
-        response = await self.client.get(f"/{type}/{id}",headers=[('Connection', 'close')])
+        response = await self.client.get(f"/{type}/{id}", headers=[('Connection', 'close')])
         response.raise_for_status()
-
 
         return pickle.loads(BytesIO(response.content).read())
