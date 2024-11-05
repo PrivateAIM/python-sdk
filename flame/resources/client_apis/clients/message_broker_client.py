@@ -167,10 +167,8 @@ class MessageBrokerClient:
         self.list_of_incoming_messages.append(message)
 
         if needs_acknowledgment:
-            print("acknowledging message")
+            print("acknowledging ready check" if body["meta"]["category"] == "ready_check" else "incoming message")
             asyncio.run(self.acknowledge_message(message))
-        elif body["meta"]["sender"] != self.nodeConfig.node_id:
-            print("incoming message")
 
     def delete_message_by_id(self, message_id: str, type: Literal["outgoing", "incoming"]) -> int:
         """
