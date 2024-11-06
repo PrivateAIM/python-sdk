@@ -126,7 +126,9 @@ class FlameCoreSDK:
         Sends a signal to all nodes to set their node_finished to True, then sets the node to finished
         :return:
         """
-        self.send_message(self.get_participant_ids(), "analysis_finished", {}, timeout=None)
+        print(f"participants : {self.get_participant_ids()}")
+        if self.get_participant_ids():
+            self.send_message(self.get_participant_ids(), "analysis_finished", {}, timeout=None)
 
         return self._node_finished()
 
