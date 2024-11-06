@@ -62,6 +62,7 @@ class FlameAPI:
 
     def _finished(self) -> str:
         try:
+            print(f"finished: {self.finished}, {self.finished_check()}")
             if self.finished:
                 return "finished"
             elif self.finished_check():
