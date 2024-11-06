@@ -46,12 +46,12 @@ class FlameAPI:
             if msg['meta']['sender'] != message_broker.nodeConfig.node_id:
                 print(f"received message webhook: {msg}")
 
+            message_broker.receive_message(msg)
+
             # check message category for finished
             if msg['meta']['category'] == "analysis_finished":
                 self.finished = True
                 self.finishing_call()
-            else:
-                message_broker.receive_message(msg)
 
         app.include_router(
             router,
