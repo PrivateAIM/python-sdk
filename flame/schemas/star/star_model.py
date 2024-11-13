@@ -87,7 +87,7 @@ class StarModel:
                         # Aggregate results
                         aggregated_res, converged = aggregator.aggregate(node_results=node_results,
                                                                          simple_analysis=simple_analysis)
-                        print(f"Aggregated results: {aggregated_res}")
+                        print(f"Aggregated results: {str(aggregated_res)[:100]}")
 
                         # If converged send aggregated result over StorageAPI to Hub
                         if converged:
@@ -128,7 +128,7 @@ class StarModel:
 
                 # Get data
                 data = self._get_data(query=query, data_type=data_type)
-                print(f"Data extracted: {data}")
+                print(f"Data extracted: {str(data)[:100]}")
 
                 aggregator_results = None
                 converged = False
