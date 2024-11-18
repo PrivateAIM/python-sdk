@@ -17,7 +17,7 @@ class Aggregator(Node):
         super().__init__(node_config.node_id, flame.get_participant_ids(), node_config.node_role)
 
     def aggregate(self, node_results: list[Any], simple_analysis: bool = True) -> tuple[Any, bool]:
-        result = self.aggregation_method([res for res in node_results if res])
+        result = self.aggregation_method(node_results)
 
         self.latest_result = result
         self.num_iterations += 1
