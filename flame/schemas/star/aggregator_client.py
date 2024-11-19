@@ -22,7 +22,7 @@ class Aggregator(Node):
         self.latest_result = result
         self.num_iterations += 1
 
-        return self.latest_result, simple_analysis or self.has_converged(result, self.latest_result)
+        return self.latest_result, simple_analysis or self.has_converged(result, self.latest_result, self.num_iterations)
 
     @abstractmethod
     def aggregation_method(self, analysis_results: list[Any]) -> Any:
@@ -33,7 +33,7 @@ class Aggregator(Node):
         pass
 
     @abstractmethod
-    def has_converged(self, result: Any, last_result: Optional[Any]) -> bool:
+    def has_converged(self, result: Any, last_result: Optional[Any], num_iterations: int) -> bool:
         """
         This method will be used to check if the aggregator has converged. It has to be overridden.
         :return: converged
