@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
-from flame.schemas.star import FlameSDK
+from flame.patterns.star import FlameSDK
 
 
 async def train(flame: FlameSDK):

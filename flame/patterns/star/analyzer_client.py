@@ -3,7 +3,7 @@ from typing import Any, Optional, Union
 
 from flame import FlameCoreSDK
 
-from flame.schemas.star.node_base_client import Node
+from flame.patterns.star.node_base_client import Node
 
 
 class Analyzer(Node):

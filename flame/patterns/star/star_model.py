@@ -5,8 +5,8 @@ from typing import Optional, Type, Literal, Union
 
 from flame import FlameCoreSDK
 
-from flame.schemas.star.aggregator_client import Aggregator
-from flame.schemas.star.analyzer_client import Analyzer
+from flame.patterns.star.aggregator_client import Aggregator
+from flame.patterns.star.analyzer_client import Analyzer
 
 
 class _ERROR_MESSAGES(Enum):
