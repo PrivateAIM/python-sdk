@@ -1,4 +1,4 @@
-from flame.schemas.star import StarModel, StarAnalyzer, StarAggregator
+from flame.patterns.star import StarModel, StarAnalyzer, StarAggregator
 
 
 class MyAnalyzer(StarAnalyzer):
@@ -16,7 +16,7 @@ class MyAggregator(StarAggregator):
     def aggregation_method(self, analysis_results):
         return sum([res for res in analysis_results])
 
-    def has_converged(self, result, last_result):
+    def has_converged(self, result, last_result, num_iterations):
         return True
 
 
