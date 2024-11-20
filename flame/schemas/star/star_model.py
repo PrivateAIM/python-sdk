@@ -96,9 +96,12 @@ class StarModel:
 
                         # Else send aggregated results to MinIO for analyzers, loop back to (**)
                         else:
-                            self.flame.send_message(aggregator.partner_node_ids,
-                                                    'aggregated_results',
-                                                    {'result': str(aggregated_res)})
+                            submission_response = self.flame.save_intermediate_data("global", aggregated_res)
+
+                            # Send result to (global MinIO for) analyzers
+                            self.flame.send_message(receivers=aggregator.partner_node_ids,
+                                                    message_category='aggregated_results',
+                                                    message={'result': str(submission_response['id'])})
                 aggregator.node_finished()
             else:
                 raise BrokenPipeError(_ERROR_MESSAGES.IS_INCORRECT_CLASS.value)
@@ -138,17 +141,20 @@ class StarModel:
                                                                    aggregator_results=aggregator_results,
                                                                    simple_analysis=simple_analysis)
 
+                        # Send result to (global MinIO for) aggregator
                         submission_response = self.flame.save_intermediate_data("global", analyzer_res)
-
-                        # Send result to (MinIO for) aggregator
                         self.flame.send_message(receivers=[aggregator_id],
                                                 message_category='intermediate_results',
                                                 message={'result': str(submission_response['id'])})
+
+                    # If not converged read aggregated result over StorageAPI from Hub, loop back to (**)
                     if (not self._converged()) and (not converged):
                         # Check for aggregated results
-                        aggregator_results = self.flame.await_and_return_responses(node_ids=[aggregator_id],
-                                                                                   message_category='aggregated_results',
-                                                                                   timeout=300)[aggregator_id][-1].body['result']
+                        agg_res_id = self.flame.await_and_return_responses(node_ids=[aggregator_id],
+                                                                           message_category='aggregated_results',
+                                                                           timeout=300)[aggregator_id][-1].body['result']
+                        aggregator_results = self.flame.get_intermediate_data(location='global', id=agg_res_id)
+
                 analyzer.node_finished()
             else:
                 raise BrokenPipeError(_ERROR_MESSAGES.IS_INCORRECT_CLASS.value)
