@@ -8,9 +8,9 @@ from flame.resources.node_config import NodeConfig
 class DataAPI:
     def __init__(self, config: NodeConfig):
         self.data_client = DataApiClient(config.project_id,
-                                          config.nginx_name,
-                                          config.data_source_token,
-                                          config.keycloak_token)
+                                         config.nginx_name,
+                                         config.data_source_token,
+                                         config.keycloak_token)
 
     def get_data_client(self, data_id: str) -> AsyncClient:
         """

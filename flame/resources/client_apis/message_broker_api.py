@@ -48,7 +48,6 @@ class MessageBrokerAPI:
 
         # Run the tasks and wait for the message acknowledgement until the timeout or all messages are acknowledged
         done, pending = await asyncio.wait(await_list, timeout=timeout, return_when=asyncio.ALL_COMPLETED)
-        # print(f"acknowledgements:\n\tdone: {done}\n\tpending: {pending}")
 
         # Check if the message was acknowledged
         acknowledged = []

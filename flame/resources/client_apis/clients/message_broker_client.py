@@ -149,15 +149,13 @@ class MessageBrokerClient:
             "recipients": message.recipients,
             "message": message.body
         }
-        # print('body type:', type(body))
-        # print('body:', body)
-        response = await self._message_broker.post(f'/analyses/{os.getenv("ANALYSIS_ID")}/messages',
-                                                   json=body,
-                                                   headers=[('Connection', 'close'),
-                                                            ("Content-Type", "application/json")])
+
+        _ = await self._message_broker.post(f'/analyses/{os.getenv("ANALYSIS_ID")}/messages',
+                                            json=body,
+                                            headers=[('Connection', 'close'),
+                                                     ("Content-Type", "application/json")])
         if message.body["meta"]["sender"] == self.nodeConfig.node_id:
             print(f"send message: {body}")
-            # print(f"message broker send response {response}")
 
         self.list_of_outgoing_messages.append(message)
 
@@ -259,7 +257,8 @@ class MessageBrokerClient:
             for message in self.list_of_incoming_messages:
                 if message.body["meta"]["status"] == status:
                     if time_limit is not None:
-                        created_at = datetime.datetime.strptime(message.body["meta"]["created_at"], "%Y-%m-%d %H:%M:%S.%f")
+                        created_at = datetime.datetime.strptime(message.body["meta"]["created_at"],
+                                                                "%Y-%m-%d %H:%M:%S.%f")
                         if (datetime.datetime.now() - created_at).seconds > time_limit:
                             self.list_of_incoming_messages.remove(message)
                             number_of_deleted_messages += 1
@@ -270,7 +269,8 @@ class MessageBrokerClient:
             for message in self.list_of_outgoing_messages:
                 if message.body["meta"]["status"] == status:
                     if time_limit is not None:
-                        created_at = datetime.datetime.strptime(message.body["meta"]["created_at"], "%Y-%m-%d %H:%M:%S.%f")
+                        created_at = datetime.datetime.strptime(message.body["meta"]["created_at"],
+                                                                "%Y-%m-%d %H:%M:%S.%f")
                         if (datetime.datetime.now() - created_at).seconds > time_limit:
                             self.list_of_outgoing_messages.remove(message)
                             number_of_deleted_messages += 1
