@@ -261,6 +261,89 @@ class FlameCoreSDK:
         """
         return self._storage_api.get_intermediate_data(location, id)
 
+    def send_intermediate_data(self,
+                               receivers: list[str],
+                               data: Any,
+                               message_category: str = "intermediate_data",
+                               timeout: Optional[int] = None) -> tuple[list[str], list[str]]:
+        """
+        Sends intermediate data to specified receivers using the Result Service and Message Broker.
+
+        This function saves the provided data using the Result Service and then sends a message to
+        the specified receivers via the Message Broker, notifying them of the availability of the
+        intermediate data. The message includes the `result_id` of the saved data.
+
+        Parameters:
+            receivers (list[str]): A list of node identifiers to which the intermediate data will be sent.
+            data (Any): The intermediate data to be sent. This can be of any serializable type.
+            message_category (str, optional): A string specifying the category of the message.
+                                              Defaults to "intermediate_data".
+            timeout (int, optional): The time in seconds to wait for the message acknowledgement.
+
+        Returns:
+            tuple[list[str], list[str]]:
+                - A list of node IDs that successfully received the message.
+                - A list of node IDs that failed to receive the message.
+
+       Example:
+            ```python
+            receivers = ["node1", "node2", "node3"]
+            data = {"key": "value"}
+
+            successful, failed = send_intermediate_data(receivers, data)
+
+            print("Successful nodes:", successful)  # e.g., ["node1", "node2"]
+            print("Failed nodes:", failed)  # e.g., ["node3"]
+            ```
+        """
+        result_id = self.save_intermediate_data("global", data)['id']
+        return self.send_message(receivers, message_category, {"result_id": result_id}, timeout=timeout)
+
+    def await_intermediate_data(self,
+                                senders: list[str],
+                                message_category: str = "intermediate_data",
+                                timeout: Optional[int] = None) -> dict[str, Any]:
+        """
+           Waits for messages containing intermediate data from specified senders and retrieves the data.
+
+           This function listens for messages of a specified category from the provided senders. Once a
+           message is received, it retrieves the intermediate data associated with the `result_id`
+           included in the message. The function returns a dictionary mapping each sender to their
+           corresponding data or `None` if no data was received within the timeout period.
+
+           Parameters:
+               senders (list[str]): A list of sender node identifiers to listen for.
+               message_category (str, optional): The category of the message to wait for.
+                                                 Defaults to "intermediate_data".
+               timeout (int, optional): The maximum time (in seconds) to wait for messages.
+                                        If `None`, waits indefinitely.
+
+           Returns:
+               dict[str, Any]: A dictionary where the keys are sender node IDs and the values are the
+                               intermediate data retrieved for each sender. If no data is received from
+                               a sender within the timeout period, its value will be `None`.
+
+
+           Example:
+               ```python
+               senders = ["node1", "node2"]
+
+               # Wait for intermediate data from the senders
+               data = await_intermediate_data(senders, timeout=60)
+
+               # Output the retrieved data
+               print(data)
+               # Example: {"node1": {"key": "value"}, "node2": None}
+               ```
+           """
+        data_dict = {sender: None for sender in senders}
+        message_dict = self.await_messages(senders, message_category, timeout=timeout)
+        for sender, message_list in message_dict.items():
+            if message_list:
+                data_dict[sender] = self.get_intermediate_data("global", message_list[-1].body['result_id'])
+        return data_dict
+
+
     ########################################Data Client#######################################
     def get_data_client(self, data_id: str) -> AsyncClient:
         """
