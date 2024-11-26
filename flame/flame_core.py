@@ -112,14 +112,6 @@ class FlameCoreSDK:
         """
         return self.config.node_role
 
-    def send_intermediate_result(self, receivers: list[str], result: BytesIO) -> str:  # TODO: tba (when messagebroker submissions are outdated)
-        """
-        Sends an intermediate result using Result Service and Message Broker.
-        :param receivers: list of node ids to send the result to
-        :param result: the result to send
-        :return: the request status code
-        """
-        pass
 
     def analysis_finished(self) -> bool:
         """
@@ -132,7 +124,7 @@ class FlameCoreSDK:
         return self._node_finished()
 
     def ready_check(self,
-                    nodes: Optional[list[str]] = None,
+                    nodes: list[str] = 'all',
                     attempt_interval: int = 30,
                     timeout: Optional[int] = None) -> dict[str, bool]:
         """
@@ -166,7 +158,7 @@ class FlameCoreSDK:
             print(result)  # {"node1": True, "node2": True, "node3": False}
             ```
         """
-        if nodes is None:
+        if nodes == 'all':
             nodes = self.get_participant_ids()
 
         return wait_until_partners_ready(self, nodes, attempt_interval, timeout)
@@ -178,25 +170,24 @@ class FlameCoreSDK:
         """
         Send a message to the specified nodes
         :param receivers: list of node ids to send the message to
-        :param message_category: a string that specifies the message category,
+        :param message_category: a string that specifies the message category
         :param message: the message to send
         :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinitely
         :return: a tuple of nodes ids that acknowledged and not acknowledged the message
         """
         return asyncio.run(self._message_broker_api.send_message(receivers, message_category, message, timeout))
 
-    def await_and_return_responses(self, node_ids: list[str], message_category: str, message_id: Optional[str] = None,
+    def await_messages(self, senders: list[str], message_category: str, message_id: Optional[str] = None,
                                    timeout: Optional[int] = None) -> dict[str, Optional[list[Message]]]:
         """
         Wait for responses from the specified nodes
-        :param node_ids: list of node ids to wait for
+        :param senders: list of node ids to wait for
         :param message_category: the message category to wait for
         :param message_id: optional message id to wait for
         :param timeout: time in seconds to wait for the message, if None waits indefinitely
         :return:
         """
-        return asyncio.run(
-            self._message_broker_api.await_and_return_responses(node_ids, message_category, message_id, timeout))
+        return asyncio.run(self._message_broker_api.await_messages(senders, message_category, message_id, timeout))
 
     def get_messages(self, status: Literal['unread', 'read'] = 'unread') -> list[Message]:
         """
@@ -257,17 +248,9 @@ class FlameCoreSDK:
         saves intermediate results/data either on the hub (location="global"), or locally
         :param location: the location to save the result, local saves in the node, global saves in central instance of MinIO
         :param data: the result to save
-        :return: the request status code
+        :return: the request status code{"status": ,"url":, "id": }
         """
         return self._storage_api.save_intermediate_data(location, data)
-
-    # def list_intermediate_data(self, location: Literal["local", "global"]) -> list[str]:
-    #     """
-    #     returns a list of all locally/globally saved intermediate data available
-    #     :param location: the location to list the result, local lists in the node, global lists in central instance of MinIO
-    #     :return: the list of results
-    #     """
-    #     return self._storage_api.list_intermediate_data(location)
 
     def get_intermediate_data(self, location: Literal["local", "global"], id: str) -> Any:
         """

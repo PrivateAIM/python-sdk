@@ -61,9 +61,11 @@ class MessageBrokerAPI:
 
         return acknowledged, not_acknowledged
 
-    async def await_and_return_responses(self, node_ids: list[str], message_category: str,
-                                         message_id: Optional[str] = None, timeout: Optional[int] = None) \
-            -> dict[str, Optional[list[Message]]]:
+    async def await_messages(self,
+                             node_ids: list[str],
+                             message_category: str,
+                             message_id: Optional[str] = None,
+                             timeout: Optional[int] = None) -> dict[str, Optional[list[Message]]]:
         """
         Wait for responses from the specified nodes
         :param node_ids: list of node ids to wait for
@@ -149,6 +151,6 @@ class MessageBrokerAPI:
             timeout = 1
 
         # Wait for the responses
-        responses = asyncio.run(self.await_and_return_responses(receivers, message_category, timeout=timeout))
+        responses = asyncio.run(self.await_messages(receivers, message_category, timeout=timeout))
         return responses
 

@@ -71,8 +71,8 @@ class StarModel:
 
                 while not self._converged():  # (**)
                     # Await number of responses reaching number of necessary nodes
-                    node_response_dict = self.flame.await_and_return_responses(node_ids=aggregator.partner_node_ids,
-                                                                               message_category='intermediate_results')
+                    node_response_dict = self.flame.await_messages(senders=aggregator.partner_node_ids,
+                                                                   message_category='intermediate_results')
 
                     print(f"Node responses: {node_response_dict}")
                     if all([v for v in list(node_response_dict.values())]):
@@ -150,9 +150,9 @@ class StarModel:
                     # If not converged read aggregated result over StorageAPI from Hub, loop back to (**)
                     if (not self._converged()) and (not converged):
                         # Check for aggregated results
-                        agg_res_id = self.flame.await_and_return_responses(node_ids=[aggregator_id],
-                                                                           message_category='aggregated_results',
-                                                                           timeout=300)[aggregator_id][-1].body['result']
+                        agg_res_id = self.flame.await_messages(senders=[aggregator_id],
+                                                               message_category='aggregated_results',
+                                                               timeout=300)[aggregator_id][-1].body['result']
                         aggregator_results = self.flame.get_intermediate_data(location='global', id=agg_res_id)
 
                 analyzer.node_finished()
