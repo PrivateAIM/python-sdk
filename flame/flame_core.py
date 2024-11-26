@@ -10,7 +10,7 @@ from flame.resources.client_apis.message_broker_api import MessageBrokerAPI, Mes
 from flame.resources.client_apis.storage_api import StorageAPI
 from flame.resources.node_config import NodeConfig
 from flame.resources.rest_api import FlameAPI
-from flame.resources.utils import wait_until_nginx_online
+from flame.resources.utils import wait_until_nginx_online, wait_until_partners_ready
 
 
 class FlameCoreSDK:
@@ -130,6 +130,47 @@ class FlameCoreSDK:
             self.send_message(self.get_participant_ids(), "analysis_finished", {}, timeout=None)
 
         return self._node_finished()
+
+    def ready_check(self,
+                    nodes: Optional[list[str]] = None,
+                    attempt_interval: int = 30,
+                    timeout: Optional[int] = None) -> dict[str, bool]:
+        """
+        Waits until specified partner nodes in a federated system are ready.
+
+        This function sends repeated "ready check" messages to the provided nodes via the `FlameCoreSDK`
+        and waits for acknowledgments indicating readiness. The function continues to retry at the
+        specified interval until all nodes respond or the timeout is reached.
+
+        Parameters:
+            flame (FlameCoreSDK): The SDK instance used to communicate with the nodes.
+            nodes (list[str]): A list of node identifiers to check for readiness.
+            attempt_interval (int, optional): The interval (in seconds) between successive attempts.
+                                              Defaults to 30 seconds.
+            timeout (int, optional): The maximum time (in seconds) to wait for all nodes to respond.
+                                     If `None`, the function waits indefinitely.
+
+        Returns:
+            dict[str, bool]: A dictionary mapping each node identifier to a boolean indicating whether
+                             the node responded before the timeout.
+
+        Raises:
+            ValueError: If the `nodes` list is empty.
+            FlameCoreSDKError: If there are issues communicating with the nodes.
+
+        Example:
+            ```python
+            flame = FlameCoreSDK()
+            nodes = get_participant_ids() # ["node1", "node2", "node3"]
+            result = wait_until_partners_ready(flame, nodes, attempt_interval=15, timeout=120)
+            print(result)  # {"node1": True, "node2": True, "node3": False}
+            ```
+        """
+        if nodes is None:
+            nodes = self.get_participant_ids()
+
+        return wait_until_partners_ready(self, nodes, attempt_interval, timeout)
+
 
     ########################################Message Broker Client####################################
     def send_message(self, receivers: list[str], message_category: str, message: dict, timeout: Optional[int] = None) \
@@ -264,7 +305,7 @@ class FlameCoreSDK:
     def get_s3_data(self, s3_keys: Optional[list[str]] = None) -> list[Union[dict[str, str], str]]:
         """
         Returns the data from the S3 store associated with the given key.
-        :param s3_keys:
+        :param s3_keys:f
         :return:
         """
         return self._data_api.get_s3_data(s3_keys)
