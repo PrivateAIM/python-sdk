@@ -1,7 +1,7 @@
 import asyncio
 from io import BytesIO
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, Union
 from threading import Thread
 from httpx import AsyncClient
 
@@ -76,7 +76,7 @@ class FlameCoreSDK:
         """
         return [participant['nodeId'] for participant in self._message_broker_api.participants]
 
-    def get_node_status(self, timeout: int = None) -> dict[str, Literal["online", "offline", "not_connected"]]:
+    def get_node_status(self, timeout: Optional[int] = None) -> dict[str, Literal["online", "offline", "not_connected"]]:
         """
         Returns the status of all nodes.
         :param timeout:  time in seconds to wait for the response, if None waits indefinitely
@@ -132,8 +132,8 @@ class FlameCoreSDK:
         return self._node_finished()
 
     ########################################Message Broker Client####################################
-    def send_message(self, receivers: list[str], message_category: str, message: dict, timeout: int = None) -> \
-            tuple[list[str], list[str]]:
+    def send_message(self, receivers: list[str], message_category: str, message: dict, timeout: Optional[int] = None) \
+            -> tuple[list[str], list[str]]:
         """
         Send a message to the specified nodes
         :param receivers: list of node ids to send the message to
@@ -145,7 +145,7 @@ class FlameCoreSDK:
         return asyncio.run(self._message_broker_api.send_message(receivers, message_category, message, timeout))
 
     def await_and_return_responses(self, node_ids: list[str], message_category: str, message_id: Optional[str] = None,
-                                   timeout: int = None) -> dict[str, Optional[list[Message]]]:
+                                   timeout: Optional[int] = None) -> dict[str, Optional[list[Message]]]:
         """
         Wait for responses from the specified nodes
         :param node_ids: list of node ids to wait for
@@ -157,13 +157,13 @@ class FlameCoreSDK:
         return asyncio.run(
             self._message_broker_api.await_and_return_responses(node_ids, message_category, message_id, timeout))
 
-    def get_messages(self) -> list[Message]:
+    def get_messages(self, status: Literal['unread', 'read'] = 'unread') -> list[Message]:
         """
         Get all messages that have been sent to the node
         :param status: the status of the messages to get
         :return:
         """
-        return self._message_broker_api.get_messages()
+        return self._message_broker_api.get_messages(status)
 
     def delete_messages(self, message_ids: list[str]) -> int:
         """
@@ -173,17 +173,20 @@ class FlameCoreSDK:
         """
         return self._message_broker_api.delete_messages_by_id(message_ids)
 
-    def clear_messages(self, status: Literal["read", "unread", "all"] = "read", time_limit: int = None) -> int:
+    def clear_messages(self, status: Literal["read", "unread", "all"] = "read",
+                       min_age: Optional[int] = None) -> int:
         """
-        Deletes all messages by status (default: read messages) and if they are older than the specified time_limit. It returns the number of deleted messages.
+        Deletes all messages by status (default: read messages) and if they are older than the specified min_age. It
+        returns the number of deleted messages.
         :param status: the status of the messages to clear
-        :param time_limit: is set, only the messages with the specified status that are older than the limit in seconds are deleted
+        :param min_age: is set, only the messages with the specified status that are older than the limit in seconds
+        are deleted
         :return: the number of messages cleared
         """
-        return self._message_broker_api.clear_messages(status, time_limit)
+        return self._message_broker_api.clear_messages(status, min_age)
 
     def send_message_and_wait_for_responses(self, receivers: list[str], message_category: str, message: dict,
-                                            timeout: int = None) -> dict:
+                                            timeout: Optional[int] = None) -> dict[str, Optional[list[Message]]]:
         """
         Sends a message to all specified nodes and waits for responses, (combines send_message and await_responses)
         :param receivers:  list of node ids to send the message to
@@ -250,7 +253,7 @@ class FlameCoreSDK:
         """
         return self._data_api.get_data_sources()
 
-    def get_fhir_data(self, fhir_queries: Optional[list[str]] = None) -> list[dict[str, dict]]:
+    def get_fhir_data(self, fhir_queries: Optional[list[str]] = None) -> list[Union[dict[str, dict], dict]]:
         """
         Returns the data from the FHIR store for each of the specified queries.
         :param fhir_queries: list of queries to get the data
@@ -258,7 +261,7 @@ class FlameCoreSDK:
         """
         return self._data_api.get_fhir_data(fhir_queries)
 
-    def get_s3_data(self, s3_keys: Optional[list[str]] = None) -> list[dict[str, str]]:
+    def get_s3_data(self, s3_keys: Optional[list[str]] = None) -> list[Union[dict[str, str], str]]:
         """
         Returns the data from the S3 store associated with the given key.
         :param s3_keys:

@@ -15,7 +15,7 @@ class MessageBrokerAPI:
                                                                                      self.config.analysis_id))
 
     async def send_message(self, receivers: list[str], message_category: str, message: dict,
-                           timeout: int = None) -> tuple[list[str], list[str]]:
+                           timeout: Optional[int] = None) -> tuple[list[str], list[str]]:
         """
         Send a message to the specified nodes
         :param receivers: list of node ids to send the message to
@@ -62,7 +62,7 @@ class MessageBrokerAPI:
         return acknowledged, not_acknowledged
 
     async def await_and_return_responses(self, node_ids: list[str], message_category: str,
-                                         message_id: Optional[str] = None, timeout: int = None) \
+                                         message_id: Optional[str] = None, timeout: Optional[int] = None) \
             -> dict[str, Optional[list[Message]]]:
         """
         Wait for responses from the specified nodes
@@ -95,13 +95,13 @@ class MessageBrokerAPI:
 
         return responses
 
-    def get_messages(self) -> list[Message]:
+    def get_messages(self, status: Literal['unread', 'read'] = 'unread') -> list[Message]:
         """
-        Get all messages that have been sent to the node and have not been read
+        Get all messages that have been sent to the node and have the specified un-/read status
         :return:
         """
         return [msg for msg in self.message_broker_client.list_of_incoming_messages
-                if msg.body["meta"]["status"] == "read"]
+                if msg.body["meta"]["status"] == status]
 
     def delete_messages_by_id(self, message_ids: list[str]) -> int:
         """
@@ -115,22 +115,23 @@ class MessageBrokerAPI:
             number_of_deleted_messages += self.message_broker_client.delete_message_by_id(message_id, type="outgoing")
         return number_of_deleted_messages
 
-    def clear_messages(self, status: Literal["read", "unread", "all"] = "read", time_limit: int = None) -> int:
+    def clear_messages(self, status: Literal["read", "unread", "all"] = "read",
+                       min_age: Optional[int] = None) -> int:
         """
-        Deletes all messages by status (default: read messages) and if they are older than the specified time_limit. It
+        Deletes all messages by status (default: read messages) and if they are older than the specified min_age. It
         returns the number of deleted messages.
         :param status: the status of the messages to clear
-        :param time_limit: is set, only the messages with the specified status that are older than the limit in seconds
+        :param min_age: is set, only the messages with the specified status that are older than the limit in seconds
         are deleted
         :return: the number of messages cleared
         """
         number_of_deleted_messages = 0
-        number_of_deleted_messages += self.message_broker_client.clear_messages(status, time_limit, type="incoming")
-        number_of_deleted_messages += self.message_broker_client.clear_messages(status, time_limit, type="outgoing")
+        number_of_deleted_messages += self.message_broker_client.clear_messages(status, min_age, type="incoming")
+        number_of_deleted_messages += self.message_broker_client.clear_messages(status, min_age, type="outgoing")
         return number_of_deleted_messages
 
     def send_message_and_wait_for_responses(self, receivers: list[str], message_category: str, message: dict,
-                                            timeout: int = None) -> dict:
+                                            timeout: Optional[int] = None) -> dict[str, Optional[list[Message]]]:
         """
         Sends a message to all specified nodes and waits for responses, (combines send_message and await_responses)
         :param receivers:  list of node ids to send the message to
@@ -148,7 +149,6 @@ class MessageBrokerAPI:
             timeout = 1
 
         # Wait for the responses
-        responses = asyncio.run(
-            self.await_and_return_responses(receivers, message_category, timeout=timeout))
+        responses = asyncio.run(self.await_and_return_responses(receivers, message_category, timeout=timeout))
         return responses
 

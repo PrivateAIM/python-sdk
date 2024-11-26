@@ -243,11 +243,11 @@ class MessageBrokerClient:
 
     def clear_messages(self,
                        status: Literal["read", "unread", "all"] = "read",
-                       time_limit: int = None,
+                       min_age: int = None,
                        type=Literal["outgoing", "incoming"]) -> int:
         """
         Clear the incoming messages list.
-        :param time_limit:
+        :param min_age:
         :param status: the status of the messages to clear
         :return:
         """
@@ -256,10 +256,10 @@ class MessageBrokerClient:
         if type == "incoming":
             for message in self.list_of_incoming_messages:
                 if message.body["meta"]["status"] == status:
-                    if time_limit is not None:
+                    if min_age is not None:
                         created_at = datetime.datetime.strptime(message.body["meta"]["created_at"],
                                                                 "%Y-%m-%d %H:%M:%S.%f")
-                        if (datetime.datetime.now() - created_at).seconds > time_limit:
+                        if (datetime.datetime.now() - created_at).seconds > min_age:
                             self.list_of_incoming_messages.remove(message)
                             number_of_deleted_messages += 1
                     else:
@@ -268,10 +268,10 @@ class MessageBrokerClient:
         if type == "outgoing":
             for message in self.list_of_outgoing_messages:
                 if message.body["meta"]["status"] == status:
-                    if time_limit is not None:
+                    if min_age is not None:
                         created_at = datetime.datetime.strptime(message.body["meta"]["created_at"],
                                                                 "%Y-%m-%d %H:%M:%S.%f")
-                        if (datetime.datetime.now() - created_at).seconds > time_limit:
+                        if (datetime.datetime.now() - created_at).seconds > min_age:
                             self.list_of_outgoing_messages.remove(message)
                             number_of_deleted_messages += 1
                     else:

@@ -27,7 +27,7 @@ class DataApiClient:
         return self.available_sources
 
     def get_data(self, s3_keys: Optional[list[str]] = None, fhir_queries: Optional[list[str]] = None) \
-            -> list[dict[str, Union[dict, str]]]:
+            -> list[Union[dict[str, Union[dict, str]], str]]:
         dataset_sources = []
         for source in self.available_sources:
             datasets = {}
