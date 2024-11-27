@@ -156,7 +156,7 @@ class StarModel:
                     if not converged:
                         # Analyze data
                         analyzer_res, converged = analyzer.analyze(data=data,
-                                                                   aggregator_results=list(agg_res.values()),
+                                                                   aggregator_results=agg_res,
                                                                    simple_analysis=simple_analysis)
                         # Send intermediate result to aggregator
                         self.flame.send_intermediate_data([aggregator_id], analyzer_res)
@@ -168,7 +168,7 @@ class StarModel:
 
                     # If not converged await aggregated result, loop back to (**)
                     if (not converged) and (not self._converged()):
-                        agg_res = self.flame.await_intermediate_data([aggregator_id])
+                        agg_res = list(self.flame.await_intermediate_data([aggregator_id]).values())
                         # # Check for aggregated results #TODO: Remove
                         # agg_res_id = self.flame.await_messages(senders=[aggregator_id],
                         #                                        message_category='aggregated_results',
