@@ -119,7 +119,11 @@ class FlameCoreSDK:
         :return:
         """
         if self.get_participant_ids():
-            self.send_message(self.get_participant_ids(), "analysis_finished", {}, timeout=None)
+            self.send_message(self.get_participant_ids(),
+                              "analysis_finished",
+                              {},
+                              max_attempts=5,
+                              attempt_timeout=30)
 
         return self._node_finished()
 
@@ -165,17 +169,29 @@ class FlameCoreSDK:
 
 
     ########################################Message Broker Client####################################
-    def send_message(self, receivers: list[str], message_category: str, message: dict, timeout: Optional[int] = None) \
-            -> tuple[list[str], list[str]]:
+    def send_message(self,
+                     receivers: list[str],
+                     message_category: str,
+                     message: dict,
+                     max_attempts: int = 1,
+                     timeout: Optional[int] = None,
+                     attempt_timeout: int = 10) -> tuple[list[str], list[str]]:
         """
         Send a message to the specified nodes
         :param receivers: list of node ids to send the message to
         :param message_category: a string that specifies the message category
         :param message: the message to send
+        :param max_attempts: the maximum number of attempts to send the message
         :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinitely
+        :param attempt_timeout: timeout of each attempt, if timeout is None (the last attempt will be indefinite though)
         :return: a tuple of nodes ids that acknowledged and not acknowledged the message
         """
-        return asyncio.run(self._message_broker_api.send_message(receivers, message_category, message, timeout))
+        return asyncio.run(self._message_broker_api.send_message(receivers,
+                                                                 message_category,
+                                                                 message,
+                                                                 max_attempts,
+                                                                 timeout,
+                                                                 attempt_timeout))
 
     def await_messages(self, senders: list[str], message_category: str, message_id: Optional[str] = None,
                                    timeout: Optional[int] = None) -> dict[str, Optional[list[Message]]]:
@@ -217,20 +233,29 @@ class FlameCoreSDK:
         """
         return self._message_broker_api.clear_messages(status, min_age)
 
-    def send_message_and_wait_for_responses(self, receivers: list[str], message_category: str, message: dict,
-                                            timeout: Optional[int] = None) -> dict[str, Optional[list[Message]]]:
+    def send_message_and_wait_for_responses(self,
+                                            receivers: list[str],
+                                            message_category: str,
+                                            message: dict,
+                                            max_attempts: int = 1,
+                                            timeout: Optional[int] = None,
+                                            attempt_timeout: int = 10) -> dict[str, Optional[list[Message]]]:
         """
         Sends a message to all specified nodes and waits for responses, (combines send_message and await_responses)
         :param receivers:  list of node ids to send the message to
         :param message_category: a string that specifies the message category,
-        :param message:  the message to send
+        :param message: the message to send
+        :param max_attempts: the maximum number of attempts to send the message
         :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinitely
+        :param attempt_timeout: timeout of each attempt, if timeout is None (the last attempt will be indefinite though)
         :return: the responses
         """
         return self._message_broker_api.send_message_and_wait_for_responses(receivers,
                                                                             message_category,
                                                                             message,
-                                                                            timeout)
+                                                                            max_attempts,
+                                                                            timeout,
+                                                                            attempt_timeout)
 
     ########################################Storage Client###########################################
     def submit_final_result(self, result: Any, output_type: Literal['str', 'bytes', 'pickle'] = 'str') -> dict[str, str]:
@@ -265,7 +290,9 @@ class FlameCoreSDK:
                                receivers: list[str],
                                data: Any,
                                message_category: str = "intermediate_data",
-                               timeout: Optional[int] = None) -> tuple[list[str], list[str]]:
+                               max_attempts: int = 1,
+                               timeout: Optional[int] = None,
+                               attempt_timeout: int = 10) -> tuple[list[str], list[str]]:
         """
         Sends intermediate data to specified receivers using the Result Service and Message Broker.
 
@@ -278,7 +305,9 @@ class FlameCoreSDK:
             data (Any): The intermediate data to be sent. This can be of any serializable type.
             message_category (str, optional): A string specifying the category of the message.
                                               Defaults to "intermediate_data".
-            timeout (int, optional): The time in seconds to wait for the message acknowledgement.
+            max_attempts (int): the maximum number of attempts to send the message
+            timeout (int, optional): time in seconds to wait for the message acknowledgement, if None waits indefinitely
+            attempt_timeout (int): timeout of each attempt, if timeout is None (the last attempt will be indefinite though)
 
         Returns:
             tuple[list[str], list[str]]:
@@ -297,12 +326,17 @@ class FlameCoreSDK:
             ```
         """
         result_id = self.save_intermediate_data("global", data)['id']
-        return self.send_message(receivers, message_category, {"result_id": result_id}, timeout=timeout)
+        return self.send_message(receivers,
+                                 message_category,
+                                 {"result_id": result_id},
+                                 max_attempts,
+                                 timeout,
+                                 attempt_timeout)
 
     def await_intermediate_data(self,
                                 senders: list[str],
                                 message_category: str = "intermediate_data",
-                                timeout: Optional[int] = None) -> dict[str, Any]:
+                                timeout: Optional[int] = None,) -> dict[str, Any]:
         """
            Waits for messages containing intermediate data from specified senders and retrieves the data.
 

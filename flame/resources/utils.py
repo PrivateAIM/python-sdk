@@ -31,9 +31,9 @@ def wait_until_partners_ready(flame: FlameCoreSDK,
     time_passed = (datetime.now() - start_time).seconds
     while (not all(received.values())) and ((timeout is None) or (time_passed < timeout)):
         acknowledged_list, _ = flame.send_message(receivers=nodes,
-                                                 message_category='ready_check',
-                                                 message={},
-                                                 timeout=attempt_interval)
+                                                  message_category='ready_check',
+                                                  message={},
+                                                  timeout=attempt_interval)
         for node in acknowledged_list:
             received[node] = True
             nodes.remove(node)

@@ -14,14 +14,27 @@ class MessageBrokerAPI:
         self.participants = asyncio.run(self.message_broker_client.get_partner_nodes(self.config.node_id,
                                                                                      self.config.analysis_id))
 
-    async def send_message(self, receivers: list[str], message_category: str, message: dict,
-                           timeout: Optional[int] = None) -> tuple[list[str], list[str]]:
+    async def send_message(self,
+                           receivers: list[str],
+                           message_category: str,
+                           message: dict,
+                           max_attempts: int = 1,
+                           timeout: Optional[int] = None,
+                           attempt_timeout: int = 10) -> tuple[list[str], list[str]]:
         """
-        Send a message to the specified nodes
+        Sends a message to specified nodes with support for multiple attempts and timeout handling.
+
+        This asynchronous method dispatches a message to a list of receiver node IDs. It attempts to send the message
+        up to `max_attempts` times if acknowledgments are not received within the specified `timeout`. The method
+        returns two lists: one containing the IDs of nodes that successfully acknowledged the message and another
+        with the IDs of nodes that did not acknowledge.
+
         :param receivers: list of node ids to send the message to
         :param message_category: a string that specifies the message category,
         :param message: the message to send
+        :param max_attempts: the maximum number of attempts to send the message
         :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinitely
+        :param attempt_timeout: timeout of each attempt, if timeout is None (the last attempt will be indefinite though)
         :return: a tuple of nodes ids that acknowledged and not acknowledged the message
         """
         # Create a message object
@@ -31,33 +44,47 @@ class MessageBrokerAPI:
                           config=self.config,
                           message_number=self.message_broker_client.message_number,
                           outgoing=True)
-
-        # Send the message
-        await self.message_broker_client.send_message(message)
-
-        # await the message acknowledgement
-        await_list = []
-
-        # Create a list of tasks to await the message acknowledgement
-        for receiver in receivers:
-            await_list.append(
-                asyncio.create_task(
-                    self.message_broker_client.await_message_acknowledgement(message, receiver)
-                )
-            )
-
-        # Run the tasks and wait for the message acknowledgement until the timeout or all messages are acknowledged
-        done, pending = await asyncio.wait(await_list, timeout=timeout, return_when=asyncio.ALL_COMPLETED)
-
-        # Check if the message was acknowledged
+        start_time = datetime.now()
         acknowledged = []
-        for task in done:
-            if task.result():
-                acknowledged.append(task.result())
+        not_acknowledged = receivers
 
-        # If the message was not acknowledged raise an error
-        # not_acknowledged = receivers - acknowledged
-        not_acknowledged = [receiver for receiver in receivers if receiver not in acknowledged]
+        for attempt in range(max_attempts):
+            if timeout is None:
+                attempt_timeout = attempt_timeout if attempt < (max_attempts - 1) else None
+            else:
+                attempt_timeout = timeout / max_attempts
+
+            message.recipients = not_acknowledged
+
+            # Send the message
+            await self.message_broker_client.send_message(message)
+
+            # await the message acknowledgement
+            await_list = []
+
+            # Create a list of tasks to await the message acknowledgement
+            for receiver in not_acknowledged:
+                await_list.append(
+                    asyncio.create_task(
+                        self.message_broker_client.await_message_acknowledgement(message, receiver)
+                    )
+                )
+
+            # Run the tasks and wait for the message acknowledgement until the timeout or all messages are acknowledged
+            done, pending = await asyncio.wait(await_list, timeout=attempt_timeout, return_when=asyncio.ALL_COMPLETED)
+
+            # Check if the message was acknowledged
+            for task in done:
+                if task.result():
+                    acknowledged.append(task.result())
+
+            # If the message was not acknowledged raise an error
+            # not_acknowledged = receivers - acknowledged
+            not_acknowledged = [receiver for receiver in receivers if receiver not in acknowledged]
+
+            time_passed = (datetime.now() - start_time).seconds
+            if (len(acknowledged) == len(receivers)) or ((timeout is not None) and (time_passed > timeout)):
+                break
 
         return acknowledged, not_acknowledged
 
@@ -128,24 +155,29 @@ class MessageBrokerAPI:
         :return: the number of messages cleared
         """
         number_of_deleted_messages = 0
-        number_of_deleted_messages += self.message_broker_client.clear_messages(status, min_age, type="incoming")
-        number_of_deleted_messages += self.message_broker_client.clear_messages(status, min_age, type="outgoing")
+        number_of_deleted_messages += self.message_broker_client.clear_messages("incoming", status, min_age)
+        number_of_deleted_messages += self.message_broker_client.clear_messages("outgoing", status, min_age)
         return number_of_deleted_messages
 
-    def send_message_and_wait_for_responses(self, receivers: list[str], message_category: str, message: dict,
-                                            timeout: Optional[int] = None) -> dict[str, Optional[list[Message]]]:
+    def send_message_and_wait_for_responses(self, receivers: list[str],
+                                            message_category: str,
+                                            message: dict,
+                                            max_attempts: int = 1,
+                                            timeout: Optional[int] = None,
+                                            attempt_timeout: int = 10) -> dict[str, Optional[list[Message]]]:
         """
         Sends a message to all specified nodes and waits for responses, (combines send_message and await_responses)
         :param receivers:  list of node ids to send the message to
         :param message_category: a string that specifies the message category,
         :param message:  the message to send
-        :param message_id: optional message id to wait for
-        :param timeout: time in seconds to wait for the message acknowledgement and response, if None waits indefinitely
+        :param max_attempts: the maximum number of attempts to send the message
+        :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinitely
+        :param attempt_timeout: timeout of each attempt, if timeout is None (the last attempt will be indefinite though)
         :return: the responses
         """
         time_start = datetime.now()
         # Send the message
-        asyncio.run(self.send_message(receivers, message_category, message, timeout))
+        asyncio.run(self.send_message(receivers, message_category, message, max_attempts, timeout, attempt_timeout))
         timeout = timeout - (datetime.now() - time_start).seconds
         if timeout < 0:
             timeout = 1
