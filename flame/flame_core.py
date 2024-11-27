@@ -1,5 +1,6 @@
 import asyncio
-from io import BytesIO
+import time
+from datetime import datetime
 
 from typing import Any, Literal, Optional, Union
 from threading import Thread
@@ -165,8 +166,24 @@ class FlameCoreSDK:
         if nodes == 'all':
             nodes = self.get_participant_ids()
 
-        return wait_until_partners_ready(self, nodes, attempt_interval, timeout)
+        received = {node: False for node in nodes}
 
+        start_time = datetime.now()
+
+        time_passed = (datetime.now() - start_time).seconds
+        while (not all(received.values())) and ((timeout is None) or (time_passed < timeout)):
+            acknowledged_list, _ = self.send_message(receivers=nodes,
+                                                     message_category='ready_check',
+                                                     message={},
+                                                     timeout=attempt_interval)
+            for node in acknowledged_list:
+                received[node] = True
+                nodes.remove(node)
+
+            time.sleep(1)
+            time_passed = (datetime.now() - start_time).seconds
+
+        return received
 
     ########################################Message Broker Client####################################
     def send_message(self,
