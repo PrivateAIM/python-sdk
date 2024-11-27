@@ -69,39 +69,57 @@ class StarModel:
                 # Ready Check
                 self._wait_until_partners_ready()
 
+                # Get analyzer ids
+                analyzers = aggregator.partner_node_ids
+
                 while not self._converged():  # (**)
-                    # Await number of responses reaching number of necessary nodes
-                    node_response_dict = self.flame.await_messages(senders=aggregator.partner_node_ids,
-                                                                   message_category='intermediate_results')
+                    # Await intermediate results
+                    result_dict = self.flame.await_intermediate_data(analyzers)
 
-                    print(f"Node responses: {node_response_dict}")
-                    if all([v for v in list(node_response_dict.values())]):
-                        intermediate_res_ids = [response[-1].body['result']
-                                                for response in list(node_response_dict.values())
-                                                if response is not None]
-                        print(f"Intermediate result ids received: {intermediate_res_ids}")
-                        node_results = [self.flame.get_intermediate_data(location='global', id=intermediate_res_id)
-                                        for intermediate_res_id in intermediate_res_ids]
-                        # Aggregate results
-                        aggregated_res, converged = aggregator.aggregate(node_results=node_results,
-                                                                         simple_analysis=simple_analysis)
-                        print(f"Aggregated results: {str(aggregated_res)[:100]}")
+                    # Aggregate results
+                    agg_res, converged = aggregator.aggregate(list(result_dict.values()), simple_analysis)
+                    print(f"Aggregated results: {str(agg_res)[:100]}")
 
-                        # If converged send aggregated result over StorageAPI to Hub
-                        if converged:
-                            print("Submitting final results...", end='')
-                            response = self.flame.submit_final_result(aggregated_res, output_type)
-                            print(f"success (response={response})")
-                            self.flame.analysis_finished()  # LOOP BREAK
-
-                        # Else send aggregated results to MinIO for analyzers, loop back to (**)
-                        else:
-                            submission_response = self.flame.save_intermediate_data("global", aggregated_res)
-
-                            # Send result to (global MinIO for) analyzers
-                            self.flame.send_message(receivers=aggregator.partner_node_ids,
-                                                    message_category='aggregated_results',
-                                                    message={'result': str(submission_response['id'])})
+                    if converged:
+                        print("Submitting final results...", end='')
+                        response = self.flame.submit_final_result(agg_res, output_type)
+                        print(f"success (response={response})")
+                        self.flame.analysis_finished()  # LOOP BREAK
+                    else:
+                        # Send aggregated result to analyzers
+                        self.flame.send_intermediate_data(analyzers, agg_res)
+                    # # Await number of responses reaching number of necessary nodes #TODO: Remove
+                    # node_response_dict = self.flame.await_messages(senders=aggregator.partner_node_ids,
+                    #                                                message_category='intermediate_results')
+                    #
+                    # print(f"Node responses: {node_response_dict}")
+                    # if all([v for v in list(node_response_dict.values())]):
+                    #     intermediate_res_ids = [response[-1].body['result']
+                    #                             for response in list(node_response_dict.values())
+                    #                             if response is not None]
+                    #     print(f"Intermediate result ids received: {intermediate_res_ids}")
+                    #     node_results = [self.flame.get_intermediate_data(location='global', id=intermediate_res_id)
+                    #                     for intermediate_res_id in intermediate_res_ids]
+                    #     # Aggregate results
+                    #     aggregated_res, converged = aggregator.aggregate(node_results=node_results,
+                    #                                                      simple_analysis=simple_analysis)
+                    #     print(f"Aggregated results: {str(aggregated_res)[:100]}")
+                    #
+                    #     # If converged send aggregated result over StorageAPI to Hub
+                    #     if converged:
+                    #         print("Submitting final results...", end='')
+                    #         response = self.flame.submit_final_result(aggregated_res, output_type)
+                    #         print(f"success (response={response})")
+                    #         self.flame.analysis_finished()  # LOOP BREAK
+                    #
+                    #     # Else send aggregated results to MinIO for analyzers, loop back to (**)
+                    #     else:
+                    #         submission_response = self.flame.save_intermediate_data("global", aggregated_res)
+                    #
+                    #         # Send result to (global MinIO for) analyzers
+                    #         self.flame.send_message(receivers=aggregator.partner_node_ids,
+                    #                                 message_category='aggregated_results',
+                    #                                 message={'result': str(submission_response['id'])})
                 aggregator.node_finished()
             else:
                 raise BrokenPipeError(_ERROR_MESSAGES.IS_INCORRECT_CLASS.value)
@@ -131,29 +149,31 @@ class StarModel:
                 data = self._get_data(query=query, data_type=data_type)
                 print(f"Data extracted: {str(data)[:100]}")
 
-                aggregator_results = None
+                agg_res = None
                 converged = False
                 # Check converged status on Hub
                 while not self._converged():  # (**)
                     if not converged:
                         # Analyze data
                         analyzer_res, converged = analyzer.analyze(data=data,
-                                                                   aggregator_results=aggregator_results,
+                                                                   aggregator_results=list(agg_res.values()),
                                                                    simple_analysis=simple_analysis)
+                        # Send intermediate result to aggregator
+                        self.flame.send_intermediate_data([aggregator_id], analyzer_res)
+                        # # Send result to (global MinIO for) aggregator #TODO: Remove
+                        # submission_response = self.flame.save_intermediate_data("global", analyzer_res)
+                        # self.flame.send_message(receivers=[aggregator_id],
+                        #                         message_category='intermediate_results',
+                        #                         message={'result': str(submission_response['id'])})
 
-                        # Send result to (global MinIO for) aggregator
-                        submission_response = self.flame.save_intermediate_data("global", analyzer_res)
-                        self.flame.send_message(receivers=[aggregator_id],
-                                                message_category='intermediate_results',
-                                                message={'result': str(submission_response['id'])})
-
-                    # If not converged read aggregated result over StorageAPI from Hub, loop back to (**)
-                    if (not self._converged()) and (not converged):
-                        # Check for aggregated results
-                        agg_res_id = self.flame.await_messages(senders=[aggregator_id],
-                                                               message_category='aggregated_results',
-                                                               timeout=300)[aggregator_id][-1].body['result']
-                        aggregator_results = self.flame.get_intermediate_data(location='global', id=agg_res_id)
+                    # If not converged await aggregated result, loop back to (**)
+                    if (not converged) and (not self._converged()):
+                        agg_res = self.flame.await_intermediate_data([aggregator_id])
+                        # # Check for aggregated results #TODO: Remove
+                        # agg_res_id = self.flame.await_messages(senders=[aggregator_id],
+                        #                                        message_category='aggregated_results',
+                        #                                        timeout=300)[aggregator_id][-1].body['result']
+                        # agg_res = self.flame.get_intermediate_data(location='global', id=agg_res_id)
 
                 analyzer.node_finished()
             else:
@@ -165,44 +185,18 @@ class StarModel:
         if self._is_analyzer():
             aggregator_id = self.flame.get_aggregator_id()
             print("Awaiting contact with aggregator node...")
-            received_list = []
-            while aggregator_id not in received_list:
-                time.sleep(1)
+            ready_check_dict =  self.flame.ready_check([aggregator_id])
 
-                received_list, _ = self.flame.send_message(receivers=[aggregator_id],
-                                                           message_category='ready_check',
-                                                           message={},
-                                                           timeout=120)
-                print(f"Aggregator ID: {aggregator_id}\n"
-                      f"Received List: {received_list}\n"
-                      f"ReadyCheck done: {aggregator_id in received_list}")
-            if aggregator_id not in received_list:
+            if not ready_check_dict[aggregator_id]:
                 raise BrokenPipeError("Could not contact aggregator")
 
             print("Awaiting contact with aggregator node...success")
         else:
             analyzer_ids = self.flame.get_participant_ids()
-            all_received_list = []
-            all_received_len = len(all_received_list)
-            while len(all_received_list) < len(analyzer_ids):
-                time.sleep(1)
-
-                if len(all_received_list) != all_received_len:
-                    print(f"Awaiting contact with analyzer nodes...({len(all_received_list)}/{len(analyzer_ids)})")
-                    all_received_len = len(all_received_list)
-
-                received_list, _ = self.flame.send_message(receivers=analyzer_ids,
-                                                           message_category='ready_check',
-                                                           message={},
-                                                           timeout=120)
-                for received in received_list:
-                    if received not in all_received_list:
-                        all_received_list.append(received)
-
-                print(f"Analyzer IDs: {analyzer_ids}\n"
-                      f"All received List: {all_received_list}\n"
-                      f"ReadyCheck done: {len(all_received_list) == len(analyzer_ids)}")
-
+            print("Awaiting contact with analyzer nodes...")
+            ready_check_dict = self.flame.ready_check(analyzer_ids)
+            if not all(ready_check_dict.values()):
+                raise BrokenPipeError("Could not contact all analyzers")
             print("Awaiting contact with analyzer nodes...success")
 
     def _get_data(self,

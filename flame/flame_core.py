@@ -336,7 +336,7 @@ class FlameCoreSDK:
     def await_intermediate_data(self,
                                 senders: list[str],
                                 message_category: str = "intermediate_data",
-                                timeout: Optional[int] = None,) -> dict[str, Any]:
+                                timeout: Optional[int] = None) -> dict[str, Any]:
         """
            Waits for messages containing intermediate data from specified senders and retrieves the data.
 

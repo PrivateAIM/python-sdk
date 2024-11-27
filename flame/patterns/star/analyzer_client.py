@@ -18,7 +18,7 @@ class Analyzer(Node):
         super().__init__(node_config.node_role, flame.get_participant_ids(), node_config.node_role)
 
     def analyze(self,
-                data: list[dict[str, Union[dict, str]]],
+                data: list[Any],
                 aggregator_results: Optional[str],
                 simple_analysis: bool = True) -> tuple[Any, bool]:
         result = self.analysis_method(data, aggregator_results)
@@ -29,7 +29,7 @@ class Analyzer(Node):
         return self.latest_result, simple_analysis
 
     @abstractmethod
-    def analysis_method(self, data: list[dict[str, Union[dict, str]]], aggregator_results: Optional[Any]) -> Any:
+    def analysis_method(self, data: list[Any], aggregator_results: Optional[Any]) -> Any:
         """
         This method will be used to analyze the data. It has to be overridden.
 
