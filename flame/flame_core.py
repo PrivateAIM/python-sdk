@@ -11,7 +11,7 @@ from flame.resources.client_apis.message_broker_api import MessageBrokerAPI, Mes
 from flame.resources.client_apis.storage_api import StorageAPI
 from flame.resources.node_config import NodeConfig
 from flame.resources.rest_api import FlameAPI
-from flame.resources.utils import wait_until_nginx_online, wait_until_partners_ready
+from flame.resources.utils import wait_until_nginx_online
 
 
 class FlameCoreSDK:
