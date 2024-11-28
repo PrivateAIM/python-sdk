@@ -1,6 +1,6 @@
 from io import BytesIO
 from typing import Any, Literal
-from httpx import AsyncClient, HTTPError
+from httpx import AsyncClient
 import pickle
 
 

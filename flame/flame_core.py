@@ -77,12 +77,14 @@ class FlameCoreSDK:
         """
         return [participant['nodeId'] for participant in self._message_broker_api.participants]
 
-    def get_node_status(self, timeout: Optional[int] = None) -> dict[str, Literal["online", "offline", "not_connected"]]:
+    def get_node_status(self,
+                        timeout: Optional[int] = None) -> dict[str, Literal["online", "offline", "not_connected"]]:
         """
         Returns the status of all nodes.
-        :param timeout:  time in seconds to wait for the response, if None waits indefinitely
+        :param timeout: time in seconds to wait for the response, if None waits indefinitely
         :return:
         """
+        #TODO: Remove this? (-> ready check)
 
     def get_analysis_id(self) -> str:
         """
@@ -107,12 +109,11 @@ class FlameCoreSDK:
 
     def get_role(self) -> str:
         """
-        get the role of the node. "aggregator" means that the node can submit final results using "submit_final_result",
-         else "default" (this may change with further permission settings).
+        Returns the role of the node. "aggregator" means that the node can submit final results using
+        "submit_final_result", else "default" (this may change with further permission settings).
         :return: the role of the node
         """
         return self.config.node_role
-
 
     def analysis_finished(self) -> bool:
         """
@@ -210,8 +211,11 @@ class FlameCoreSDK:
                                                                  timeout,
                                                                  attempt_timeout))
 
-    def await_messages(self, senders: list[str], message_category: str, message_id: Optional[str] = None,
-                                   timeout: Optional[int] = None) -> dict[str, Optional[list[Message]]]:
+    def await_messages(self,
+                       senders: list[str],
+                       message_category: str,
+                       message_id: Optional[str] = None,
+                       timeout: Optional[int] = None) -> dict[str, Optional[list[Message]]]:
         """
         Wait for responses from the specified nodes
         :param senders: list of node ids to wait for
@@ -259,7 +263,7 @@ class FlameCoreSDK:
                                             attempt_timeout: int = 10) -> dict[str, Optional[list[Message]]]:
         """
         Sends a message to all specified nodes and waits for responses, (combines send_message and await_responses)
-        :param receivers:  list of node ids to send the message to
+        :param receivers: list of node ids to send the message to
         :param message_category: a string that specifies the message category,
         :param message: the message to send
         :param max_attempts: the maximum number of attempts to send the message
@@ -355,7 +359,7 @@ class FlameCoreSDK:
                                 message_category: str = "intermediate_data",
                                 timeout: Optional[int] = None) -> dict[str, Any]:
         """
-           Waits for messages containing intermediate data from specified senders and retrieves the data.
+           Waits for messages containing intermediate data ids from specified senders and retrieves the data.
 
            This function listens for messages of a specified category from the provided senders. Once a
            message is received, it retrieves the intermediate data associated with the `result_id`
@@ -393,7 +397,6 @@ class FlameCoreSDK:
             if message_list:
                 data_dict[sender] = self.get_intermediate_data("global", message_list[-1].body['result_id'])
         return data_dict
-
 
     ########################################Data Client#######################################
     def get_data_client(self, data_id: str) -> AsyncClient:

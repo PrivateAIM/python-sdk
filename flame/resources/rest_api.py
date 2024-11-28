@@ -1,7 +1,5 @@
 import sys
-
 import uvicorn
-
 from typing import Any, Callable
 
 from fastapi import FastAPI, APIRouter, Request, Depends
@@ -62,7 +60,7 @@ class FlameAPI:
 
     def _finished(self) -> str:
         try:
-            print(f"finished: {self.finished}, {self.finished_check()}")
+            # print(f"finished:\n\tself:{self.finished},\n\tcheck:{self.finished_check()}")
             if self.finished:
                 return "finished"
             elif self.finished_check():

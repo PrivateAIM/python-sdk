@@ -1,8 +1,7 @@
 from abc import abstractmethod
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from flame import FlameCoreSDK
-
 from flame.patterns.star.node_base_client import Node
 
 
