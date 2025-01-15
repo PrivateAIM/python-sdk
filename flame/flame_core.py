@@ -289,23 +289,31 @@ class FlameCoreSDK:
         """
         return self._storage_api.submit_final_result(result, output_type)
 
-    def save_intermediate_data(self, location: Literal["local", "global"], data: Any) -> dict[str, str]:
+    def save_intermediate_data(self,
+                               data: Any,
+                               location: Literal["local", "global"],
+                               tag: Optional[str] = None) -> dict[str, str]:
         """
         saves intermediate results/data either on the hub (location="global"), or locally
-        :param location: the location to save the result, local saves in the node, global saves in central instance of MinIO
         :param data: the result to save
+        :param location: the location to save the result, local saves in the node, global saves in central instance of MinIO
+        :param tag: optional storage tag
         :return: the request status code{"status": ,"url":, "id": }
         """
-        return self._storage_api.save_intermediate_data(location, data)
+        return self._storage_api.save_intermediate_data(data, location, tag)
 
-    def get_intermediate_data(self, location: Literal["local", "global"], id: str) -> Any:
+    def get_intermediate_data(self,
+                              location: Literal["local", "global"],
+                              id: Optional[str] = None,
+                              tag: Optional[str] = None) -> Any:
         """
         returns the intermediate data with the specified id
         :param location: the location to get the result, local gets in the node, global gets in central instance of MinIO
         :param id: the id of the result to get
+        :param tag: optional storage tag of targeted local result
         :return: the result
         """
-        return self._storage_api.get_intermediate_data(location, id)
+        return self._storage_api.get_intermediate_data(location, id, tag)
 
     def send_intermediate_data(self,
                                receivers: list[str],
@@ -346,7 +354,7 @@ class FlameCoreSDK:
             print("Failed nodes:", failed)  # e.g., ["node3"]
             ```
         """
-        result_id = self.save_intermediate_data("global", data)['id']
+        result_id = self.save_intermediate_data(data, "global")['id']
         return self.send_message(receivers,
                                  message_category,
                                  {"result_id": result_id},
@@ -397,6 +405,14 @@ class FlameCoreSDK:
             if message_list:
                 data_dict[sender] = self.get_intermediate_data("global", message_list[-1].body['result_id'])
         return data_dict
+
+    def get_local_tags(self, filter: Optional[str] = None) -> list[str]:
+        """
+        returns the list of tags used to save local results
+        :param filter: filter tags by a substring
+        :return: the list of tags
+        """
+        return self._storage_api.get_local_tags(filter)
 
     ########################################Data Client#######################################
     def get_data_client(self, data_id: str) -> AsyncClient:
