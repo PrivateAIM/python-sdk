@@ -41,6 +41,7 @@ class ResultClient:
                                          data={"tag": tag},
                                          headers=[('Connection', 'close')])
 
+        print(response.text)
         response.raise_for_status()
         if type != "final":
             print(f"response push_results: {response.json()}")
