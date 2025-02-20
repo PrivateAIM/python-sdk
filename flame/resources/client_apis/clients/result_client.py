@@ -1,17 +1,17 @@
 from io import BytesIO
 from typing import Any, Literal, Optional
-from httpx import AsyncClient
+from httpx import Client
 import pickle
-
+import re
 
 class ResultClient:
 
     def __init__(self, nginx_name, keycloak_token) -> None:
-        self.client = AsyncClient(base_url=f"http://{nginx_name}/storage",
+        self.client = Client(base_url=f"http://{nginx_name}/storage",
                                   headers={"Authorization": f"Bearer {keycloak_token}"},
                                   follow_redirects=True)
 
-    async def push_result(self,
+    def push_result(self,
                           result: Any,
                           tag: Optional[str] = None,
                           type: Literal["final", "global", "local"] = "final",
@@ -29,6 +29,9 @@ class ResultClient:
             raise ValueError("Tag can only be used with local type, in current implementation")
         type = "intermediate" if type == "global" else type
 
+        if tag and not re.match(r'^[a-z0-9]{1,2}|[a-z0-9][a-z0-9-]{,30}[a-z0-9]+$', tag):
+            raise ValueError("Tag must consist only of lowercase letters, numbers, and hyphens")
+
         if (type == 'final') and (output_type == 'str'):
             file_body = str(result).encode('utf-8')
         elif (type == 'final') and (output_type == 'bytes'):
@@ -36,7 +39,7 @@ class ResultClient:
         else:
             file_body = pickle.dumps(result)
 
-        response = await self.client.put(f"/{type}/",
+        response =  self.client.put(f"/{type}/",
                                          files={"file": BytesIO(file_body)},
                                          data={"tag": tag},
                                          headers=[('Connection', 'close')])
@@ -52,7 +55,7 @@ class ResultClient:
                 "url": response.json()["url"],
                 "id":  response.json()["url"].split("/")[-1]}
 
-    async def get_intermediate_data(self,
+    def get_intermediate_data(self,
                                     id: Optional[str] = None,
                                     tag: Optional[str] = None,
                                     type: Literal["local", "global"] = "global") -> Any:
@@ -69,16 +72,20 @@ class ResultClient:
         if (id is None) and (tag is None):
             raise ValueError("Either id or tag should be provided")
 
+        if tag and not re.match(r'^[a-z0-9]{1,2}|[a-z0-9][a-z0-9-]{,30}[a-z0-9]+$', tag):
+            raise ValueError("Tag must consist only of lowercase letters, numbers, and hyphens")
+
+
         type = "intermediate" if type == "global" else type
         print(f"URL : /{type}/{f'tags/{tag}' if tag is not None else id}")
 
-        response = await self.client.get(f"/{type}/{f'tags/{tag}' if tag is not None else id}",
+        response = self.client.get(f"/{type}/{f'tags/{tag}' if tag is not None else id}",
                                          headers=[('Connection', 'close')])
         response.raise_for_status()
 
         return pickle.loads(BytesIO(response.content).read())
 
-    async def get_local_tags(self, filter: Optional[str] = None) -> list[str]:
+    def get_local_tags(self, filter: Optional[str] = None) -> list[str]:
         """
         Retrieves all project-specific files and their corresponding URLs.
 
@@ -110,7 +117,7 @@ class ResultClient:
         Raises:
             HTTPError: If the request to fetch tags fails.
         """
-        response = await self.client.get("/local/tags")
+        response = self.client.get("/local/tags")
         response.raise_for_status()
         tag_name_list = [tag["name"] for tag in response.json()["tags"]]
 

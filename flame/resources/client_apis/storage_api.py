@@ -19,7 +19,7 @@ class StorageAPI:
         :param output_type: output type of final results (default: string)
         :return: the request status code
         """
-        return asyncio.run(self.result_client.push_result(result, None,"final", output_type))
+        return self.result_client.push_result(result, None,"final", output_type)
 
     def save_intermediate_data(self,
                                data: Any,
@@ -32,7 +32,7 @@ class StorageAPI:
         :param tag: optional storage tag
         :return: the request status code
         """
-        return asyncio.run(self.result_client.push_result(data, tag=tag, type=location))
+        return self.result_client.push_result(data, tag=tag, type=location)
 
     def get_intermediate_data(self,
                               location: Literal["local", "global"],
@@ -53,4 +53,4 @@ class StorageAPI:
         :param filter: filter tags by a substring
         :return: the list of tags
         """
-        return asyncio.run(self.result_client.get_local_tags(filter))
+        return self.result_client.get_local_tags(filter)
