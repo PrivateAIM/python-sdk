@@ -82,6 +82,8 @@ class ResultClient:
         response = self.client.get(f"/{type}/{f'tags/{tag}' if tag is not None else id}",
                                          headers=[('Connection', 'close')])
         response.raise_for_status()
+        print("Response Content:", response.text)
+        print("Content-Type:", response.headers.get("Content-Type"))
 
         return pickle.loads(BytesIO(response.content).read())
 

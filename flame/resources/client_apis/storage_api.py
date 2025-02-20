@@ -45,7 +45,7 @@ class StorageAPI:
         :param tag: optional storage tag of targeted local result
         :return: the result
         """
-        return asyncio.run(self.result_client.get_intermediate_data(id, tag, type=location))
+        return self.result_client.get_intermediate_data(id, tag, type=location)
 
     def get_local_tags(self, filter: Optional[str] = None) -> list[str]:
         """
