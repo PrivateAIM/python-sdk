@@ -58,10 +58,12 @@ class ResultClient:
     def get_intermediate_data(self,
                                     id: Optional[str] = None,
                                     tag: Optional[str] = None,
-                                    type: Literal["local", "global"] = "global") -> Any:
+                                    type: Literal["local", "global"] = "global",
+                                    tag_option: Optional[Literal["all", "last","first"]]= "all") -> Any:
         """
         Returns the intermediate data with the specified id
 
+        :param tag_option: for a tag return the object for all files or the last or the first
         :param id: ID of the intermediate data
         :param tag: optional storage tag of targeted local result
         :param type: location to get the result, local gets in the node, global gets in central instance of MinIO
@@ -79,12 +81,42 @@ class ResultClient:
         type = "intermediate" if type == "global" else type
         print(f"URL : /{type}/{f'tags/{tag}' if tag is not None else id}")
 
-        response = self.client.get(f"/{type}/{f'tags/{tag}' if tag is not None else id}",
-                                         headers=[('Connection', 'close')])
-        response.raise_for_status()
-        print("Response Content:", response.text)
-        print("Content-Type:", response.headers.get("Content-Type"))
+        if tag:
+            urls = self._get_location_url_for_tag(tag)
+            if tag_option == "last":
+                urls = urls[-1:]
+            elif tag_option == "first":
+                urls = urls[:1]
+            data = []
+            for url in urls:
+                data.append(self._get_file(url))
+            return data
+        else:
+            return self._get_file(f"/{type}/{id}")
 
+
+    def _get_location_url_for_tag(self, tag: str) -> str:
+        """
+        Retrieves the URL associated with the specified tag.
+        :param tag:
+        :return:
+        """
+        response = self.client.get(f"/local/tags/{tag}")
+        response.raise_for_status()
+        urls = []
+        for item in response.json()["results"]:
+            item["url"] = item["url"].split("/local/")[1]
+            urls.append( "/local/" + item["url"])
+        return urls
+
+    def _get_file(self, url: str) -> Any:
+        """
+        Retrieves a file from the specified URL.
+        :param url:
+        :return:
+        """
+        response = self.client.get(url)
+        response.raise_for_status()
         return pickle.loads(BytesIO(response.content).read())
 
     def get_local_tags(self, filter: Optional[str] = None) -> list[str]:

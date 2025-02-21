@@ -305,7 +305,8 @@ class FlameCoreSDK:
     def get_intermediate_data(self,
                               location: Literal["local", "global"],
                               id: Optional[str] = None,
-                              tag: Optional[str] = None) -> Any:
+                              tag: Optional[str] = None,
+                              tag_option: Optional[Literal["all", "last","first"]]= "all") -> Any:
         """
         returns the intermediate data with the specified id
         :param location: the location to get the result, local gets in the node, global gets in central instance of MinIO
@@ -313,7 +314,7 @@ class FlameCoreSDK:
         :param tag: optional storage tag of targeted local result
         :return: the result
         """
-        return self._storage_api.get_intermediate_data(location, id, tag)
+        return self._storage_api.get_intermediate_data(location, id, tag, tag_option=tag_option)
 
     def send_intermediate_data(self,
                                receivers: list[str],

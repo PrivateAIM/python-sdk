@@ -37,7 +37,8 @@ class StorageAPI:
     def get_intermediate_data(self,
                               location: Literal["local", "global"],
                               id: Optional[str] = None,
-                              tag: Optional[str] = None) -> Any:
+                              tag: Optional[str] = None,
+                              tag_option: Optional[Literal["all", "last","first"]]= "all") -> Any:
         """
         returns the intermediate data with the specified id
         :param location: the location to get the result, local gets in the node, global gets in central instance of MinIO
@@ -45,7 +46,7 @@ class StorageAPI:
         :param tag: optional storage tag of targeted local result
         :return: the result
         """
-        return self.result_client.get_intermediate_data(id, tag, type=location)
+        return self.result_client.get_intermediate_data(id, tag, type=location, tag_option=tag_option)
 
     def get_local_tags(self, filter: Optional[str] = None) -> list[str]:
         """
