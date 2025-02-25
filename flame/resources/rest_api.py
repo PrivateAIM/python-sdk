@@ -1,4 +1,5 @@
 import sys
+import threading
 import uvicorn
 from typing import Any, Callable
 
@@ -59,6 +60,9 @@ class FlameAPI:
         uvicorn.run(app, host="0.0.0.0", port=8000)
 
     def _finished(self) -> str:
+        main_alive = threading.main_thread().is_alive()
+        if not main_alive and not self.finished_check():
+            return "failed"
         try:
             # print(f"finished:\n\tself:{self.finished},\n\tcheck:{self.finished_check()}")
             if self.finished:
