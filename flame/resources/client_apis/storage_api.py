@@ -19,31 +19,40 @@ class StorageAPI:
         :param output_type: output type of final results (default: string)
         :return: the request status code
         """
-        return self.result_client.push_result(result, None,"final", output_type)
+        return self.result_client.push_result(result, type="final", output_type=output_type)
 
     def save_intermediate_data(self,
                                data: Any,
                                location: Literal["global", "local"],
-                               tag: Optional[str] = None) -> dict[str, str]:
+                               remote_node_ids: Optional[list[str]] = None,
+                               tag: Optional[str] = None) -> dict[str, dict[str, str]] | dict[str, str]:
         """
         saves intermediate results/data either on the hub (location="global"), or locally
         :param data: the result to save
         :param location: the location to save the result, local saves in the node, global saves in central instance of MinIO
+        :param remote_node_ids: optional remote node ids (used for accessing remote node's public key for encryption)
         :param tag: optional storage tag
-        :return: the request status code
+        :return: list of the request status codes and url access and ids
         """
-        return self.result_client.push_result(data, tag=tag, type=location)
+        returns = {}
+        if remote_node_ids:
+            for remote_node_id in remote_node_ids:
+                returns[remote_node_id] = self.result_client.push_result(data, remote_node_id=remote_node_id, type=location)
+            return returns
+        else:
+            return self.result_client.push_result(data, tag=tag, type=location)
 
     def get_intermediate_data(self,
                               location: Literal["local", "global"],
                               id: Optional[str] = None,
                               tag: Optional[str] = None,
-                              tag_option: Optional[Literal["all", "last","first"]]= "all") -> Any:
+                              tag_option: Optional[Literal["all", "last","first"]] = "all") -> Any:
         """
         returns the intermediate data with the specified id
         :param location: the location to get the result, local gets in the node, global gets in central instance of MinIO
         :param id: the id of the result to get
         :param tag: optional storage tag of targeted local result
+        :param tag_option: return mode if multiple tagged data are found
         :return: the result
         """
         return self.result_client.get_intermediate_data(id, tag, type=location, tag_option=tag_option)

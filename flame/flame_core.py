@@ -292,15 +292,17 @@ class FlameCoreSDK:
     def save_intermediate_data(self,
                                data: Any,
                                location: Literal["local", "global"],
-                               tag: Optional[str] = None) -> dict[str, str]:
+                               remote_node_ids: Optional[list[str]] = None,
+                               tag: Optional[str] = None) -> dict[str, dict[str, str]] | dict[str, str]:
         """
         saves intermediate results/data either on the hub (location="global"), or locally
         :param data: the result to save
         :param location: the location to save the result, local saves in the node, global saves in central instance of MinIO
+        :param remote_node_ids: optional remote node ids (used for accessing remote node's public key for encryption)
         :param tag: optional storage tag
-        :return: the request status code{"status": ,"url":, "id": }
+        :return: the request status code{"status": ,"url":, "id": }, or dict of said dicts if encrypted mode is used, i.e. remote_node_ids are set
         """
-        return self._storage_api.save_intermediate_data(data, location, tag)
+        return self._storage_api.save_intermediate_data(data, location=location, remote_node_ids=remote_node_ids, tag=tag)
 
     def get_intermediate_data(self,
                               location: Literal["local", "global"],
@@ -312,6 +314,7 @@ class FlameCoreSDK:
         :param location: the location to get the result, local gets in the node, global gets in central instance of MinIO
         :param id: the id of the result to get
         :param tag: optional storage tag of targeted local result
+        :param tag_option: return mode if multiple tagged data are found
         :return: the result
         """
         return self._storage_api.get_intermediate_data(location, id, tag, tag_option=tag_option)
@@ -322,7 +325,8 @@ class FlameCoreSDK:
                                message_category: str = "intermediate_data",
                                max_attempts: int = 1,
                                timeout: Optional[int] = None,
-                               attempt_timeout: int = 10) -> tuple[list[str], list[str]]:
+                               attempt_timeout: int = 10,
+                               encrypted: bool = True) -> tuple[list[str], list[str]]:
         """
         Sends intermediate data to specified receivers using the Result Service and Message Broker.
 
@@ -338,6 +342,7 @@ class FlameCoreSDK:
             max_attempts (int): the maximum number of attempts to send the message
             timeout (int, optional): time in seconds to wait for the message acknowledgement, if None waits indefinitely
             attempt_timeout (int): timeout of each attempt, if timeout is None (the last attempt will be indefinite though)
+            encrypted (bool): bool whether data should be encrypted or not
 
         Returns:
             tuple[list[str], list[str]]:
@@ -355,10 +360,16 @@ class FlameCoreSDK:
             print("Failed nodes:", failed)  # e.g., ["node3"]
             ```
         """
-        result_id = self.save_intermediate_data(data, "global")['id']
+        if encrypted:
+            result_id_body = {k: v['id']
+                              for k, v in self.save_intermediate_data(data,
+                                                                      "global",
+                                                                      remote_node_ids=receivers).items()}
+        else:
+            result_id_body = self.save_intermediate_data(data, "global")['id']
         return self.send_message(receivers,
                                  message_category,
-                                 {"result_id": result_id},
+                                 {"result_id": result_id_body},
                                  max_attempts,
                                  timeout,
                                  attempt_timeout)
@@ -404,7 +415,10 @@ class FlameCoreSDK:
         message_dict = self.await_messages(senders, message_category, timeout=timeout)
         for sender, message_list in message_dict.items():
             if message_list:
-                data_dict[sender] = self.get_intermediate_data("global", message_list[-1].body['result_id'])
+                result_id_body = message_list[-1].body['result_id']
+                result_sent_is_encrypted = type(result_id_body) == dict
+                result_id_sent = result_id_body[self.config.node_id] if result_sent_is_encrypted else result_id_body
+                data_dict[sender] = self.get_intermediate_data("global", result_id_sent)
         return data_dict
 
     def get_local_tags(self, filter: Optional[str] = None) -> list[str]:

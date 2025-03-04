@@ -12,21 +12,26 @@ class ResultClient:
                                   follow_redirects=True)
 
     def push_result(self,
-                          result: Any,
-                          tag: Optional[str] = None,
-                          type: Literal["final", "global", "local"] = "final",
-                          output_type: Literal['str', 'bytes', 'pickle'] = 'pickle') -> dict[str, str]:
+                    result: Any,
+                    tag: Optional[str] = None,
+                    remote_node_id: Optional[str] = None,
+                    type: Literal["final", "global", "local"] = "final",
+                    output_type: Literal['str', 'bytes', 'pickle'] = 'pickle') -> dict[str, str]:
         """
         Pushes the result to the hub. Making it available for analysts to download.
 
         :param result: the Object to push
         :param tag: optional storage tag
+        :param remote_node_id: optional remote node id (used for accessing remote node's public key for encryption)
         :param type: location to save the result, final saves in the hub to be downloaded, global saves in central instance of MinIO, local saves in the node
         :param output_type: the type of the result, str, bytes or pickle only for final results
         :return:
         """
-        if tag and type != "local":
+        if tag and (type != "local"):
             raise ValueError("Tag can only be used with local type, in current implementation")
+        elif remote_node_id and (type != "global"):
+            raise ValueError("Remote_node_id can only be used with global type, in current implementation")
+
         type = "intermediate" if type == "global" else type
 
         if tag and not re.match(r'^[a-z0-9]{1,2}|[a-z0-9][a-z0-9-]{,30}[a-z0-9]+$', tag):
@@ -39,10 +44,16 @@ class ResultClient:
         else:
             file_body = pickle.dumps(result)
 
+        if remote_node_id:
+            data = {"remote_node_id": remote_node_id}
+        elif tag:
+            data = {"tag": tag}
+        else:
+            data = {}
         response =  self.client.put(f"/{type}/",
-                                         files={"file": BytesIO(file_body)},
-                                         data={"tag": tag},
-                                         headers=[('Connection', 'close')])
+                                    files={"file": BytesIO(file_body)},
+                                    data= data,
+                                    headers=[('Connection', 'close')])
 
         print(response.text)
         response.raise_for_status()
@@ -59,7 +70,7 @@ class ResultClient:
                                     id: Optional[str] = None,
                                     tag: Optional[str] = None,
                                     type: Literal["local", "global"] = "global",
-                                    tag_option: Optional[Literal["all", "last","first"]]= "all") -> Any:
+                                    tag_option: Optional[Literal["all", "last","first"]] = "all") -> Any:
         """
         Returns the intermediate data with the specified id
 
@@ -67,6 +78,7 @@ class ResultClient:
         :param id: ID of the intermediate data
         :param tag: optional storage tag of targeted local result
         :param type: location to get the result, local gets in the node, global gets in central instance of MinIO
+        :param tag_option: return mode if multiple tagged data are found
         :return:
         """
         if (tag is not None) and (type != "local"):
