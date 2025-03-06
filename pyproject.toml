@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "flame-sdk"
+name = "flamesdk"
 version = "0.1.0"
 description = ""
 authors = ["Alexander Röhl <alexander.roehl@uni-tuebingen.de>", "David Hieber <david.hieber@uni-tuebingen.de>"]
