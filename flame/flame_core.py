@@ -293,7 +293,7 @@ class FlameCoreSDK:
                                data: Any,
                                location: Literal["local", "global"],
                                remote_node_ids: Optional[list[str]] = None,
-                               tag: Optional[str] = None) -> dict[str, dict[str, str]] | dict[str, str]:
+                               tag: Optional[str] = None) -> Union[dict[str, dict[str, str]], dict[str, str]]:
         """
         saves intermediate results/data either on the hub (location="global"), or locally
         :param data: the result to save

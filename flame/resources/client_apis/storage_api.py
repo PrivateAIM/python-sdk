@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, Union
 
 from flame.resources.client_apis.clients.result_client import ResultClient
 from flame.resources.node_config import NodeConfig
@@ -25,7 +25,7 @@ class StorageAPI:
                                data: Any,
                                location: Literal["global", "local"],
                                remote_node_ids: Optional[list[str]] = None,
-                               tag: Optional[str] = None) -> dict[str, dict[str, str]] | dict[str, str]:
+                               tag: Optional[str] = None) -> Union[dict[str, dict[str, str]], dict[str, str]]:
         """
         saves intermediate results/data either on the hub (location="global"), or locally
         :param data: the result to save
