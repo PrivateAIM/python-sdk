@@ -7,7 +7,7 @@ from fastapi import FastAPI, APIRouter, Request, Depends
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from flame.resources.client_apis.clients.message_broker_client import MessageBrokerClient
+from flamesdk.resources.client_apis.clients.message_broker_client import MessageBrokerClient
 
 
 class FlameAPI:

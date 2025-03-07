@@ -1,8 +1,8 @@
 from httpx import AsyncClient
 from typing import Optional
 
-from flame.resources.client_apis.clients.data_api_client import DataApiClient
-from flame.resources.node_config import NodeConfig
+from flamesdk.resources.client_apis.clients.data_api_client import DataApiClient
+from flamesdk.resources.node_config import NodeConfig
 
 
 class DataAPI:

@@ -6,12 +6,12 @@ from typing import Any, Literal, Optional, Union
 from threading import Thread
 from httpx import AsyncClient
 
-from flame.resources.client_apis.data_api import DataAPI
-from flame.resources.client_apis.message_broker_api import MessageBrokerAPI, Message
-from flame.resources.client_apis.storage_api import StorageAPI
-from flame.resources.node_config import NodeConfig
-from flame.resources.rest_api import FlameAPI
-from flame.resources.utils import wait_until_nginx_online
+from flamesdk.resources.client_apis.data_api import DataAPI
+from flamesdk.resources.client_apis.message_broker_api import MessageBrokerAPI, Message
+from flamesdk.resources.client_apis.storage_api import StorageAPI
+from flamesdk.resources.node_config import NodeConfig
+from flamesdk.resources.rest_api import FlameAPI
+from flamesdk.resources.utils import wait_until_nginx_online
 
 
 class FlameCoreSDK:

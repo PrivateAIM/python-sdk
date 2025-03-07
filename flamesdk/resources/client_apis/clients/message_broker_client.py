@@ -5,7 +5,7 @@ import datetime
 from typing import Optional, Literal
 from httpx import AsyncClient, HTTPError
 
-from flame.resources.node_config import NodeConfig
+from flamesdk.resources.node_config import NodeConfig
 
 
 class Message:

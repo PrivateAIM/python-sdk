@@ -8,17 +8,19 @@ Every FLAME analysis starts by connecting itself to the other components of the 
 REST-API. All of this is done simply by instancing a FlameSDK object.
 
 ```python
-from flame import FlameSDK
+from flamesdk import FlameCoreSDK
+
 
 def main():
-    flame = FlameSDK()
+    flame = FlameCoreSDK()
     # Your code here
+
 
 if __name__ == "__main__":
     main()
-   
+
 ```
-During the creation of the FlameSDK object, the connection to the other components of the flame platform is established
+During the creation of the FlameCoreSDK object, the connection to the other components of the flame platform is established
 automatically.
 
 ## Message Broker Client

@@ -2,8 +2,8 @@ import asyncio
 from datetime import datetime
 from typing import Literal, Optional
 
-from flame.resources.node_config import NodeConfig
-from flame.resources.client_apis.clients.message_broker_client import MessageBrokerClient, Message
+from flamesdk.resources.node_config import NodeConfig
+from flamesdk.resources.client_apis.clients.message_broker_client import MessageBrokerClient, Message
 
 
 class MessageBrokerAPI:

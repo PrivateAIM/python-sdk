@@ -1,8 +1,8 @@
 import asyncio
 from typing import Any, Literal, Optional, Union
 
-from flame.resources.client_apis.clients.result_client import ResultClient
-from flame.resources.node_config import NodeConfig
+from flamesdk.resources.client_apis.clients.result_client import ResultClient
+from flamesdk.resources.node_config import NodeConfig
 
 
 class StorageAPI:
