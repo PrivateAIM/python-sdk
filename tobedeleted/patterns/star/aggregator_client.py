@@ -1,8 +1,8 @@
 from abc import abstractmethod
 from typing import Any, Optional
 
-from flame import FlameCoreSDK
-from flame.patterns.star.node_base_client import Node
+from flamesdk import FlameCoreSDK
+from flame.star.node_base_client import Node
 
 
 class Aggregator(Node):

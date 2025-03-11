@@ -1,4 +1,4 @@
-from flame import FlameCoreSDK
+from flamesdk import FlameCoreSDK
 import time
 
 

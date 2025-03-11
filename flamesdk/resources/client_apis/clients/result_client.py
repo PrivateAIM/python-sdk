@@ -4,12 +4,13 @@ from httpx import Client
 import pickle
 import re
 
+
 class ResultClient:
 
     def __init__(self, nginx_name, keycloak_token) -> None:
         self.client = Client(base_url=f"http://{nginx_name}/storage",
-                                  headers={"Authorization": f"Bearer {keycloak_token}"},
-                                  follow_redirects=True)
+                             headers={"Authorization": f"Bearer {keycloak_token}"},
+                             follow_redirects=True)
 
     def push_result(self,
                     result: Any,
@@ -50,10 +51,10 @@ class ResultClient:
             data = {"tag": tag}
         else:
             data = {}
-        response =  self.client.put(f"/{type}/",
-                                    files={"file": BytesIO(file_body)},
-                                    data= data,
-                                    headers=[('Connection', 'close')])
+        response = self.client.put(f"/{type}/",
+                                   files={"file": BytesIO(file_body)},
+                                   data=data,
+                                   headers=[('Connection', 'close')])
 
         print(response.text)
         response.raise_for_status()
@@ -67,10 +68,10 @@ class ResultClient:
                 "id":  response.json()["url"].split("/")[-1]}
 
     def get_intermediate_data(self,
-                                    id: Optional[str] = None,
-                                    tag: Optional[str] = None,
-                                    type: Literal["local", "global"] = "global",
-                                    tag_option: Optional[Literal["all", "last","first"]] = "all") -> Any:
+                              id: Optional[str] = None,
+                              tag: Optional[str] = None,
+                              type: Literal["local", "global"] = "global",
+                              tag_option: Optional[Literal["all", "last", "first"]] = "all") -> Any:
         """
         Returns the intermediate data with the specified id
 
@@ -89,7 +90,6 @@ class ResultClient:
         if tag and not re.match(r'^[a-z0-9]{1,2}|[a-z0-9][a-z0-9-]{,30}[a-z0-9]+$', tag):
             raise ValueError("Tag must consist only of lowercase letters, numbers, and hyphens")
 
-
         type = "intermediate" if type == "global" else type
         print(f"URL : /{type}/{f'tags/{tag}' if tag is not None else id}")
 
@@ -105,7 +105,6 @@ class ResultClient:
             return data
         else:
             return self._get_file(f"/{type}/{id}")
-
 
     def _get_location_url_for_tag(self, tag: str) -> str:
         """
