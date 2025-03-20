@@ -8,7 +8,13 @@ import re
 class ResultClient:
 
     def __init__(self, nginx_name, keycloak_token) -> None:
+        self.nginx_name = nginx_name
         self.client = Client(base_url=f"http://{nginx_name}/storage",
+                             headers={"Authorization": f"Bearer {keycloak_token}"},
+                             follow_redirects=True)
+
+    def refresh_token(self, keycloak_token: str):
+        self.client = Client(base_url=f"http://{self.nginx_name}/storage",
                              headers={"Authorization": f"Bearer {keycloak_token}"},
                              follow_redirects=True)
 

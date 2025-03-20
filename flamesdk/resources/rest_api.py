@@ -1,17 +1,26 @@
 import sys
 import threading
 import uvicorn
-from typing import Any, Callable
+from typing import Any, Callable, Union
 
 from fastapi import FastAPI, APIRouter, Request, Depends
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-
+from fastapi.exceptions import HTTPException
 from flamesdk.resources.client_apis.clients.message_broker_client import MessageBrokerClient
+from flamesdk.resources.client_apis.clients.data_api_client import DataApiClient
+from flamesdk.resources.client_apis.clients.result_client import ResultClient
+from flamesdk.resources.utils import extract_remaining_time_from_token
 
 
 class FlameAPI:
-    def __init__(self, message_broker: MessageBrokerClient, finished_check: Callable, finishing_call: Callable) -> None:
+    def __init__(self,
+                 message_broker: MessageBrokerClient,
+                 data_client: DataApiClient,
+                 result_client: ResultClient,
+                 keycloak_token: str,
+                 finished_check: Callable,
+                 finishing_call: Callable) -> None:
         app = FastAPI(title=f"FLAME node",
                       docs_url="/api/docs",
                       redoc_url="/api/redoc",
@@ -29,13 +38,35 @@ class FlameAPI:
         )
         router = APIRouter()
 
+        self.keycloak_token = keycloak_token
         self.finished = False
         self.finished_check = finished_check
         self.finishing_call = finishing_call
 
+        @router.post("/token_refresh", response_class=JSONResponse)
+        async def token_refresh(request: Request) -> JSONResponse:
+            try:
+                body = await request.json()
+                new_token = body.get("token")
+                if not new_token:
+                    raise HTTPException(status_code=400, detail="Token is required")
+
+                # refresh token in message-broker
+                message_broker.refresh_token(new_token)
+                # refresh token in data client
+                data_client.refresh_token(new_token)
+                # refresh token in result client
+                result_client.refresh_token(new_token)
+                # refresh token in self
+                self.keycloak_token = new_token
+                return JSONResponse(content={"message": "Token refreshed successfully"})
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+
         @router.get("/healthz", response_class=JSONResponse)
-        def health() -> dict[str, str]:
-            return {"status": self._finished()}
+        def health() -> dict[str, Union[str, int]]:
+            return {"status": self._finished(),
+                    "token_remaining_time": extract_remaining_time_from_token(self.keycloak_token)}
 
         async def get_body(request: Request) -> dict[str, Any]:
             return await request.json()
@@ -64,13 +95,12 @@ class FlameAPI:
         if not main_alive and not self.finished_check():
             return "failed"
         try:
-            # print(f"finished:\n\tself:{self.finished},\n\tcheck:{self.finished_check()}")
             if self.finished:
                 return "finished"
             elif self.finished_check():
                 self.finished = True
                 return "finished"
             else:
-                return "ongoing"
+                return "running"
         except AttributeError:
             sys.exit()

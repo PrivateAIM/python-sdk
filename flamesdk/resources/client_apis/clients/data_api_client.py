@@ -6,6 +6,7 @@ import re
 
 class DataApiClient:
     def __init__(self, project_id: str, nginx_name: str, data_source_token: str, keycloak_token: str) -> None:
+        self.nginx_name = nginx_name
         self.client = AsyncClient(base_url=f"http://{nginx_name}/kong",
                                   headers={"apikey": data_source_token,
                                            "Content-Type": "application/json"},
@@ -17,6 +18,12 @@ class DataApiClient:
 
         self.project_id = project_id
         self.available_sources = asyncio.run(self._retrieve_available_sources())
+
+    def refresh_token(self, keycloak_token: str):
+        self.hub_client = AsyncClient(base_url=f"http://{self.nginx_name}/hub-adapter",
+                                      headers={"Authorization": f"Bearer {keycloak_token}",
+                                               "accept": "application/json"},
+                                      follow_redirects=True)
 
     async def _retrieve_available_sources(self) -> list[dict[str, str]]:
         response = await self.hub_client.get(f"/kong/datastore/{self.project_id}")

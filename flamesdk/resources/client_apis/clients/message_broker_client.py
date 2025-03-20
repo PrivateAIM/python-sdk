@@ -106,6 +106,13 @@ class MessageBrokerClient:
         self.nodeConfig.set_role(message_node_info["nodeType"])
         self.nodeConfig.set_node_id(message_node_info["nodeId"])
 
+    def refresh_token(self, keycloak_token: str):
+        self._message_broker = AsyncClient(
+            base_url=f"http://{self.nodeConfig.nginx_name}/message-broker",
+            headers={"Authorization": f"Bearer {keycloak_token}", "Accept": "application/json"},
+            follow_redirects=True
+        )
+
     async def get_self_config(self, analysis_id: str) -> dict[str, str]:
         response = await self._message_broker.get(f'/analyses/{analysis_id}/participants/self',
                                                   headers=[('Connection', 'close')])
@@ -135,13 +142,18 @@ class MessageBrokerClient:
             f'/analyses/{os.getenv("ANALYSIS_ID")}/messages/subscriptions',
             json={'webhookUrl': f'http://{self.nodeConfig.nginx_name}/analysis/webhook'}
         )
-        # print(f"message broker connect response  {response}")
-        # print(f'/analyses/{os.getenv("ANALYSIS_ID")}/messages/subscriptions')
-        # print({'webhookUrl': f'http://nginx-{os.getenv("DEPLOYMENT_NAME")}/analysis/webhook'})
-
+        try:
+            response.raise_for_status()
+        except HTTPError as e:
+            print("Failed to subscribe to message broker")
+            print(e)
         response = await self._message_broker.get(f'/analyses/{os.getenv("ANALYSIS_ID")}/participants/self',
                                                   headers=[('Connection', 'close')])
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except HTTPError as e:
+            print("Successfully subscribed to message broker, but failed to retrieve participants")
+            print(e)
 
     async def send_message(self, message: Message):
         self.message_number += 1

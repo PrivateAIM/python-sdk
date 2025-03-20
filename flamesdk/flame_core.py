@@ -468,6 +468,9 @@ class FlameCoreSDK:
         :return:
         """
         self.flame_api = FlameAPI(self._message_broker_api.message_broker_client,
+                                  self._data_api.data_client,
+                                  self._storage_api.result_client,
+                                  self.config.keycloak_token,
                                   finished_check=self._has_finished,
                                   finishing_call=self._node_finished)
 
