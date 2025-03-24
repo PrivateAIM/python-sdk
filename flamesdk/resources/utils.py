@@ -1,7 +1,9 @@
 from httpx import AsyncClient, ConnectError
 import asyncio
 import time
-import jwt
+import re
+import base64
+import json
 
 def wait_until_nginx_online(nginx_name) -> None:
     print("\tConnecting to nginx...", end='')
@@ -18,9 +20,19 @@ def wait_until_nginx_online(nginx_name) -> None:
 
 
 def extract_remaining_time_from_token(token: str) -> int:
+    """
+    Extracts the remaining time until the expiration of the token.
+    :param token:
+    :return: int in seconds until the expiration of the token
+    """
     try:
-        # Decode the token without verifying the signature
-        payload = jwt.decode(token, options={"verify_signature": False})
+        token = token.split(".")[1]
+        missing_padding = len(token) % 4
+        if missing_padding != 0:
+            token += "=" * (4 - missing_padding)
+        payload = base64.b64decode(token).decode("utf-8")
+        payload = json.loads(payload)
+        print(payload)
         exp_time = payload.get("exp")
         if exp_time is None:
             raise ValueError("Token does not contain expiration ('exp') claim.")
@@ -31,3 +43,7 @@ def extract_remaining_time_from_token(token: str) -> int:
         return remaining_time if remaining_time > 0 else 0
     except Exception as e:
         raise ValueError(f"Invalid token: {str(e)}")
+
+def flame_log(msg: str, sep: str = ' ', end: str = '\n', file = None, flush: bool = False) -> None:
+    msg_cleaned = re.sub(r'[^\x00-\x7f]', '?', msg)
+    print(f"[flame {time.time()}] {msg_cleaned}", sep=sep, end=end, file=file, flush=flush)
