@@ -156,7 +156,7 @@ class MessageBrokerClient:
             flame_log("Successfully subscribed to message broker, but failed to retrieve participants", silent)
             flame_log(e, silent)
 
-    async def send_message(self, message: Message):
+    async def send_message(self, message: Message, silent: bool = False) -> None:
         self.message_number += 1
         body = {
             "recipients": message.recipients,
