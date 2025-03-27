@@ -5,7 +5,8 @@ import re
 import base64
 import json
 
-def wait_until_nginx_online(nginx_name) -> None:
+
+def wait_until_nginx_online(nginx_name: str) -> None:
     print("\tConnecting to nginx...", end='')
     nginx_is_online = False
     while not nginx_is_online:

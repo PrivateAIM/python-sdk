@@ -123,7 +123,7 @@ class ResultClient:
         urls = []
         for item in response.json()["results"]:
             item["url"] = item["url"].split("/local/")[1]
-            urls.append( "/local/" + item["url"])
+            urls.append("/local/" + item["url"])
         return urls
 
     def _get_file(self, url: str) -> Any:

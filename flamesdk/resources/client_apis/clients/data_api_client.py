@@ -51,7 +51,7 @@ class DataApiClient:
                         response = asyncio.run(self.client.get(f"{source['name']}/s3/{res_name}",
                                                                headers=[('Connection', 'close')]))
                         response.raise_for_status()
-                        datasets[res_name] = response.text
+                        datasets[res_name] = response.content
             dataset_sources.append(datasets)
         return dataset_sources
 
