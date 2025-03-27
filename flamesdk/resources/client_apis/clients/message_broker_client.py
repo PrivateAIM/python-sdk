@@ -99,7 +99,7 @@ class MessageBrokerClient:
             headers={"Authorization": f"Bearer {config.keycloak_token}", "Accept": "application/json"},
             follow_redirects=True
         )
-        asyncio.run(self._connect(), silent=silent)
+        asyncio.run(self._connect(silent=silent))
         self.list_of_incoming_messages: list[Message] = []
         self.list_of_outgoing_messages: list[Message] = []
         self.message_number = 0
