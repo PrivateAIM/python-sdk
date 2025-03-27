@@ -6,6 +6,7 @@ from typing import Optional, Literal
 from httpx import AsyncClient, HTTPError
 
 from flamesdk.resources.node_config import NodeConfig
+from flamesdk.resources.utils import flame_log
 
 
 class Message:
@@ -91,14 +92,14 @@ class Message:
 
 
 class MessageBrokerClient:
-    def __init__(self, config: NodeConfig) -> None:
+    def __init__(self, config: NodeConfig, silent: bool = False) -> None:
         self.nodeConfig = config
         self._message_broker = AsyncClient(
             base_url=f"http://{self.nodeConfig.nginx_name}/message-broker",
             headers={"Authorization": f"Bearer {config.keycloak_token}", "Accept": "application/json"},
             follow_redirects=True
         )
-        asyncio.run(self._connect())
+        asyncio.run(self._connect(), silent=silent)
         self.list_of_incoming_messages: list[Message] = []
         self.list_of_outgoing_messages: list[Message] = []
         self.message_number = 0
@@ -137,7 +138,7 @@ class MessageBrokerClient:
         except HTTPError:
             return False
 
-    async def _connect(self) -> None:
+    async def _connect(self, silent: bool = False) -> None:
         response = await self._message_broker.post(
             f'/analyses/{os.getenv("ANALYSIS_ID")}/messages/subscriptions',
             json={'webhookUrl': f'http://{self.nodeConfig.nginx_name}/analysis/webhook'}
@@ -145,15 +146,15 @@ class MessageBrokerClient:
         try:
             response.raise_for_status()
         except HTTPError as e:
-            print("Failed to subscribe to message broker")
-            print(e)
+            flame_log("Failed to subscribe to message broker", silent)
+            flame_log(e, silent)
         response = await self._message_broker.get(f'/analyses/{os.getenv("ANALYSIS_ID")}/participants/self',
                                                   headers=[('Connection', 'close')])
         try:
             response.raise_for_status()
         except HTTPError as e:
-            print("Successfully subscribed to message broker, but failed to retrieve participants")
-            print(e)
+            flame_log("Successfully subscribed to message broker, but failed to retrieve participants", silent)
+            flame_log(e, silent)
 
     async def send_message(self, message: Message):
         self.message_number += 1
@@ -167,17 +168,18 @@ class MessageBrokerClient:
                                             headers=[('Connection', 'close'),
                                                      ("Content-Type", "application/json")])
         if message.body["meta"]["sender"] == self.nodeConfig.node_id:
-            print(f"send message: {body}")
+            flame_log(f"send message: {body}", silent)
 
         self.list_of_outgoing_messages.append(message)
 
-    def receive_message(self, body: dict) -> None:
+    def receive_message(self, body: dict, silent: bool = False) -> None:
         needs_acknowledgment = body["meta"]["akn_id"] is None
         message = Message(message=body, config=self.nodeConfig, outgoing=False)
         self.list_of_incoming_messages.append(message)
 
         if needs_acknowledgment:
-            print("acknowledging ready check" if body["meta"]["category"] == "ready_check" else "incoming message")
+            flame_log("acknowledging ready check" if body["meta"]["category"] == "ready_check" else "incoming message",
+                      silent)
             asyncio.run(self.acknowledge_message(message))
 
     def delete_message_by_id(self, message_id: str, type: Literal["outgoing", "incoming"]) -> int:

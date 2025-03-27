@@ -3,13 +3,11 @@ import time
 
 
 def main():
-    print("Starting Flame")
     flame = FlameCoreSDK()
     while True:
-        print("alive")
+        flame.flame_log("alive")
         time.sleep(1)
 
 
 if __name__ == "__main__":
-    print("main")
     main()

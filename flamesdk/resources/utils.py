@@ -1,13 +1,14 @@
+import string
+from typing import Union
 from httpx import AsyncClient, ConnectError
 import asyncio
 import time
-import re
 import base64
 import json
 
 
-def wait_until_nginx_online(nginx_name: str) -> None:
-    print("\tConnecting to nginx...", end='')
+def wait_until_nginx_online(nginx_name: str, silent: bool) -> None:
+    flame_log("\tConnecting to nginx...", silent, end='')
     nginx_is_online = False
     while not nginx_is_online:
         try:
@@ -17,7 +18,7 @@ def wait_until_nginx_online(nginx_name: str) -> None:
             nginx_is_online = True
         except ConnectError:
             time.sleep(1)
-    print("success")
+    flame_log("success", silent, suppress_head=True)
 
 
 def extract_remaining_time_from_token(token: str) -> int:
@@ -45,6 +46,27 @@ def extract_remaining_time_from_token(token: str) -> int:
     except Exception as e:
         raise ValueError(f"Invalid token: {str(e)}")
 
-def flame_log(msg: str, sep: str = ' ', end: str = '\n', file = None, flush: bool = False) -> None:
-    msg_cleaned = re.sub(r'[^\x00-\x7f]', '?', msg)
-    print(f"[flame {time.time()}] {msg_cleaned}", sep=sep, end=end, file=file, flush=flush)
+def flame_log(msg: Union[str, bytes],
+              silent: bool,
+              sep: str = ' ',
+              end: str = '\n',
+              file = None,
+              flush: bool = False,
+              suppress_head: bool = False) -> None:
+    """
+    Print logs to console, if silent is set to False.
+    :param msg:
+    :param silent:
+    :param sep:
+    :param end:
+    :param file:
+    :param flush:
+    :param suppress_head:
+    :return:
+    """
+    if not silent:
+        if isinstance(msg, bytes):
+            msg = msg.decode('utf-8', errors='replace')
+        msg_cleaned = ''.join(filter(lambda x: x in string.printable, msg))
+        head = f"[flame {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}] " if not suppress_head else ""
+        print(f"{head}{msg_cleaned}", sep=sep, end=end, file=file, flush=flush)

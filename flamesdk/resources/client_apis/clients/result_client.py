@@ -4,6 +4,8 @@ from httpx import Client
 import pickle
 import re
 
+from flamesdk.resources.utils import flame_log
+
 
 class ResultClient:
 
@@ -23,7 +25,8 @@ class ResultClient:
                     tag: Optional[str] = None,
                     remote_node_id: Optional[str] = None,
                     type: Literal["final", "global", "local"] = "final",
-                    output_type: Literal['str', 'bytes', 'pickle'] = 'pickle') -> dict[str, str]:
+                    output_type: Literal['str', 'bytes', 'pickle'] = 'pickle',
+                    silent: bool = False) -> dict[str, str]:
         """
         Pushes the result to the hub. Making it available for analysts to download.
 
@@ -32,6 +35,7 @@ class ResultClient:
         :param remote_node_id: optional remote node id (used for accessing remote node's public key for encryption)
         :param type: location to save the result, final saves in the hub to be downloaded, global saves in central instance of MinIO, local saves in the node
         :param output_type: the type of the result, str, bytes or pickle only for final results
+        :param silent: if True, the response will not be logged
         :return:
         """
         if tag and (type != "local"):
@@ -61,11 +65,9 @@ class ResultClient:
                                    files={"file": BytesIO(file_body)},
                                    data=data,
                                    headers=[('Connection', 'close')])
-
-        print(response.text)
         response.raise_for_status()
         if type != "final":
-            print(f"response push_results: {response.json()}")
+            flame_log(f"response push_results: {response.json()}", silent)
         else:
             return {"status": "success"}
 
@@ -97,7 +99,6 @@ class ResultClient:
             raise ValueError("Tag must consist only of lowercase letters, numbers, and hyphens")
 
         type = "intermediate" if type == "global" else type
-        print(f"URL : /{type}/{f'tags/{tag}' if tag is not None else id}")
 
         if tag:
             urls = self._get_location_url_for_tag(tag)

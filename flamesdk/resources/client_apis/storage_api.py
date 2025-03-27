@@ -10,36 +10,43 @@ class StorageAPI:
 
     def submit_final_result(self,
                             result: Any,
-                            output_type: Literal['str', 'bytes', 'pickle'] = 'str') -> dict[str, str]:
+                            output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                            silent: bool = False) -> dict[str, str]:
         """
         sends the final result to the hub. Making it available for analysts to download.
         This method is only available for nodes for which the method `get_role(self)` returns "aggregator”.
         :param result: the final result
         :param output_type: output type of final results (default: string)
+        :param silent: if True, the response will not be logged
         :return: the request status code
         """
-        return self.result_client.push_result(result, type="final", output_type=output_type)
+        return self.result_client.push_result(result, type="final", output_type=output_type, silent=silent)
 
     def save_intermediate_data(self,
                                data: Any,
                                location: Literal["global", "local"],
                                remote_node_ids: Optional[list[str]] = None,
-                               tag: Optional[str] = None) -> Union[dict[str, dict[str, str]], dict[str, str]]:
+                               tag: Optional[str] = None,
+                               silent: bool = False) -> Union[dict[str, dict[str, str]], dict[str, str]]:
         """
         saves intermediate results/data either on the hub (location="global"), or locally
         :param data: the result to save
         :param location: the location to save the result, local saves in the node, global saves in central instance of MinIO
         :param remote_node_ids: optional remote node ids (used for accessing remote node's public key for encryption)
         :param tag: optional storage tag
+        :param silent: if True, the response will not be logged
         :return: list of the request status codes and url access and ids
         """
         returns = {}
         if remote_node_ids:
             for remote_node_id in remote_node_ids:
-                returns[remote_node_id] = self.result_client.push_result(data, remote_node_id=remote_node_id, type=location)
+                returns[remote_node_id] = self.result_client.push_result(data,
+                                                                         remote_node_id=remote_node_id,
+                                                                         type=location,
+                                                                         silent=silent)
             return returns
         else:
-            return self.result_client.push_result(data, tag=tag, type=location)
+            return self.result_client.push_result(data, tag=tag, type=location, silent=silent)
 
     def get_intermediate_data(self,
                               location: Literal["local", "global"],

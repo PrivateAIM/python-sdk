@@ -7,8 +7,8 @@ from flamesdk.resources.client_apis.clients.message_broker_client import Message
 
 
 class MessageBrokerAPI:
-    def __init__(self, config: NodeConfig):
-        self.message_broker_client = MessageBrokerClient(config)
+    def __init__(self, config: NodeConfig, silent: bool = False):
+        self.message_broker_client = MessageBrokerClient(config, silent)
         self.config = self.message_broker_client.nodeConfig
         self.participants = asyncio.run(self.message_broker_client.get_partner_nodes(self.config.node_id,
                                                                                      self.config.analysis_id))
@@ -19,7 +19,8 @@ class MessageBrokerAPI:
                            message: dict,
                            max_attempts: int = 1,
                            timeout: Optional[int] = None,
-                           attempt_timeout: int = 10) -> tuple[list[str], list[str]]:
+                           attempt_timeout: int = 10,
+                           silent: bool = False) -> tuple[list[str], list[str]]:
         """
         Sends a message to specified nodes with support for multiple attempts and timeout handling.
 
@@ -34,6 +35,7 @@ class MessageBrokerAPI:
         :param max_attempts: the maximum number of attempts to send the message
         :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinitely
         :param attempt_timeout: timeout of each attempt, if timeout is None (the last attempt will be indefinite though)
+        :param silent: if True, the response will not be logged
         :return: a tuple of nodes ids that acknowledged and not acknowledged the message
         """
         # Create a message object
@@ -56,7 +58,7 @@ class MessageBrokerAPI:
             message.recipients = not_acknowledged
 
             # Send the message
-            await self.message_broker_client.send_message(message)
+            await self.message_broker_client.send_message(message, silent)
 
             # await the message acknowledgement
             await_list = []
@@ -91,13 +93,15 @@ class MessageBrokerAPI:
                              node_ids: list[str],
                              message_category: str,
                              message_id: Optional[str] = None,
-                             timeout: Optional[int] = None) -> dict[str, Optional[list[Message]]]:
+                             timeout: Optional[int] = None,
+                             silent: bool = False) -> dict[str, Optional[list[Message]]]:
         """
         Wait for responses from the specified nodes
         :param node_ids: list of node ids to wait for
         :param message_category: the message category to wait for
         :param message_id: optional message id to wait for
         :param timeout: time in seconds to wait for the message, if None waits indefinitely
+        :param silent: if True, the response will not be logged
         :return:
         """
         await_list = []
@@ -163,7 +167,8 @@ class MessageBrokerAPI:
                                             message: dict,
                                             max_attempts: int = 1,
                                             timeout: Optional[int] = None,
-                                            attempt_timeout: int = 10) -> dict[str, Optional[list[Message]]]:
+                                            attempt_timeout: int = 10,
+                                            silent: bool = False) -> dict[str, Optional[list[Message]]]:
         """
         Sends a message to all specified nodes and waits for responses, (combines send_message and await_responses)
         :param receivers:  list of node ids to send the message to
@@ -172,11 +177,18 @@ class MessageBrokerAPI:
         :param max_attempts: the maximum number of attempts to send the message
         :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinitely
         :param attempt_timeout: timeout of each attempt, if timeout is None (the last attempt will be indefinite though)
+        :param silent: if True, the response will not be logged
         :return: the responses
         """
         time_start = datetime.now()
         # Send the message
-        asyncio.run(self.send_message(receivers, message_category, message, max_attempts, timeout, attempt_timeout))
+        asyncio.run(self.send_message(receivers,
+                                      message_category,
+                                      message,
+                                      max_attempts,
+                                      timeout,
+                                      attempt_timeout,
+                                      silent))
         timeout = timeout - (datetime.now() - time_start).seconds
         if timeout < 0:
             timeout = 1

@@ -10,7 +10,7 @@ from fastapi.exceptions import HTTPException
 from flamesdk.resources.client_apis.clients.message_broker_client import MessageBrokerClient
 from flamesdk.resources.client_apis.clients.data_api_client import DataApiClient
 from flamesdk.resources.client_apis.clients.result_client import ResultClient
-from flamesdk.resources.utils import extract_remaining_time_from_token
+from flamesdk.resources.utils import extract_remaining_time_from_token, flame_log
 
 
 class FlameAPI:
@@ -19,6 +19,7 @@ class FlameAPI:
                  data_client: DataApiClient,
                  result_client: ResultClient,
                  keycloak_token: str,
+                 silent: bool,
                  finished_check: Callable,
                  finishing_call: Callable) -> None:
         app = FastAPI(title=f"FLAME node",
@@ -74,9 +75,9 @@ class FlameAPI:
         @router.post("/webhook", response_class=JSONResponse)
         def get_message(msg: dict = Depends(get_body)) -> None:
             if msg['meta']['sender'] != message_broker.nodeConfig.node_id:
-                print(f"received message webhook: {msg}")
+                flame_log(f"received message webhook: {msg}", silent)
 
-            message_broker.receive_message(msg)
+            message_broker.receive_message(msg, silent)
 
             # check message category for finished
             if msg['meta']['category'] == "analysis_finished":

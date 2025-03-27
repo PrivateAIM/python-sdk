@@ -11,46 +11,47 @@ from flamesdk.resources.client_apis.message_broker_api import MessageBrokerAPI, 
 from flamesdk.resources.client_apis.storage_api import StorageAPI
 from flamesdk.resources.node_config import NodeConfig
 from flamesdk.resources.rest_api import FlameAPI
-from flamesdk.resources.utils import wait_until_nginx_online
+from flamesdk.resources.utils import wait_until_nginx_online, flame_log
 
 
 class FlameCoreSDK:
 
-    def __init__(self):
-        print("Starting FlameCoreSDK")
+    def __init__(self, silent: bool = False):
+        self.silent = silent
+        self.flame_log("Starting FlameCoreSDK", self.silent)
 
-        print("\tExtracting node config")
+        self.flame_log("\tExtracting node config", self.silent)
         # Extract node config
         self.config = NodeConfig()
 
         # Wait until nginx is online
-        wait_until_nginx_online(self.config.nginx_name)
+        wait_until_nginx_online(self.config.nginx_name, self.silent)
 
         # Set up the connection to all the services needed
         ## Connect to message broker
-        print("\tConnecting to MessageBroker...", end='')
+        self.flame_log("\tConnecting to MessageBroker...", self.silent, end='')
         self._message_broker_api = MessageBrokerAPI(self.config)
-        print("success")
+        self.flame_log("success", self.silent, suppress_head=True)
         ### Update config with self_config from Messagebroker
         self.config = self._message_broker_api.config
 
         ## Connect to result service
-        print("\tConnecting to ResultService...", end='')
+        self.flame_log("\tConnecting to ResultService...", self.silent, end='')
         self._storage_api = StorageAPI(self.config)
-        print("success")
+        self.flame_log("success", self.silent, suppress_head=True)
 
         ## Connection to data service
-        print("\tConnecting to DataApi...", end='')
+        self.flame_log("\tConnecting to DataApi...", self.silent, end='')
         self._data_api = DataAPI(self.config)
-        print("success")
+        self.flame_log("success", self.silent, suppress_head=True)
 
         # Start the flame api thread used for incoming messages and health checks
-        print("\tStarting FlameApi thread...", end='')
+        self.flame_log("\tStarting FlameApi thread...", self.silent, end='')
         self._flame_api_thread = Thread(target=self._start_flame_api)
         self._flame_api_thread.start()
-        print("success")
+        self.flame_log("success", self.silent, suppress_head=True)
 
-        print("FlameCoreSDK ready")
+        self.flame_log("FlameCoreSDK ready", self.silent)
 
     ########################################General##################################################
     def get_aggregator_id(self) -> Optional[str]:
@@ -125,7 +126,8 @@ class FlameCoreSDK:
                               "analysis_finished",
                               {},
                               max_attempts=5,
-                              attempt_timeout=30)
+                              attempt_timeout=30,
+                              silent=self.silent)
 
         return self._node_finished()
 
@@ -176,7 +178,8 @@ class FlameCoreSDK:
             acknowledged_list, _ = self.send_message(receivers=nodes,
                                                      message_category='ready_check',
                                                      message={},
-                                                     timeout=attempt_interval)
+                                                     timeout=attempt_interval,
+                                                     silent=self.silent)
             for node in acknowledged_list:
                 received[node] = True
                 nodes.remove(node)
@@ -186,6 +189,35 @@ class FlameCoreSDK:
 
         return received
 
+    def flame_log(self,
+                  msg: Union[str, bytes],
+                  silent: Optional[bool] = None,
+                  sep: str = ' ',
+                  end: str = '\n',
+                  file = None,
+                  flush: bool = False,
+                  suppress_head: bool = False) -> None:
+        """
+        Print logs to console.
+        :param msg:
+        :param silent:
+        :param sep:
+        :param end:
+        :param file:
+        :param flush:
+        :param suppress_head:
+        :return:
+        """
+        if silent is None:
+            silent = self.silent
+        flame_log(msg=msg,
+                  silent=silent,
+                  sep=sep,
+                  end=end,
+                  file=file,
+                  flush=flush,
+                  suppress_head=suppress_head)
+
     ########################################Message Broker Client####################################
     def send_message(self,
                      receivers: list[str],
@@ -193,7 +225,8 @@ class FlameCoreSDK:
                      message: dict,
                      max_attempts: int = 1,
                      timeout: Optional[int] = None,
-                     attempt_timeout: int = 10) -> tuple[list[str], list[str]]:
+                     attempt_timeout: int = 10,
+                     silent: Optional[bool] = None) -> tuple[list[str], list[str]]:
         """
         Send a message to the specified nodes
         :param receivers: list of node ids to send the message to
@@ -202,14 +235,18 @@ class FlameCoreSDK:
         :param max_attempts: the maximum number of attempts to send the message
         :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinitely
         :param attempt_timeout: timeout of each attempt, if timeout is None (the last attempt will be indefinite though)
+        :param silent: if True, the response will not be logged
         :return: a tuple of nodes ids that acknowledged and not acknowledged the message
         """
+        if silent is None:
+            silent = self.silent
         return asyncio.run(self._message_broker_api.send_message(receivers,
                                                                  message_category,
                                                                  message,
                                                                  max_attempts,
                                                                  timeout,
-                                                                 attempt_timeout))
+                                                                 attempt_timeout,
+                                                                 silent))
 
     def await_messages(self,
                        senders: list[str],
@@ -260,7 +297,8 @@ class FlameCoreSDK:
                                             message: dict,
                                             max_attempts: int = 1,
                                             timeout: Optional[int] = None,
-                                            attempt_timeout: int = 10) -> dict[str, Optional[list[Message]]]:
+                                            attempt_timeout: int = 10,
+                                            silent: Optional[bool] = None) -> dict[str, Optional[list[Message]]]:
         """
         Sends a message to all specified nodes and waits for responses, (combines send_message and await_responses)
         :param receivers: list of node ids to send the message to
@@ -271,44 +309,60 @@ class FlameCoreSDK:
         :param attempt_timeout: timeout of each attempt, if timeout is None (the last attempt will be indefinite though)
         :return: the responses
         """
+        if silent is None:
+            silent = self.silent
         return self._message_broker_api.send_message_and_wait_for_responses(receivers,
                                                                             message_category,
                                                                             message,
                                                                             max_attempts,
                                                                             timeout,
-                                                                            attempt_timeout)
+                                                                            attempt_timeout,
+                                                                            silent)
 
     ########################################Storage Client###########################################
-    def submit_final_result(self, result: Any, output_type: Literal['str', 'bytes', 'pickle'] = 'str') -> dict[str, str]:
+    def submit_final_result(self,
+                            result: Any, output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                            silent: Optional[bool] = None) -> dict[str, str]:
         """
         sends the final result to the hub. Making it available for analysts to download.
         This method is only available for nodes for which the method `get_role(self)` returns "aggregator”.
         :param result: the final result
         :param output_type: output type of final results (default: string)
+        :param silent: if True, the response will not be logged
         :return: the request status code
         """
-        return self._storage_api.submit_final_result(result, output_type)
+        if silent is None:
+            silent = self.silent
+        return self._storage_api.submit_final_result(result, output_type, silent=silent)
 
     def save_intermediate_data(self,
                                data: Any,
                                location: Literal["local", "global"],
                                remote_node_ids: Optional[list[str]] = None,
-                               tag: Optional[str] = None) -> Union[dict[str, dict[str, str]], dict[str, str]]:
+                               tag: Optional[str] = None,
+                               silent: Optional[bool] = None) -> Union[dict[str, dict[str, str]], dict[str, str]]:
         """
         saves intermediate results/data either on the hub (location="global"), or locally
         :param data: the result to save
         :param location: the location to save the result, local saves in the node, global saves in central instance of MinIO
         :param remote_node_ids: optional remote node ids (used for accessing remote node's public key for encryption)
         :param tag: optional storage tag
+        :param silent: if True, the response will not be logged
         :return: the request status code{"status": ,"url":, "id": }, or dict of said dicts if encrypted mode is used, i.e. remote_node_ids are set
         """
-        return self._storage_api.save_intermediate_data(data, location=location, remote_node_ids=remote_node_ids, tag=tag)
+        if silent is None:
+            silent = self.silent
+        return self._storage_api.save_intermediate_data(data,
+                                                        location=location,
+                                                        remote_node_ids=remote_node_ids,
+                                                        tag=tag,
+                                                        silent=silent)
 
     def get_intermediate_data(self,
                               location: Literal["local", "global"],
                               id: Optional[str] = None,
                               tag: Optional[str] = None,
-                              tag_option: Optional[Literal["all", "last","first"]]= "all") -> Any:
+                              tag_option: Optional[Literal["all", "last","first"]] = "all") -> Any:
         """
         returns the intermediate data with the specified id
         :param location: the location to get the result, local gets in the node, global gets in central instance of MinIO
@@ -326,7 +380,8 @@ class FlameCoreSDK:
                                max_attempts: int = 1,
                                timeout: Optional[int] = None,
                                attempt_timeout: int = 10,
-                               encrypted: bool = True) -> tuple[list[str], list[str]]:
+                               encrypted: bool = True,
+                               silent: Optional[bool] = None) -> tuple[list[str], list[str]]:
         """
         Sends intermediate data to specified receivers using the Result Service and Message Broker.
 
@@ -343,6 +398,7 @@ class FlameCoreSDK:
             timeout (int, optional): time in seconds to wait for the message acknowledgement, if None waits indefinitely
             attempt_timeout (int): timeout of each attempt, if timeout is None (the last attempt will be indefinite though)
             encrypted (bool): bool whether data should be encrypted or not
+            silent (bool): if True, the response will not be logged
 
         Returns:
             tuple[list[str], list[str]]:
@@ -360,6 +416,8 @@ class FlameCoreSDK:
             print("Failed nodes:", failed)  # e.g., ["node3"]
             ```
         """
+        if silent is None:
+            silent = self.silent
         if encrypted:
             result_id_body = {k: v['id']
                               for k, v in self.save_intermediate_data(data,
@@ -372,7 +430,8 @@ class FlameCoreSDK:
                                  {"result_id": result_id_body},
                                  max_attempts,
                                  timeout,
-                                 attempt_timeout)
+                                 attempt_timeout,
+                                 silent)
 
     def await_intermediate_data(self,
                                 senders: list[str],
@@ -471,6 +530,7 @@ class FlameCoreSDK:
                                   self._data_api.data_client,
                                   self._storage_api.result_client,
                                   self.config.keycloak_token,
+                                  self.silent,
                                   finished_check=self._has_finished,
                                   finishing_call=self._node_finished)
 
