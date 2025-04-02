@@ -147,16 +147,16 @@ class MessageBrokerClient:
             response.raise_for_status()
         except HTTPError as e:
             flame_log("Failed to subscribe to message broker", silent)
-            flame_log(e, silent)
+            flame_log(repr(e), silent)
         response = await self._message_broker.get(f'/analyses/{os.getenv("ANALYSIS_ID")}/participants/self',
                                                   headers=[('Connection', 'close')])
         try:
             response.raise_for_status()
         except HTTPError as e:
             flame_log("Successfully subscribed to message broker, but failed to retrieve participants", silent)
-            flame_log(e, silent)
+            flame_log(repr(e), silent)
 
-    async def send_message(self, message: Message):
+    async def send_message(self, message: Message, silent: bool = False) -> None:
         self.message_number += 1
         body = {
             "recipients": message.recipients,
