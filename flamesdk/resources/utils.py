@@ -34,7 +34,6 @@ def extract_remaining_time_from_token(token: str) -> int:
             token += "=" * (4 - missing_padding)
         payload = base64.b64decode(token).decode("utf-8")
         payload = json.loads(payload)
-        print(payload)
         exp_time = payload.get("exp")
         if exp_time is None:
             raise ValueError("Token does not contain expiration ('exp') claim.")
