@@ -47,21 +47,31 @@ class FlameAPI:
         @router.post("/token_refresh", response_class=JSONResponse)
         async def token_refresh(request: Request) -> JSONResponse:
             try:
+                print("keycloak token refresh")
                 body = await request.json()
+                print(f"body: {body}")
                 new_token = body.get("token")
+                print(f"new token: {new_token}")
+                print(f"not new_token: {not new_token}")
                 if not new_token:
+                    print("No token, raising HTTPException")
                     raise HTTPException(status_code=400, detail="Token is required")
 
                 # refresh token in message-broker
+                print("message broker token refresh")
                 message_broker.refresh_token(new_token)
                 # refresh token in data client
+                print("data client token refresh")
                 data_client.refresh_token(new_token)
                 # refresh token in result client
+                print("result client token refresh")
                 result_client.refresh_token(new_token)
                 # refresh token in self
+                print("self token refresh")
                 self.keycloak_token = new_token
                 return JSONResponse(content={"message": "Token refreshed successfully"})
             except Exception as e:
+                print(f"stack trace {e}")
                 raise HTTPException(status_code=500, detail=str(e))
 
         @router.get("/healthz", response_class=JSONResponse)
