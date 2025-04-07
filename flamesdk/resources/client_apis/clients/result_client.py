@@ -1,12 +1,13 @@
 import math
 from io import BytesIO
 from typing import Any, Literal, Optional
+from typing_extensions import TypedDict
 from httpx import Client
 import pickle
 import re
 
 from flamesdk.resources.utils import flame_log
-from typing_extensions import TypedDict
+
 
 class LocalDifferentialPrivacyParams(TypedDict, total=True):
     epsilon: float
@@ -32,7 +33,7 @@ class ResultClient:
                     remote_node_id: Optional[str] = None,
                     type: Literal["final", "global", "local"] = "final",
                     output_type: Literal['str', 'bytes', 'pickle'] = 'pickle',
-                    local_dp: LocalDifferentialPrivacyParams = None,
+                    local_dp: Optional[LocalDifferentialPrivacyParams] = None, #TODO:localdp
                     silent: bool = False) -> dict[str, str]:
         """
         Pushes the result to the hub. Making it available for analysts to download.
@@ -42,7 +43,7 @@ class ResultClient:
         :param remote_node_id: optional remote node id (used for accessing remote node's public key for encryption)
         :param type: location to save the result, final saves in the hub to be downloaded, global saves in central instance of MinIO, local saves in the node
         :param output_type: the type of the result, str, bytes or pickle only for final results
-        :param local_dp: parameters for local differential privacy, only for final floating-point type results
+        :param local_dp: parameters for local differential privacy, only for final floating-point type results #TODO:localdp
         :param silent: if True, the response will not be logged
         :return:
         """
@@ -56,6 +57,7 @@ class ResultClient:
         if tag and not re.match(r'^[a-z0-9]{1,2}|[a-z0-9][a-z0-9-]{,30}[a-z0-9]+$', tag):
             raise ValueError("Tag must consist only of lowercase letters, numbers, and hyphens")
 
+        # TODO:localdp (start)
         # check if local dp parameters have been supplied
         use_local_dp = isinstance(local_dp, dict)
 
@@ -89,12 +91,12 @@ class ResultClient:
         else:
             file_body = pickle.dumps(result)
 
-        data = {}
-
         if remote_node_id:
             data = {"remote_node_id": remote_node_id}
         elif tag:
             data = {"tag": tag}
+        else:
+            data = {}
 
         request_path = f"/{type}/"
 
@@ -103,6 +105,7 @@ class ResultClient:
             request_path += "localdp"
             # local_dp is guaranteed to not be None, so remap values to string and update request data mapping
             data.update({k: str(v) for k, v in local_dp.items()})
+        #TODO:localdp (end)
 
         response = self.client.put(request_path,
                                    files={"file": BytesIO(file_body)},

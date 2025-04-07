@@ -1,6 +1,6 @@
 from typing import Any, Literal, Optional, Union
 
-from flamesdk.resources.client_apis.clients.result_client import ResultClient
+from flamesdk.resources.client_apis.clients.result_client import ResultClient, LocalDifferentialPrivacyParams
 from flamesdk.resources.node_config import NodeConfig
 
 
@@ -11,16 +11,22 @@ class StorageAPI:
     def submit_final_result(self,
                             result: Any,
                             output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                            local_dp: Optional[LocalDifferentialPrivacyParams] = None, #TODO:localdp
                             silent: bool = False) -> dict[str, str]:
         """
         sends the final result to the hub. Making it available for analysts to download.
         This method is only available for nodes for which the method `get_role(self)` returns "aggregator”.
         :param result: the final result
         :param output_type: output type of final results (default: string)
+        :param local_dp: tba
         :param silent: if True, the response will not be logged
         :return: the request status code
         """
-        return self.result_client.push_result(result, type="final", output_type=output_type, silent=silent)
+        return self.result_client.push_result(result,
+                                              type="final",
+                                              output_type=output_type,
+                                              local_dp = local_dp, #TODO:localdp
+                                              silent=silent)
 
     def save_intermediate_data(self,
                                data: Any,

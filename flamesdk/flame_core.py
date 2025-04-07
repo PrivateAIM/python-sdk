@@ -8,7 +8,7 @@ from httpx import AsyncClient
 
 from flamesdk.resources.client_apis.data_api import DataAPI
 from flamesdk.resources.client_apis.message_broker_api import MessageBrokerAPI, Message
-from flamesdk.resources.client_apis.storage_api import StorageAPI
+from flamesdk.resources.client_apis.storage_api import StorageAPI, LocalDifferentialPrivacyParams
 from flamesdk.resources.node_config import NodeConfig
 from flamesdk.resources.rest_api import FlameAPI
 from flamesdk.resources.utils import wait_until_nginx_online, flame_log
@@ -322,18 +322,23 @@ class FlameCoreSDK:
     ########################################Storage Client###########################################
     def submit_final_result(self,
                             result: Any, output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                            local_dp: Optional[LocalDifferentialPrivacyParams] = None, #TODO:localdp
                             silent: Optional[bool] = None) -> dict[str, str]:
         """
         sends the final result to the hub. Making it available for analysts to download.
         This method is only available for nodes for which the method `get_role(self)` returns "aggregator”.
         :param result: the final result
         :param output_type: output type of final results (default: string)
+        :param local_dp: tba #TODO:localdp
         :param silent: if True, the response will not be logged
         :return: the request status code
         """
         if silent is None:
             silent = self.silent
-        return self._storage_api.submit_final_result(result, output_type, silent=silent)
+        return self._storage_api.submit_final_result(result,
+                                                     output_type,
+                                                     local_dp, #TODO:localdp
+                                                     silent=silent)
 
     def save_intermediate_data(self,
                                data: Any,
