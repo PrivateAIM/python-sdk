@@ -1,10 +1,11 @@
 import math
+from httpx import Client
+import pickle
+from _pickle import PicklingError
+import re
 from io import BytesIO
 from typing import Any, Literal, Optional
 from typing_extensions import TypedDict
-from httpx import Client
-import pickle
-import re
 
 from flamesdk.resources.utils import flame_log
 
@@ -61,35 +62,46 @@ class ResultClient:
         # check if local dp parameters have been supplied
         use_local_dp = isinstance(local_dp, dict)
 
-        if use_local_dp:
-            # check if result is a numeric value
-            if not isinstance(result, (float, int)):
-                raise ValueError("Local differential privacy can only be applied on numeric values")
+        try:
+            if use_local_dp:
+                # check if result is a numeric value
+                if not isinstance(result, (float, int)):
+                    raise ValueError("Local differential privacy can only be applied on numeric values")
 
-            # check if result is finite
-            if not math.isfinite(result):
-                raise ValueError("Result is not finite")
+                # check if result is finite
+                if not math.isfinite(result):
+                    raise ValueError("Result is not finite")
 
-            # check if final result submission is requested
-            if type != "final":
-                raise ValueError("Local differential privacy is only supported for submission of final results")
+                # check if final result submission is requested
+                if type != "final":
+                    raise ValueError("Local differential privacy is only supported for submission of final results")
 
-            # print warning if output_type other than str is specified
-            if output_type != "str":
-                flame_log(
-                f"Result submission with local differential privacy requested but output type is set to `{output_type}`."
-                    "`str` is enforced but this may change in a future version.",
-                    silent
-                )
+                # print warning if output_type other than str is specified
+                if output_type != "str":
+                    flame_log(
+                    f"Result submission with local differential privacy requested but output type is set to `{output_type}`."
+                        "`str` is enforced but this may change in a future version.",
+                        silent
+                    )
 
-            # write as string to request body
-            file_body = str(result).encode("utf-8")
-        elif (type == 'final') and (output_type == 'str'):
-            file_body = str(result).encode('utf-8')
-        elif (type == 'final') and (output_type == 'bytes'):
-            file_body = bytes(result)
-        else:
-            file_body = pickle.dumps(result)
+                # write as string to request body
+                file_body = str(result).encode("utf-8")
+            elif (type == 'final') and (output_type == 'str'):
+                file_body = str(result).encode('utf-8')
+            elif (type == 'final') and (output_type == 'bytes'):
+                file_body = bytes(result)
+            else:
+                file_body = pickle.dumps(result)
+        except (TypeError, ValueError, UnicodeEncodeError, PicklingError) as e:
+            if output_type != 'pickle':
+                flame_log(f"Failed to translate result data to type={output_type}: {e}", silent)
+                flame_log("Attempting 'pickle' instead...", silent)
+                try:
+                    file_body = pickle.dumps(result)
+                except PicklingError as e:
+                    raise ValueError(f"Failed to pickle result data: {e}")
+            else:
+                raise ValueError(f"Failed to pickle result data: {e}")
 
         if remote_node_id:
             data = {"remote_node_id": remote_node_id}

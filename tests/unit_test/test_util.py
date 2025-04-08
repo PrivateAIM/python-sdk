@@ -11,4 +11,4 @@ def test_flame_log():
     with open('stream.tar', 'rb') as file:
         file_content = file.read()
     flame_log(file_content, False)
-    flame_log("file_content", suppress_head=True)
+    flame_log("file_content", True, suppress_head=True)
