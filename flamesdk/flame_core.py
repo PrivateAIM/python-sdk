@@ -17,7 +17,7 @@ from flamesdk.resources.utils.logging import flame_log, declare_log_types
 
 class FlameCoreSDK:
 
-    def __init__(self, silent: bool = False):
+    def __init__(self, aggregator_requires_data: bool = False, silent: bool = False):
         self.silent = silent
         self.flame_log("Starting FlameCoreSDK", self.silent)
 
@@ -26,31 +26,55 @@ class FlameCoreSDK:
         self.config = NodeConfig()
 
         # Wait until nginx is online
-        wait_until_nginx_online(self.config.nginx_name, self.silent)
+        try:
+            wait_until_nginx_online(self.config.nginx_name, self.silent)
+        except Exception as e:
+            self.flame_log(f"Nginx connection failure (error_msg='{e}')", False, 'error')
 
         # Set up the connection to all the services needed
         ## Connect to message broker
-        self.flame_log("\tConnecting to MessageBroker...", self.silent, end='')
-        self._message_broker_api = MessageBrokerAPI(self.config)
-        self.flame_log("success", self.silent, suppress_head=True)
-        ### Update config with self_config from Messagebroker
-        self.config = self._message_broker_api.config
+        self.flame_log("\tConnecting to MessageBroker...", self.silent, end='', suppress_tail=True)
+        try:
+            self._message_broker_api = MessageBrokerAPI(self.config)
+            self.flame_log("success", self.silent, suppress_head=True)
+        except Exception as e:
+            self._message_broker_api = None
+            self.flame_log(f"failed (error_msg='{e}')", False, 'error', suppress_head=True)
+        try:
+            ### Update config with self_config from Messagebroker
+            self.config = self._message_broker_api.config
+        except Exception as e:
+            self.flame_log(f"Unable to retrieve node config from message broker (error_msg='{e}')",
+                           False,
+                           'error')
 
         ## Connect to result service
-        self.flame_log("\tConnecting to ResultService...", self.silent, end='')
-        self._storage_api = StorageAPI(self.config)
-        self.flame_log("success", self.silent, suppress_head=True)
+        self.flame_log("\tConnecting to ResultService...", self.silent, end='', suppress_tail=True)
+        try:
+            self._storage_api = StorageAPI(self.config)
+            self.flame_log("success", self.silent, suppress_head=True)
+        except Exception as e:
+            self._storage_api = None
+            self.flame_log(f"failed (error_msg='{e}')", False, 'error', suppress_head=True)
 
-        ## Connection to data service
-        self.flame_log("\tConnecting to DataApi...", self.silent, end='')
-        self._data_api = DataAPI(self.config)
-        self.flame_log("success", self.silent, suppress_head=True)
+        if (self.config.role == 'default') or aggregator_requires_data:
+            ## Connection to data service
+            self.flame_log("\tConnecting to DataApi...", self.silent, end='', suppress_tail=True)
+            try:
+                self._data_api = DataAPI(self.config)
+                self.flame_log("success", self.silent, suppress_head=True)
+            except Exception as e:
+                self._data_api = None
+                self.flame_log(f"failed (error_msg='{e}')", False, 'error')
 
         # Start the flame api thread used for incoming messages and health checks
-        self.flame_log("\tStarting FlameApi thread...", self.silent, end='')
-        self._flame_api_thread = Thread(target=self._start_flame_api)
-        self._flame_api_thread.start()
-        self.flame_log("success", self.silent, suppress_head=True)
+        self.flame_log("\tStarting FlameApi thread...", self.silent, end='', suppress_tail=True)
+        try:
+            self._flame_api_thread = Thread(target=self._start_flame_api)
+            self._flame_api_thread.start()
+            self.flame_log("success", self.silent, suppress_head=True)
+        except:
+            raise Exception("Analysis hard crashed when attempting to start api.")
 
         self.flame_log("FlameCoreSDK ready", self.silent)
 
