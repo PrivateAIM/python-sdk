@@ -7,7 +7,7 @@ from io import BytesIO
 from typing import Any, Literal, Optional
 from typing_extensions import TypedDict
 
-from flamesdk.resources.utils import flame_log
+from flamesdk.resources.utils.logging import flame_log
 
 
 class LocalDifferentialPrivacyParams(TypedDict, total=True):

@@ -6,7 +6,7 @@ from typing import Optional, Literal
 from httpx import AsyncClient, HTTPError
 
 from flamesdk.resources.node_config import NodeConfig
-from flamesdk.resources.utils import flame_log
+from flamesdk.resources.utils.logging import flame_log
 
 
 class Message:

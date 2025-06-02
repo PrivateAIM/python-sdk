@@ -10,7 +10,8 @@ from fastapi.exceptions import HTTPException
 from flamesdk.resources.client_apis.clients.message_broker_client import MessageBrokerClient
 from flamesdk.resources.client_apis.clients.data_api_client import DataApiClient
 from flamesdk.resources.client_apis.clients.result_client import ResultClient
-from flamesdk.resources.utils import extract_remaining_time_from_token, flame_log
+from flamesdk.resources.utils.utils import extract_remaining_time_from_token
+from flamesdk.resources.utils.logging import flame_log
 
 
 class FlameAPI:

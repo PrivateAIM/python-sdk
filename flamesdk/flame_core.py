@@ -11,7 +11,8 @@ from flamesdk.resources.client_apis.message_broker_api import MessageBrokerAPI, 
 from flamesdk.resources.client_apis.storage_api import StorageAPI, LocalDifferentialPrivacyParams
 from flamesdk.resources.node_config import NodeConfig
 from flamesdk.resources.rest_api import FlameAPI
-from flamesdk.resources.utils import wait_until_nginx_online, flame_log
+from flamesdk.resources.utils.utils import wait_until_nginx_online
+from flamesdk.resources.utils.logging import flame_log, declare_log_types
 
 
 class FlameCoreSDK:
@@ -194,9 +195,11 @@ class FlameCoreSDK:
                   silent: Optional[bool] = None,
                   sep: str = ' ',
                   end: str = '\n',
-                  file = None,
+                  file: object = None,
                   flush: bool = False,
-                  suppress_head: bool = False) -> None:
+                  log_type: str = 'normal',
+                  suppress_head: bool = False,
+                  suppress_tail: bool = False) -> None:
         """
         Print logs to console.
         :param msg:
@@ -205,7 +208,9 @@ class FlameCoreSDK:
         :param end:
         :param file:
         :param flush:
+        :param log_type:
         :param suppress_head:
+        :param suppress_tail:
         :return:
         """
         if silent is None:
@@ -216,7 +221,21 @@ class FlameCoreSDK:
                   end=end,
                   file=file,
                   flush=flush,
-                  suppress_head=suppress_head)
+                  log_type=log_type,
+                  suppress_head=suppress_head,
+                  suppress_tail=suppress_tail)
+
+    def declare_log_types(self, new_log_types: dict[str, str], silent: Optional[bool] = None) -> None:
+        """
+        Declare new log_types to be added to log_type literals, and how/as what they should be interpreted by Flame
+        (the latter have to be known values from HUB_LOG_LITERALS for existing log status fields).
+        :param new_log_types:
+        :param silent:
+        :return:
+        """
+        if silent is None:
+            silent = self.silent
+        declare_log_types(new_log_types, silent)
 
     ########################################Message Broker Client####################################
     def send_message(self,
