@@ -17,7 +17,7 @@ from flamesdk.resources.utils.logging import flame_log
 class FlameAPI:
     def __init__(self,
                  message_broker: MessageBrokerClient,
-                 data_client: DataApiClient,
+                 data_client: DataApiClient | str,
                  result_client: ResultClient,
                  keycloak_token: str,
                  silent: bool,
@@ -57,8 +57,9 @@ class FlameAPI:
 
                 # refresh token in message-broker
                 message_broker.refresh_token(new_token)
-                # refresh token in data client
-                data_client.refresh_token(new_token)
+                if type(data_client) is DataApiClient:
+                    # refresh token in data client
+                    data_client.refresh_token(new_token)
                 # refresh token in result client
                 result_client.refresh_token(new_token)
                 # refresh token in self
@@ -95,8 +96,7 @@ class FlameAPI:
 
         uvicorn.run(app, host="0.0.0.0", port=8000)
 
-    def _finished(self,
-                  clients: list[Any]) -> str:
+    def _finished(self, clients: list[Any]) -> str:
         init_failed = None in clients
         main_alive = threading.main_thread().is_alive()
 

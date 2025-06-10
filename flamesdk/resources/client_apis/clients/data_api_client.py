@@ -3,7 +3,6 @@ import asyncio
 from httpx import AsyncClient
 import re
 
-
 class DataApiClient:
     def __init__(self, project_id: str, nginx_name: str, data_source_token: str, keycloak_token: str) -> None:
         self.nginx_name = nginx_name
@@ -77,6 +76,4 @@ class DataApiClient:
         client = AsyncClient(base_url=f"{path}",)
         return client
 
-    def parse_data(self, json_data: dict) -> list[Any]:
-        pass
 
