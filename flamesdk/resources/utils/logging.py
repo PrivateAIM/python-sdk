@@ -24,7 +24,7 @@ def flame_log(msg: Union[str, bytes],
               suppress_tail: bool = False) -> None:
     """
     Print logs to console, if silent is set to False. May raise IOError, if suppress_head=False and log_type receives
-    a invalid value.
+    an invalid value.
     :param msg:
     :param silent:
     :param sep:
@@ -74,7 +74,7 @@ def declare_log_types(new_log_types: dict[str, str], silent: bool) -> None:
         if v in [e.value for e in HUB_LOG_LITERALS]:
             if k not in _LOG_TYPE_LITERALS.keys():
                 _LOG_TYPE_LITERALS[k] = v
-                flame_log(f"Successfully declared new log_type={k} with Hub literal \'{v}\'.",
+                flame_log(f"Successfully declared new log_type={k} with Hub literal '{v}'.",
                           silent,
                           log_type='info')
             else:

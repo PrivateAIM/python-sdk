@@ -100,7 +100,9 @@ class FlameAPI:
         init_failed = None in clients
         main_alive = threading.main_thread().is_alive()
 
-        if init_failed or (not main_alive) and (not self.finished_check()):
+        if init_failed:
+            return "stuck"
+        elif (not main_alive) and (not self.finished_check()):
             return "failed"
         try:
             if self.finished:
