@@ -57,7 +57,7 @@ class FlameCoreSDK:
             self._storage_api = None
             self.flame_log(f"failed (error_msg='{e}')", False, 'error', suppress_head=True)
 
-        if (self.config.role == 'default') or aggregator_requires_data:
+        if (self.config.node_role == 'default') or aggregator_requires_data:
             ## Connection to data service
             self.flame_log("\tConnecting to DataApi...", self.silent, end='', suppress_tail=True)
             try:
