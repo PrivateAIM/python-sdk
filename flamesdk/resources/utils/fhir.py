@@ -39,7 +39,7 @@ def _search_in_fhir_entry(fhir_entry: dict[str, Any] | list[Any],
                           current: int = 0) -> Optional[Any]:
     keys = key_sequence.split('.')
     key = keys[current]
-    if current < (len(keys) - 1):
+    if (current < (len(keys) - 1)) or (type(fhir_entry) == list):
         if type(fhir_entry) == dict:
             for field in fhir_entry.keys():
                 try:
@@ -61,10 +61,5 @@ def _search_in_fhir_entry(fhir_entry: dict[str, Any] | list[Any],
         if current == (len(keys) - 1):
             if type(fhir_entry) == dict:
                 return fhir_entry[key]
-            elif type(fhir_entry) == list:
-                for e in fhir_entry:
-                    next = _search_in_fhir_entry(e, key_sequence, current)
-                    if next is not None:
-                        return next
         else:
             print(f"Unexpected data type found (found type={type(fhir_entry)})")
