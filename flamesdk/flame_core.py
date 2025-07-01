@@ -1,16 +1,18 @@
-import asyncio
 import time
+import asyncio
+from httpx import AsyncClient
 from datetime import datetime
+from io import StringIO
 
 from typing import Any, Literal, Optional, Union
 from threading import Thread
-from httpx import AsyncClient
 
 from flamesdk.resources.client_apis.data_api import DataAPI
 from flamesdk.resources.client_apis.message_broker_api import MessageBrokerAPI, Message
 from flamesdk.resources.client_apis.storage_api import StorageAPI, LocalDifferentialPrivacyParams
 from flamesdk.resources.node_config import NodeConfig
 from flamesdk.resources.rest_api import FlameAPI
+from flamesdk.resources.utils.fhir import fhir_to_csv
 from flamesdk.resources.utils.utils import wait_until_nginx_online
 from flamesdk.resources.utils.logging import flame_log, declare_log_types
 
@@ -260,6 +262,38 @@ class FlameCoreSDK:
         if silent is None:
             silent = self.silent
         declare_log_types(new_log_types, silent)
+
+    def fhir_to_csv(self,
+                    fhir_data: dict[str, Any],
+                    col_key_seq: str,
+                    row_key_seq: str,
+                    value_key_seq: str,
+                    row_id_filters: Optional[list[str]] = None,
+                    col_id_filters: Optional[list[str]] = None,
+                    row_col_name: str = '',
+                    separator: str = ',',
+                    output_type: Literal["file", "dict"] = "file") -> StringIO | dict[Any, dict[Any, Any]]:
+        """
+        Convert a FHIR Bundle (or other FHIR-formatted dict) to CSV, pivoting on specified keys.
+
+        This method extracts identifier fields for rows and columns from each FHIR entry,
+        applies optional filters, and produces either a CSV‐formatted file-like object
+        or a nested dictionary representatio
+
+
+        :param fhir_data: FHIR data to convert
+        :return: CSV formatted data as StringIO or dict
+        """
+        return fhir_to_csv(fhir_data=fhir_data,
+                           col_key_seq=col_key_seq,
+                           row_key_seq=row_key_seq,
+                           value_key_seq=value_key_seq,
+                           row_id_filters=row_id_filters,
+                           col_id_filters=col_id_filters,
+                           row_col_name=row_col_name,
+                           separator=separator,
+                           output_type=output_type,
+                           data_client=self._data_api)
 
     ########################################Message Broker Client####################################
     def send_message(self,
