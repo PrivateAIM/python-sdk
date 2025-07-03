@@ -266,28 +266,39 @@ class FlameCoreSDK:
     def fhir_to_csv(self,
                     fhir_data: dict[str, Any],
                     col_key_seq: str,
-                    row_key_seq: str,
                     value_key_seq: str,
+                    input_resource: str,
+                    row_key_seq: Optional[str] = None,
                     row_id_filters: Optional[list[str]] = None,
                     col_id_filters: Optional[list[str]] = None,
                     row_col_name: str = '',
                     separator: str = ',',
-                    output_type: Literal["file", "dict"] = "file") -> StringIO | dict[Any, dict[Any, Any]]:
+                    output_type: Literal["file", "dict"] = "file") -> Union[StringIO, dict[Any, dict[Any, Any]]]:
         """
         Convert a FHIR Bundle (or other FHIR-formatted dict) to CSV, pivoting on specified keys.
 
         This method extracts identifier fields for rows and columns from each FHIR entry,
         applies optional filters, and produces either a CSV‐formatted file-like object
-        or a nested dictionary representatio
+        or a nested dictionary representation
 
 
         :param fhir_data: FHIR data to convert
+        :param col_key_seq:
+        :param value_key_seq:
+        :param input_resource:
+        :param row_key_seq:
+        :param row_id_filters:
+        :param col_id_filters:
+        :param row_col_name:
+        :param separator:
+        :param output_type:
         :return: CSV formatted data as StringIO or dict
         """
         return fhir_to_csv(fhir_data=fhir_data,
                            col_key_seq=col_key_seq,
-                           row_key_seq=row_key_seq,
                            value_key_seq=value_key_seq,
+                           input_resource=input_resource,
+                           row_key_seq=row_key_seq,
                            row_id_filters=row_id_filters,
                            col_id_filters=col_id_filters,
                            row_col_name=row_col_name,

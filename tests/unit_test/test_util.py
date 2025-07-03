@@ -1,4 +1,4 @@
-from flamesdk.resources.utils.fhir import fhir_to_csv, _search_in_fhir_entry
+from flamesdk.resources.utils.fhir import fhir_to_csv, _search_fhir_resource
 from flamesdk.resources.utils.utils import extract_remaining_time_from_token, flame_log
 import ast
 import time
@@ -15,19 +15,36 @@ def test_flame_log():
     flame_log(file_content, False)
     flame_log("file_content", True, suppress_head=True)
 
-def test_multi_param():
-    filename = "stream_observation.json"
+def test_multi_param(in_type):
+    if in_type == 'Observation':
+        filename = "stream_observation.json"
+    elif in_type == 'QuestionnaireResponse':
+        filename = "stream_questionnaire.json"
+    else:
+        raise IOError('Unable to recognize input resource type')
     with open(filename, "r") as f:
         content = f.read()
         fhir_data = ast.literal_eval(content)
-        return fhir_to_csv(fhir_data[0],
+
+    if in_type == 'Observation':
+        return fhir_to_csv(fhir_data,
                            col_key_seq="resource.subject.reference",
                            row_key_seq="resource.component.valueCodeableConcept.coding.code",
                            value_key_seq="resource.component.valueQuantity.value",
-                           row_id_filters=["ENSG"])
+                           row_id_filters=["ENSG"],
+                           input_resource=in_type)
+    elif in_type == 'QuestionnaireResponse':
+        return fhir_to_csv(fhir_data,
+                           col_key_seq="resource.item.linkId",
+                           value_key_seq="resource.item.answer.value",
+                           input_resource=in_type)
 
 start_time = time.time()
 #print(_search_in_fhir_entry({'fullUrl': 'http://nginx-analysis-671b3985-f901-48c5-9cba-ee62bc6f393d-1/fhir/Observation/gene-observation-C00039-ENSG00000005156', 'resource': {'category': [{'coding': [{'code': 'laboratory', 'display': 'Laboratory', 'system': 'http://terminology.hl7.org/CodeSystem/observation-category'}]}], 'code': {'coding': [{'code': '69548-6', 'display': 'Genetic variant assessment', 'system': 'http://loinc.org'}]}, 'component': [{'code': {'coding': [{'code': '48018-6', 'display': 'Gene studied ' '[ID]', 'system': 'http://loinc.org'}]}, 'valueCodeableConcept': {'coding': [{'code': 'ENSG00000005156', 'system': 'http://ensembl.org'}]}}, {'code': {'coding': [{'code': '48003-8', 'display': 'DNA sequence ' 'variation ' 'identifier ' '[Identifier]', 'system': 'http://loinc.org'}]}, 'valueQuantity': {'code': 'count', 'system': 'http://unitsofmeasure.org', 'unit': 'count', 'value': 2452}}], 'id': 'gene-observation-C00039-ENSG00000005156', 'meta': {'lastUpdated': '2025-06-12T11:24:08.247Z', 'versionId': '3'}, 'resourceType': 'Observation', 'status': 'final', 'subject': {'reference': 'Patient/C00039'}}, 'search': {'mode': 'match'}}, 'resource.component.valueQuantity.value' ))
-print(test_multi_param())
+print("output: " + test_multi_param('Observation').read())
 print(f"Elapsed time: {time.time() - start_time} secs")
-print(f"Estimated time: {(time.time() - start_time) * ((41886 * 118) / 500) / 60} minutes")
+print(f"Estimated time: {(time.time() - start_time) * ((41886 * 118) / 500) / 60} minutes\n\n")
+
+start_time = time.time()
+print("output: " + test_multi_param('QuestionnaireResponse').read())
+print(f"Elapsed time: {time.time() - start_time} secs")
