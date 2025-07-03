@@ -455,16 +455,22 @@ class FlameCoreSDK:
                               location: Literal["local", "global"],
                               id: Optional[str] = None,
                               tag: Optional[str] = None,
-                              tag_option: Optional[Literal["all", "last","first"]] = "all") -> Any:
+                              tag_option: Optional[Literal["all", "last","first"]] = "all",
+                              sender_node_id: Optional[str] = None) -> Any:
         """
         returns the intermediate data with the specified id
         :param location: the location to get the result, local gets in the node, global gets in central instance of MinIO
         :param id: the id of the result to get
         :param tag: optional storage tag of targeted local result
         :param tag_option: return mode if multiple tagged data are found
+        :param sender_node_id:
         :return: the result
         """
-        return self._storage_api.get_intermediate_data(location, id, tag, tag_option=tag_option)
+        return self._storage_api.get_intermediate_data(location=location,
+                                                       id=id,
+                                                       tag=tag,
+                                                       tag_option=tag_option,
+                                                       sender_node_id=sender_node_id)
 
     def send_intermediate_data(self,
                                receivers: list[str],
@@ -473,7 +479,7 @@ class FlameCoreSDK:
                                max_attempts: int = 1,
                                timeout: Optional[int] = None,
                                attempt_timeout: int = 10,
-                               encrypted: bool = True,
+                               encrypted: bool = False,
                                silent: Optional[bool] = None) -> tuple[list[str], list[str]]:
         """
         Sends intermediate data to specified receivers using the Result Service and Message Broker.
@@ -518,9 +524,13 @@ class FlameCoreSDK:
                                                                       remote_node_ids=receivers).items()}
         else:
             result_id_body = self.save_intermediate_data(data, "global")['id']
+
+        message = {"result_id": result_id_body}
+        if encrypted:
+            message["sender_id"] = self.config.node_id
         return self.send_message(receivers,
                                  message_category,
-                                 {"result_id": result_id_body},
+                                 message,
                                  max_attempts,
                                  timeout,
                                  attempt_timeout,
@@ -529,7 +539,8 @@ class FlameCoreSDK:
     def await_intermediate_data(self,
                                 senders: list[str],
                                 message_category: str = "intermediate_data",
-                                timeout: Optional[int] = None) -> dict[str, Any]:
+                                timeout: Optional[int] = None,
+                                encrypted: bool = False) -> dict[str, Any]:
         """
            Waits for messages containing intermediate data ids from specified senders and retrieves the data.
 
@@ -544,6 +555,7 @@ class FlameCoreSDK:
                                                  Defaults to "intermediate_data".
                timeout (int, optional): The maximum time (in seconds) to wait for messages.
                                         If `None`, waits indefinitely.
+               encrypted (bool):
 
            Returns:
                dict[str, Any]: A dictionary where the keys are sender node IDs and the values are the
@@ -556,7 +568,7 @@ class FlameCoreSDK:
                senders = ["node1", "node2"]
 
                # Wait for intermediate data from the senders
-               data = await_intermediate_data(senders, timeout=60)
+               data = await_intermediate_data(senders, timeout=60, encrypted=False)
 
                # Output the retrieved data
                print(data)
@@ -568,9 +580,12 @@ class FlameCoreSDK:
         for sender, message_list in message_dict.items():
             if message_list:
                 result_id_body = message_list[-1].body['result_id']
+                sender_node_id = message_list[-1].body['sender_id'] if encrypted else None
                 result_sent_is_encrypted = type(result_id_body) == dict
                 result_id_sent = result_id_body[self.config.node_id] if result_sent_is_encrypted else result_id_body
-                data_dict[sender] = self.get_intermediate_data("global", result_id_sent)
+                data_dict[sender] = self.get_intermediate_data("global",
+                                                               result_id_sent,
+                                                               sender_node_id=sender_node_id)
         return data_dict
 
     def get_local_tags(self, filter: Optional[str] = None) -> list[str]:

@@ -137,15 +137,15 @@ class ResultClient:
                               id: Optional[str] = None,
                               tag: Optional[str] = None,
                               type: Literal["local", "global"] = "global",
-                              tag_option: Optional[Literal["all", "last", "first"]] = "all") -> Any:
+                              tag_option: Optional[Literal["all", "last", "first"]] = "all",
+                              sender_node_id: Optional[str] = None) -> Any:
         """
         Returns the intermediate data with the specified id
-
-        :param tag_option: for a tag return the object for all files or the last or the first
         :param id: ID of the intermediate data
         :param tag: optional storage tag of targeted local result
         :param type: location to get the result, local gets in the node, global gets in central instance of MinIO
         :param tag_option: return mode if multiple tagged data are found
+        :param sender_node_id:
         :return:
         """
         if (tag is not None) and (type != "local"):
@@ -169,7 +169,10 @@ class ResultClient:
                 data.append(self._get_file(url))
             return data
         else:
-            return self._get_file(f"/{type}/{id}")
+            if sender_node_id is None:
+                return self._get_file(f"/{type}/{id}")
+            else:
+                return self._get_file(f"/{type}/{id}?node_id={sender_node_id}")
 
     def _get_location_url_for_tag(self, tag: str) -> str:
         """
