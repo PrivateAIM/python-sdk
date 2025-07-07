@@ -273,7 +273,8 @@ class FlameCoreSDK:
                     col_id_filters: Optional[list[str]] = None,
                     row_col_name: str = '',
                     separator: str = ',',
-                    output_type: Literal["file", "dict"] = "file") -> Union[StringIO, dict[Any, dict[Any, Any]]]:
+                    output_type: Literal["file", "dict"] = "file",
+                    silent: Optional[bool] = None) -> Union[StringIO, dict[Any, dict[Any, Any]]]:
         """
         Convert a FHIR Bundle (or other FHIR-formatted dict) to CSV, pivoting on specified keys.
 
@@ -292,8 +293,11 @@ class FlameCoreSDK:
         :param row_col_name:
         :param separator:
         :param output_type:
+        :param silent:
         :return: CSV formatted data as StringIO or dict
         """
+        if silent is None:
+            silent = self.silent
         return fhir_to_csv(fhir_data=fhir_data,
                            col_key_seq=col_key_seq,
                            value_key_seq=value_key_seq,
@@ -304,7 +308,8 @@ class FlameCoreSDK:
                            row_col_name=row_col_name,
                            separator=separator,
                            output_type=output_type,
-                           data_client=self._data_api)
+                           data_client=self._data_api,
+                           silent=silent)
 
     ########################################Message Broker Client####################################
     def send_message(self,
