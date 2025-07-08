@@ -206,7 +206,8 @@ class MessageBrokerClient:
                 raise ValueError(f"Could not find message with id={message_id} in outgoing messages.")
         return number_of_deleted_messages
 
-    async def await_message(self, node_id: str,
+    async def await_message(self,
+                            node_id: str,
                             message_category: str,
                             message_id: Optional[str] = None) -> tuple[str, list[Message]]:
         possible_responses = []

@@ -530,12 +530,9 @@ class FlameCoreSDK:
         else:
             result_id_body = self.save_intermediate_data(data, "global")['id']
 
-        message = {"result_id": result_id_body}
-        if encrypted:
-            message["sender_id"] = self.config.node_id
         return self.send_message(receivers,
                                  message_category,
-                                 message,
+                                 {"result_id": result_id_body},
                                  max_attempts,
                                  timeout,
                                  attempt_timeout,
@@ -544,8 +541,7 @@ class FlameCoreSDK:
     def await_intermediate_data(self,
                                 senders: list[str],
                                 message_category: str = "intermediate_data",
-                                timeout: Optional[int] = None,
-                                encrypted: bool = False) -> dict[str, Any]:
+                                timeout: Optional[int] = None) -> dict[str, Any]:
         """
            Waits for messages containing intermediate data ids from specified senders and retrieves the data.
 
@@ -560,7 +556,6 @@ class FlameCoreSDK:
                                                  Defaults to "intermediate_data".
                timeout (int, optional): The maximum time (in seconds) to wait for messages.
                                         If `None`, waits indefinitely.
-               encrypted (bool):
 
            Returns:
                dict[str, Any]: A dictionary where the keys are sender node IDs and the values are the
@@ -573,7 +568,7 @@ class FlameCoreSDK:
                senders = ["node1", "node2"]
 
                # Wait for intermediate data from the senders
-               data = await_intermediate_data(senders, timeout=60, encrypted=False)
+               data = await_intermediate_data(senders, timeout=60)
 
                # Output the retrieved data
                print(data)
@@ -586,12 +581,11 @@ class FlameCoreSDK:
         for sender, message_list in message_dict.items():
             if message_list:
                 result_id_body = message_list[-1].body['result_id']
-                sender_node_id = message_list[-1].body['sender_id'] if encrypted else None
                 result_sent_is_encrypted = type(result_id_body) == dict
                 result_id_sent = result_id_body[self.config.node_id] if result_sent_is_encrypted else result_id_body
                 data_dict[sender] = self.get_intermediate_data("global",
                                                                result_id_sent,
-                                                               sender_node_id=sender_node_id)
+                                                               sender_node_id=sender if result_sent_is_encrypted else None)
         return data_dict
 
     def get_local_tags(self, filter: Optional[str] = None) -> list[str]:
