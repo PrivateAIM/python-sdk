@@ -55,7 +55,7 @@ class ResultClient:
 
         type = "intermediate" if type == "global" else type
 
-        if tag and not re.match(r'^[a-z0-9]{1,2}|[a-z0-9][a-z0-9-]{,30}[a-z0-9]+$', tag):
+        if tag and not re.match(r'^[a-z0-9]+(-[a-z0-9]+)*$', tag):
             raise ValueError("Tag must consist only of lowercase letters, numbers, and hyphens")
 
         # TODO:localdp (start)
