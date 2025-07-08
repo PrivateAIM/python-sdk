@@ -112,9 +112,6 @@ class MessageBrokerAPI:
                 )
             )
         done, pending = await asyncio.wait(await_list, timeout=timeout, return_when=asyncio.ALL_COMPLETED)
-        print(f"Awaited messages for {len(node_ids)} nodes, done: {len(done)}, pending: {len(pending)}")
-        for task in done:
-            print(f"Task result: {task.result()}")
         responses = dict()
         for node_id in node_ids:
             for task in done:
