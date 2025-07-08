@@ -579,13 +579,14 @@ class FlameCoreSDK:
         message_dict = self.await_messages(senders, message_category, timeout=timeout)
         for sender, message_list in message_dict.items():
             if message_list:
+                print(f"Received intermediate data from {sender}: {message_list}")
                 result_id_body = message_list[-1].body['result_id']
                 result_sent_is_encrypted = type(result_id_body) == dict
                 result_id_sent = result_id_body[self.config.node_id] if result_sent_is_encrypted else result_id_body
                 data_dict[sender] = self.get_intermediate_data("global",
                                                                result_id_sent,
                                                                sender_node_id=sender if result_sent_is_encrypted else None)
-                print(f"Received intermediate data from {sender}: {data_dict[sender]}")
+                print(f"Received intermediate data from {sender}: {data_dict[sender]}, with result id sent {result_id_sent}")
         return data_dict
 
     def get_local_tags(self, filter: Optional[str] = None) -> list[str]:
