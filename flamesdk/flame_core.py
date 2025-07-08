@@ -582,6 +582,7 @@ class FlameCoreSDK:
            """
         data_dict = {sender: None for sender in senders}
         message_dict = self.await_messages(senders, message_category, timeout=timeout)
+        print(f"await_intermediate_data Received messages: {message_dict}")
         for sender, message_list in message_dict.items():
             if message_list:
                 result_id_body = message_list[-1].body['result_id']
