@@ -3,6 +3,7 @@ from httpx import Client
 import pickle
 from _pickle import PicklingError
 import re
+import uuid
 from io import BytesIO
 from typing import Any, Literal, Optional
 from typing_extensions import TypedDict
@@ -120,7 +121,7 @@ class ResultClient:
         #TODO:localdp (end)
 
         response = self.client.put(request_path,
-                                   files={"file": BytesIO(file_body)},
+                                   files={"file": (uuid.uuid4(), BytesIO(file_body))},
                                    data=data,
                                    headers=[('Connection', 'close')])
         response.raise_for_status()
