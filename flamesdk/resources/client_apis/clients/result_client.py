@@ -121,7 +121,7 @@ class ResultClient:
         #TODO:localdp (end)
 
         response = self.client.put(request_path,
-                                   files={"file": (uuid.uuid4(), BytesIO(file_body))},
+                                   files={"file": (str(uuid.uuid4()), BytesIO(file_body))},
                                    data=data,
                                    headers=[('Connection', 'close')])
         response.raise_for_status()
