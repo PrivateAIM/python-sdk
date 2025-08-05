@@ -3,14 +3,27 @@ import time
 from enum import Enum
 from typing import Union
 
-class HUB_LOG_LITERALS(Enum):
-    status_message = 'status_message'
-    error_code = 'error_code'
 
-_LOG_TYPE_LITERALS = {'normal': HUB_LOG_LITERALS.status_message.value,
+class HUB_LOG_LITERALS(Enum):
+    info_log = 'info'
+    notice_message = 'notice'
+    debug_log = 'debug'
+    warning_log = 'warn'
+    alert_log = 'alert'
+    emergency_log = 'emerg'
+    error_code = 'error'
+    critical_error_code = 'crit'
+
+
+_LOG_TYPE_LITERALS = {'info': HUB_LOG_LITERALS.info_log.value,
+                      'normal': HUB_LOG_LITERALS.info_log.value,
+                      'notice': HUB_LOG_LITERALS.notice_message.value,
+                      'debug': HUB_LOG_LITERALS.debug_log.value,
+                      'warning': HUB_LOG_LITERALS.warning_log.value,
+                      'alert': HUB_LOG_LITERALS.alert_log.value,
+                      'emergency': HUB_LOG_LITERALS.emergency_log.value,
                       'error': HUB_LOG_LITERALS.error_code.value,
-                      'info': HUB_LOG_LITERALS.status_message.value,
-                      'warning': HUB_LOG_LITERALS.error_code.value}
+                      'critical-error': HUB_LOG_LITERALS.critical_error_code.value}
 
 
 def flame_log(msg: Union[str, bytes],
