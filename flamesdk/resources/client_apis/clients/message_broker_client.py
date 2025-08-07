@@ -6,7 +6,7 @@ from typing import Optional, Literal
 from httpx import AsyncClient, HTTPError
 
 from flamesdk.resources.node_config import NodeConfig
-from flamesdk.resources.utils.logging import flame_log
+from flamesdk.resources.utils.logging import FlameLogger
 
 
 class Message:
@@ -92,14 +92,15 @@ class Message:
 
 
 class MessageBrokerClient:
-    def __init__(self, config: NodeConfig, silent: bool = False) -> None:
+    def __init__(self, config: NodeConfig, flame_logger: FlameLogger) -> None:
         self.nodeConfig = config
+        self.flame_logger = flame_logger
         self._message_broker = AsyncClient(
             base_url=f"http://{self.nodeConfig.nginx_name}/message-broker",
             headers={"Authorization": f"Bearer {config.keycloak_token}", "Accept": "application/json"},
             follow_redirects=True
         )
-        asyncio.run(self._connect(silent=silent))
+        asyncio.run(self._connect())
         self.list_of_incoming_messages: list[Message] = []
         self.list_of_outgoing_messages: list[Message] = []
         self.message_number = 0
@@ -138,7 +139,7 @@ class MessageBrokerClient:
         except HTTPError:
             return False
 
-    async def _connect(self, silent: bool = False) -> None:
+    async def _connect(self) -> None:
         response = await self._message_broker.post(
             f'/analyses/{os.getenv("ANALYSIS_ID")}/messages/subscriptions',
             json={'webhookUrl': f'http://{self.nodeConfig.nginx_name}/analysis/webhook'}
@@ -146,17 +147,20 @@ class MessageBrokerClient:
         try:
             response.raise_for_status()
         except HTTPError as e:
-            flame_log("Failed to subscribe to message broker", silent)
-            flame_log(repr(e), silent)
+            self.flame_logger.set_runstatus("failed")
+            self.flame_logger.new_log("Failed to subscribe to message broker", log_type='error')
+            self.flame_logger.new_log(repr(e), log_type='error')
         response = await self._message_broker.get(f'/analyses/{os.getenv("ANALYSIS_ID")}/participants/self',
                                                   headers=[('Connection', 'close')])
         try:
             response.raise_for_status()
         except HTTPError as e:
-            flame_log("Successfully subscribed to message broker, but failed to retrieve participants", silent)
-            flame_log(repr(e), silent)
+            self.flame_logger.set_runstatus("failed")
+            self.flame_logger.new_log("Successfully subscribed to message broker, but failed to retrieve participants",
+                                      log_type='error')
+            self.flame_logger.new_log(repr(e), log_type='error')
 
-    async def send_message(self, message: Message, silent: bool = False) -> None:
+    async def send_message(self, message: Message) -> None:
         self.message_number += 1
         body = {
             "recipients": message.recipients,
@@ -168,18 +172,18 @@ class MessageBrokerClient:
                                             headers=[('Connection', 'close'),
                                                      ("Content-Type", "application/json")])
         if message.body["meta"]["sender"] == self.nodeConfig.node_id:
-            flame_log(f"send message: {body}", silent)
+            self.flame_logger.new_log(f"send message: {body}", log_type='info')
 
         self.list_of_outgoing_messages.append(message)
 
-    def receive_message(self, body: dict, silent: bool = False) -> None:
+    def receive_message(self, body: dict) -> None:
         needs_acknowledgment = body["meta"]["akn_id"] is None
         message = Message(message=body, config=self.nodeConfig, outgoing=False)
         self.list_of_incoming_messages.append(message)
 
         if needs_acknowledgment:
-            flame_log("acknowledging ready check" if body["meta"]["category"] == "ready_check" else "incoming message",
-                      silent)
+            self.flame_logger.new_log("acknowledging ready check" if body["meta"]["category"] == "ready_check" else "incoming message",
+                                      log_type='info')
             asyncio.run(self.acknowledge_message(message))
 
     def delete_message_by_id(self, message_id: str, type: Literal["outgoing", "incoming"]) -> int:

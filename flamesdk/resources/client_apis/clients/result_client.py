@@ -1,14 +1,13 @@
 import math
 from httpx import Client
 import pickle
-from _pickle import PicklingError
 import re
 import uuid
 from io import BytesIO
 from typing import Any, Literal, Optional
 from typing_extensions import TypedDict
 
-from flamesdk.resources.utils.logging import flame_log
+from flamesdk.resources.utils.logging import FlameLogger
 
 
 class LocalDifferentialPrivacyParams(TypedDict, total=True):
@@ -18,12 +17,12 @@ class LocalDifferentialPrivacyParams(TypedDict, total=True):
 
 class ResultClient:
 
-    def __init__(self, nginx_name, keycloak_token) -> None:
+    def __init__(self, nginx_name, keycloak_token, flame_logger: FlameLogger) -> None:
         self.nginx_name = nginx_name
         self.client = Client(base_url=f"http://{nginx_name}/storage",
                              headers={"Authorization": f"Bearer {keycloak_token}"},
                              follow_redirects=True)
-
+        self.flame_logger = flame_logger
     def refresh_token(self, keycloak_token: str):
         self.client = Client(base_url=f"http://{self.nginx_name}/storage",
                              headers={"Authorization": f"Bearer {keycloak_token}"},
@@ -36,7 +35,7 @@ class ResultClient:
                     type: Literal["final", "global", "local"] = "final",
                     output_type: Literal['str', 'bytes', 'pickle'] = 'pickle',
                     local_dp: Optional[LocalDifferentialPrivacyParams] = None, #TODO:localdp
-                    silent: bool = False) -> dict[str, str]:
+                    ) -> dict[str, str]:
         """
         Pushes the result to the hub. Making it available for analysts to download.
 
@@ -46,7 +45,6 @@ class ResultClient:
         :param type: location to save the result, final saves in the hub to be downloaded, global saves in central instance of MinIO, local saves in the node
         :param output_type: the type of the result, str, bytes or pickle only for final results
         :param local_dp: parameters for local differential privacy, only for final floating-point type results #TODO:localdp
-        :param silent: if True, the response will not be logged
         :return:
         """
         if tag and (type != "local"):
@@ -79,11 +77,10 @@ class ResultClient:
 
                 # print warning if output_type other than str is specified
                 if output_type != "str":
-                    flame_log(
+                    self.flame_logger.new_log(
                     f"Result submission with local differential privacy requested but output type is set to `{output_type}`."
                         "`str` is enforced but this may change in a future version.",
-                        silent
-                    )
+                        log_type='warn')
 
                 # write as string to request body
                 file_body = str(result).encode("utf-8")
@@ -93,13 +90,13 @@ class ResultClient:
                 file_body = bytes(result)
             else:
                 file_body = pickle.dumps(result)
-        except (TypeError, ValueError, UnicodeEncodeError, PicklingError) as e:
+        except (TypeError, ValueError, UnicodeEncodeError, pickle.PicklingError) as e:
             if output_type != 'pickle':
-                flame_log(f"Failed to translate result data to type={output_type}: {e}", silent)
-                flame_log("Attempting 'pickle' instead...", silent)
+                self.flame_logger.new_log(f"Failed to translate result data to type={output_type}: {e}", log_type='error')
+                self.flame_logger.new_log("Attempting 'pickle' instead...", log_type='warn')
                 try:
                     file_body = pickle.dumps(result)
-                except PicklingError as e:
+                except pickle.PicklingError as e:
                     raise ValueError(f"Failed to pickle result data: {e}")
             else:
                 raise ValueError(f"Failed to pickle result data: {e}")
@@ -118,7 +115,6 @@ class ResultClient:
             request_path += "localdp"
             # local_dp is guaranteed to not be None, so remap values to string and update request data mapping
             data.update({k: str(v) for k, v in local_dp.items()})
-        #TODO:localdp (end)
 
         response = self.client.put(request_path,
                                    files={"file": (str(uuid.uuid4()), BytesIO(file_body))},
@@ -126,7 +122,7 @@ class ResultClient:
                                    headers=[('Connection', 'close')])
         response.raise_for_status()
         if type != "final":
-            flame_log(f"response push_results: {response.json()}", silent)
+            self.flame_logger.new_log(f"response push_results: {response.json()}", log_type='info')
         else:
             return {"status": "success"}
 
