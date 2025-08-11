@@ -55,9 +55,10 @@ class FlameAPI:
                 body = await request.json()
                 new_token = body.get("token")
                 if not new_token:
-                    self.flame_logger.set_runstatus("failed")
-                    self.flame_logger.new_log("No token, raising HTTPException", log_type='error')
-                    raise HTTPException(status_code=400, detail="Token is required")
+                    try:
+                        raise HTTPException(status_code=400, detail="Token is required")
+                    except HTTPException as e:
+                        self.flame_logger.raise_error(f"No token, raising HTTPException: {repr(e)}")
 
                 # refresh token in po client
                 po_client.refresh_token(new_token)
@@ -72,9 +73,10 @@ class FlameAPI:
                 self.keycloak_token = new_token
                 return JSONResponse(content={"message": "Token refreshed successfully"})
             except Exception as e:
-                self.flame_logger.set_runstatus("failed")
-                self.flame_logger.new_log(f"stack trace {e}", log_type='error')
-                raise HTTPException(status_code=500, detail=str(e))
+                try:
+                    raise HTTPException(status_code=500, detail=str(e))
+                except HTTPException as e:
+                    self.flame_logger.raise_error(f"stack trace {repr(e)}")
 
         @router.get("/healthz", response_class=JSONResponse)
         def health() -> dict[str, Union[str, int]]:

@@ -1,4 +1,4 @@
-from httpx import AsyncClient, ConnectError
+from httpx import AsyncClient, ConnectError, HTTPStatusError
 import asyncio
 import time
 import base64
@@ -14,7 +14,10 @@ def wait_until_nginx_online(nginx_name: str, flame_logger: FlameLogger) -> None:
         try:
             client = AsyncClient(base_url=f"http://{nginx_name}")
             response = asyncio.run(client.get("/healthz"))
-            response.raise_for_status()
+            try:
+                response.raise_for_status()
+            except HTTPStatusError as e:
+                flame_logger.new_log(f" {repr(e)}", log_type="warning")
             nginx_is_online = True
         except ConnectError:
             time.sleep(1)
@@ -40,12 +43,11 @@ def extract_remaining_time_from_token(token: str, flame_logger: FlameLogger) -> 
             try:
                 raise ValueError("Token does not contain expiration ('exp') claim.")
             except ValueError as e:
-                flame_logger.new_log(f"Error extracting expiration time from token: {e}", log_type='error')
+                flame_logger.raise_error(f"Error extracting expiration time from token: {repr(e)}")
 
         # Calculate the time remaining until the expiration
         current_time = int(time.time())
         remaining_time = exp_time - current_time
         return remaining_time if remaining_time > 0 else 0
     except Exception as e:
-        flame_logger.new_log(f"{e}", log_type='error')
-    raise RuntimeError
+        flame_logger.raise_error(f"{repr(e)}")

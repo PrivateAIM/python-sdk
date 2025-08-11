@@ -1,8 +1,7 @@
 from typing import Optional, Union
 import asyncio
-from httpx import AsyncClient
+from httpx import AsyncClient, HTTPStatusError
 import re
-import time
 from flamesdk.resources.utils.logging import FlameLogger
 
 
@@ -32,12 +31,9 @@ class DataApiClient:
         response = await self.hub_client.get(f"/kong/datastore/{self.project_id}")
         try:
             response.raise_for_status()
-        except Exception as e:
-            self.flame_logger.set_runstatus("failed")
-            self.flame_logger.new_log(f"Failed to retrieve available data sources for project {self.project_id}",
-                                      log_type="error")
-            self.flame_logger.new_log(repr(e))
-            self.flame_logger.waiting_for_health_check()
+        except HTTPStatusError as e:
+            self.flame_logger.raise_error(f"Failed to retrieve available data sources for project {self.project_id}:"
+                                      f" {repr(e)}")
 
         return [{'name': source['name']} for source in response.json()['data']]
 
@@ -56,11 +52,9 @@ class DataApiClient:
                                                            headers=[('Connection', 'close')]))
                     try:
                         response.raise_for_status()
-                    except Exception as e:
-                        self.flame_logger.set_runstatus("failed")
+                    except HTTPStatusError as e:
                         self.flame_logger.new_log(f"Failed to retrieve fhir data for query {fhir_query} "
-                                                  f"from source {source['name']}", log_type="error")
-                        self.flame_logger.new_log(repr(e))
+                                                  f"from source {source['name']}: {repr(e)}", log_type='warning')
                         continue
                     datasets[fhir_query] = response.json()
             else:
@@ -71,20 +65,19 @@ class DataApiClient:
                                                                headers=[('Connection', 'close')]))
                         try:
                             response.raise_for_status()
-                        except Exception as e:
-                            self.flame_logger.set_runstatus("failed")
-                            self.flame_logger.new_log(f"Failed to retrieve s3 data for key {res_name} "
-                                                      f"from source {source['name']}", log_type="error")
-                            self.flame_logger.new_log(repr(e))
-                            self.flame_logger.waiting_for_health_check()
+                        except HTTPStatusError as e:
+                            self.flame_logger.raise_error(f"Failed to retrieve s3 data for key {res_name} "
+                                                          f"from source {source['name']}: {repr(e)}")
                         datasets[res_name] = response.content
             dataset_sources.append(datasets)
         return dataset_sources
 
     async def _get_s3_dataset_names(self, source_name: str) -> list[str]:
         response = await self.client.get(f"{source_name}/s3", headers=[('Connection', 'close')])
-        response.raise_for_status()
-
+        try:
+            response.raise_for_status()
+        except HTTPStatusError as e:
+            self.flame_logger.raise_error(f"Failed to retrieve S3 dataset names from source {source_name}: {repr(e)}")
         responses = re.findall(r'<Key>(.*?)</Key>', str(response.text))
         return responses
 
@@ -99,10 +92,8 @@ class DataApiClient:
             if sources["id"] == data_id:
                 path = sources["paths"][0]
         if path is None:
-
-            self.flame_logger.new_log(f"Data source with id {data_id} not found", log_type="error")
-            raise ValueError(f"Data source with id {data_id} not found")
-        client = AsyncClient(base_url=f"{path}",)
+            self.flame_logger.raise_error(f"Data source with id {data_id} not found")
+        client = AsyncClient(base_url=f"{path}")
         return client
 
 

@@ -1,5 +1,5 @@
 import math
-from httpx import Client
+from httpx import Client, HTTPStatusError
 import pickle
 import re
 import uuid
@@ -48,14 +48,14 @@ class ResultClient:
         :return:
         """
         if tag and (type != "local"):
-            raise ValueError("Tag can only be used with local type, in current implementation")
+            self.flame_logger.raise_error("Tag can only be used with local type, in current implementation")
         elif remote_node_id and (type != "global"):
-            raise ValueError("Remote_node_id can only be used with global type, in current implementation")
-
+            self.flame_logger.raise_error("Remote_node_id can only be used with global type, in current implementation")
         type = "intermediate" if type == "global" else type
 
         if tag and not re.match(r'^[a-z0-9]+(-[a-z0-9]+)*$', tag):
-            raise ValueError("Tag must consist only of lowercase letters, numbers, and hyphens")
+            self.flame_logger.raise_error(f"Invalid tag format: {tag}. "
+                                          f"Tag must consist only of lowercase letters, numbers, and hyphens")
 
         # TODO:localdp (start)
         # check if local dp parameters have been supplied
@@ -65,22 +65,23 @@ class ResultClient:
             if use_local_dp:
                 # check if result is a numeric value
                 if not isinstance(result, (float, int)):
-                    raise ValueError("Local differential privacy can only be applied on numeric values")
+                    self.flame_logger.raise_error("Local differential privacy can only be applied on numeric values")
 
                 # check if result is finite
                 if not math.isfinite(result):
-                    raise ValueError("Result is not finite")
+                    self.flame_logger.raise_error("ValueError: Result is not finite")
 
                 # check if final result submission is requested
                 if type != "final":
-                    raise ValueError("Local differential privacy is only supported for submission of final results")
+                    self.flame_logger.raise_error("ValueError: Local differential privacy is only supported for "
+                                                  "submission of final results")
 
                 # print warning if output_type other than str is specified
                 if output_type != "str":
                     self.flame_logger.new_log(
                     f"Result submission with local differential privacy requested but output type is set to `{output_type}`."
                         "`str` is enforced but this may change in a future version.",
-                        log_type='warn')
+                        log_type='warning')
 
                 # write as string to request body
                 file_body = str(result).encode("utf-8")
@@ -92,14 +93,14 @@ class ResultClient:
                 file_body = pickle.dumps(result)
         except (TypeError, ValueError, UnicodeEncodeError, pickle.PicklingError) as e:
             if output_type != 'pickle':
-                self.flame_logger.new_log(f"Failed to translate result data to type={output_type}: {e}", log_type='error')
-                self.flame_logger.new_log("Attempting 'pickle' instead...", log_type='warn')
+                self.flame_logger.new_log(f"Failed to translate result data to type={output_type}: {repr(e)}", log_type='warning')
+                self.flame_logger.new_log("Attempting 'pickle' instead...", log_type='warning')
                 try:
                     file_body = pickle.dumps(result)
                 except pickle.PicklingError as e:
-                    raise ValueError(f"Failed to pickle result data: {e}")
+                    self.flame_logger.raise_error(f"Failed to pickle result data: {repr(e)}")
             else:
-                raise ValueError(f"Failed to pickle result data: {e}")
+                self.flame_logger.raise_error(f"Failed to pickle result data: {repr(e)}")
 
         if remote_node_id:
             data = {"remote_node_id": remote_node_id}
@@ -120,12 +121,14 @@ class ResultClient:
                                    files={"file": (str(uuid.uuid4()), BytesIO(file_body))},
                                    data=data,
                                    headers=[('Connection', 'close')])
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except HTTPStatusError as e:
+            self.flame_logger.raise_error(f"Failed to push results: {repr(e)}")
         if type != "final":
             self.flame_logger.new_log(f"response push_results: {response.json()}", log_type='info')
         else:
             return {"status": "success"}
-
         return {"status": "success",
                 "url": response.json()["url"],
                 "id":  response.json()["url"].split("/")[-1]}
@@ -146,13 +149,11 @@ class ResultClient:
         :return:
         """
         if (tag is not None) and (type != "local"):
-            raise ValueError("Tag can only be used with local type")
+            self.flame_logger.raise_error("Tag can only be used with local type")
         if (id is None) and (tag is None):
-            raise ValueError("Either id or tag should be provided")
-
+            self.flame_logger.raise_error("Tag can only be used with local type")
         if tag and not re.match(r'^[a-z0-9]{1,2}|[a-z0-9][a-z0-9-]{,30}[a-z0-9]+$', tag):
-            raise ValueError("Tag must consist only of lowercase letters, numbers, and hyphens")
-
+            self.flame_logger.raise_error(f"Tag must consist only of lowercase letters, numbers, and hyphens")
         type = "intermediate" if type == "global" else type
 
         if tag:
@@ -178,7 +179,10 @@ class ResultClient:
         :return:
         """
         response = self.client.get(f"/local/tags/{tag}")
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except HTTPStatusError as e:
+            self.flame_logger.raise_error(f"Failed to  Retrieves the URL associated with the specified tag.: {repr(e)}")
         urls = []
         for item in response.json()["results"]:
             item["url"] = item["url"].split("/local/")[1]
@@ -192,7 +196,10 @@ class ResultClient:
         :return:
         """
         response = self.client.get(url)
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except HTTPStatusError as e:
+            self.flame_logger.raise_error(f"Failed to retrieve file from URL: {repr(e)}")
         return pickle.loads(BytesIO(response.content).read())
 
     def get_local_tags(self, filter: Optional[str] = None) -> list[str]:
@@ -228,7 +235,11 @@ class ResultClient:
             HTTPError: If the request to fetch tags fails.
         """
         response = self.client.get("/local/tags")
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except HTTPStatusError as e:
+            self.flame_logger.raise_error(f"Failed to retrieve local tags: {repr(e)}")
+
         tag_name_list = [tag["name"] for tag in response.json()["tags"]]
 
         if filter is not None:

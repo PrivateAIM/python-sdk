@@ -85,8 +85,7 @@ class FlameLogger:
                 raise IOError(f"Invalid log type given to logging function "
                               f"(known log_types={_LOG_TYPE_LITERALS.keys()}, received log_type={log_type}).")
             except IOError as e:
-                self.new_log(f"When attempting to use logging function, this error occurred: {e}",
-                             log_type='error')
+                self.raise_error(f"When attempting to use logging function, this error occurred: {repr(e)}")
 
         log = None
         if not self.silent:
@@ -111,6 +110,11 @@ class FlameLogger:
 
     def waiting_for_health_check(self, seconds: int = 100) -> None:
         time.sleep(seconds)
+        
+    def raise_error(self, message: str) -> None:
+        self.set_runstatus("failed")
+        self.new_log(message, log_type="error")
+        self.waiting_for_health_check()
 
     def declare_log_types(self, new_log_types: dict[str, str]) -> None:
         """
@@ -129,9 +133,9 @@ class FlameLogger:
                     self.new_log(f"Attempting to declare new log_type failed since log_type={k} "
                               f"already exists and cannot be overwritten.", log_type='warning')
             else:
-                self.new_log(f"Attempting to declare new log_type failed. Attempted to declare new log_type for "
-                             f"invalid Hub log field = {v} (known field values: {[e.value for e in HUB_LOG_LITERALS]}).",
-                             log_type='error')
+                self.raise_error(f"Attempting to declare new log_type failed. Attempted to declare new log_type for "
+                                 f"invalid Hub log field = {v} (known field values: "
+                                 f"{[e.value for e in HUB_LOG_LITERALS]}).")
 
     def _submit_logs(self, log,log_type, status):
         if self.po_client is None:
@@ -146,7 +150,7 @@ class FlameLogger:
                 self._send_queued_logs()
                 self.po_client.stream_logs(log, log_type, status)
             except Exception as e:
-                self.new_log(f"Failed to send log to POClient: {e}", log_type='error')
+                self.new_log(f"Failed to send log to POClient: {repr(e)}", log_type='warning')
                 # If sending fails, we can still queue the log
                 log_dict = {
                     "msg": log,
@@ -160,7 +164,10 @@ class FlameLogger:
         Send all logs from the queue
         """
         if self.po_client is None:
-            raise ValueError("POClient instance is not set. Use add_po_client() to set it.")
+            try:
+                raise ValueError("POClient instance is not set. Use add_po_client() to set it.")
+            except ValueError as e:
+                self.raise_error(repr(e))
 
         while not self.queue.empty():
             log_dict = self.queue.get()

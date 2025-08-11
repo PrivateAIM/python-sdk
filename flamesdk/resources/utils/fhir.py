@@ -21,15 +21,10 @@ def fhir_to_csv(fhir_data: dict[str, Any],
                 output_type: Literal["file", "dict"] = "file",
                 data_client: Optional[DataAPI] = None) -> Union[StringIO, dict[Any, dict[Any, Any]]]:
     if input_resource not in _KNOWN_RESOURCES:
-        flame_logger.set_runstatus("failed")
-        flame_logger.new_log(f"Unknown resource specified (given={input_resource}, known={_KNOWN_RESOURCES})",
-                             log_type='error')
-        #raise IOError(f"Unknown resource specified (given={input_resource}, known={_KNOWN_RESOURCES})")
+        flame_logger.raise_error(f"Unknown resource specified (given={input_resource}, known={_KNOWN_RESOURCES})")
     if input_resource == 'Observation' and not row_key_seq:
-        flame_logger.set_runstatus("failed")
-        flame_logger.new_log(f"Resource 'Observation' specified, but no valid row key sequence was given "
-                             f"(given={row_key_seq})", log_type='error')
-        #raise IOError(f"Resource 'Observation' specified, but no valid row key sequence was given (given={row_key_seq})")
+        flame_logger.raise_error(f"Resource 'Observation' specified, but no valid row key sequence was given "
+                                 f"(given={row_key_seq})")
 
     df_dict = {}
     flame_logger.new_log(f"Converting fhir data resource of type={input_resource} to csv")
@@ -66,10 +61,9 @@ def fhir_to_csv(fhir_data: dict[str, Any],
                     df_dict[col_id][str(i)] = value
         else:
             try:
-                flame_logger.set_runstatus("failed")
                 raise IOError(f"Unknown resource specified (given={input_resource}, known={_KNOWN_RESOURCES})")
             except IOError as e:
-                flame_logger.new_log(f"Error while parsing fhir data: {e}", log_type='error')
+                flame_logger.raise_error(f"Error while parsing fhir data: {repr(e)}")
 
         # get next data
         if data_client is None:
@@ -147,7 +141,7 @@ def _search_fhir_resource(fhir_entry: Union[dict[str, Any], list[Any]],
                 except KeyError:
                     flame_logger.new_log(f"Unable to find field '{key}' in fhir data at level={current + 1} "
                                          f"(keys found: {fhir_entry.keys()})",
-                                         log_type='warn')
+                                         log_type='warning')
                     return None
         elif type(fhir_entry) == list:
             for e in fhir_entry:
@@ -168,12 +162,12 @@ def _search_fhir_resource(fhir_entry: Union[dict[str, Any], list[Any]],
                     else:
                         flame_logger.new_log(f"Unable to find field '{key}' in fhir data at level={current + 1} "
                                              f"(keys found: fhir_entry.keys())",
-                                             log_type='warn')
+                                             log_type='warning')
                         return None
                 return value
             else:
                 return None
         else:
             flame_logger.new_log(f"Unexpected data type found (found type={type(fhir_entry)})",
-                                 log_type='warn')
+                                 log_type='warning')
             return None
