@@ -2,6 +2,7 @@ import string
 import time
 from enum import Enum
 from typing import Union
+import queue
 
 
 class HUB_LOG_LITERALS(Enum):
@@ -32,7 +33,7 @@ class FlameLogger:
         Initialize the FlameLog class with a silent mode.
         :param silent: If True, logs will not be printed to console.
         """
-        self.queue = []
+        self.queue = queue.Queue()
         self.po_client = None  # Placeholder for POClient instance
         self.silent = silent
         self.runstatus = 'starting'  # Default status for logs
@@ -57,12 +58,7 @@ class FlameLogger:
         """
         Send all logs from the queue to the POClient.
         """
-        if self.po_client is None:
-            raise ValueError("POClient instance is not set. Use add_po_client() to set it.")
-
-        for log in self.queue:
-            self.po_client.stream_logs(log['msg'], log['log_type'], log['status'], self.silent)
-        self.queue.clear()
+        self._send_queued_logs()
 
     def new_log(self,
                 msg: Union[str, bytes],
@@ -144,7 +140,28 @@ class FlameLogger:
                 "log_type":log_type,
                 "status": status
             }
-            self.queue.append(log_dict)
+            self.queue.put(log_dict)
         else:
-            self.po_client.stream_logs(log, log_type, status)
+            try:
+                self._send_queued_logs()
+                self.po_client.stream_logs(log, log_type, status)
+            except Exception as e:
+                self.new_log(f"Failed to send log to POClient: {e}", log_type='error')
+                # If sending fails, we can still queue the log
+                log_dict = {
+                    "msg": log,
+                    "log_type": log_type,
+                    "status": status
+                }
+                self.queue.put(log_dict)
 
+    def _send_queued_logs(self) -> None:
+        """
+        Send all logs from the queue
+        """
+        if self.po_client is None:
+            raise ValueError("POClient instance is not set. Use add_po_client() to set it.")
+
+        while not self.queue.empty():
+            log_dict = self.queue.get()
+            self.po_client.stream_logs(log_dict['msg'], log_dict['log_type'], log_dict['status'])
