@@ -1,4 +1,5 @@
 import time
+import random
 import asyncio
 from httpx import AsyncClient
 from datetime import datetime
@@ -72,6 +73,9 @@ class FlameCoreSDK:
         # Start the flame api thread used for incoming messages and health checks
         self.flame_log("\tStarting FlameApi thread...", self.silent, end='', suppress_tail=True)
         try:
+            num = random.randint(0, 10)
+            if num != 0:
+                time.sleep(10000)
             self._flame_api_thread = Thread(target=self._start_flame_api)
             self._flame_api_thread.start()
             self.flame_log("success", self.silent, suppress_head=True)
