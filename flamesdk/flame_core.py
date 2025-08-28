@@ -55,6 +55,7 @@ class FlameCoreSDK:
             self._po_api = POAPI(self.config, self._flame_logger)
             self._flame_logger.add_po_api(self._po_api)
             self._flame_logger.send_logs_from_queue()
+            self.flame_log("success", suppress_head=True)
         except Exception as e:
             self._po_api = None
             self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', suppress_head=True)

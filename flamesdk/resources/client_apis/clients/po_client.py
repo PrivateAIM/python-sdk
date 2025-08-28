@@ -38,8 +38,8 @@ class POClient:
                                          headers={"Content-Type": "application/json"})
         try:
             response.raise_for_status()
+            print("Successfully streamed logs to PO")
         except HTTPError as e:
-            self.flame_logger.new_log("Failed to stream logs to PO", log_type='error')
-            self.flame_logger.new_log(repr(e))
+            self.flame_logger.new_log(f"Failed to stream logs to PO: {repr(e)}", log_type='error')
         except Exception as e:
             print("Unforeseen Error:", repr(e))

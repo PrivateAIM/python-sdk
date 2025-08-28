@@ -175,6 +175,7 @@ class FlameLogger:
             except ValueError as e:
                 self.raise_error(repr(e))
 
+        print("Sending queued logs to POAPI...")
         while not self.queue.empty():
             log_dict = self.queue.get()
             self.po_api.stream_logs(log_dict['msg'], log_dict['log_type'], log_dict['status'])
