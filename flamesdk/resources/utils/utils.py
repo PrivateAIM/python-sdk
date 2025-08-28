@@ -1,4 +1,4 @@
-from httpx import AsyncClient, ConnectError, HTTPStatusError
+from httpx import AsyncClient, TransportError, HTTPStatusError
 import asyncio
 import time
 import base64
@@ -16,10 +16,11 @@ def wait_until_nginx_online(nginx_name: str, flame_logger: FlameLogger) -> None:
             response = asyncio.run(client.get("/healthz"))
             try:
                 response.raise_for_status()
+                nginx_is_online = True
             except HTTPStatusError as e:
-                flame_logger.new_log(f" {repr(e)}", log_type="warning")
-            nginx_is_online = True
-        except ConnectError:
+                flame_logger.new_log(f"{repr(e)}", log_type="warning")
+            #nginx_is_online = True
+        except TransportError:
             time.sleep(1)
     flame_logger.new_log("success", suppress_head=True)
 

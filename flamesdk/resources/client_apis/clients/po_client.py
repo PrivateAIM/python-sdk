@@ -32,6 +32,7 @@ class POClient:
             "node_id": node_id,
             "status": status
         }
+        print("Sending logs to PO:", log_dict)
         response = await self.client.put("/stream_logs",
                                          data=log_dict,
                                          headers={"Content-Type": "application/json"})
@@ -40,3 +41,5 @@ class POClient:
         except HTTPError as e:
             self.flame_logger.new_log("Failed to stream logs to PO", log_type='error')
             self.flame_logger.new_log(repr(e))
+        except Exception as e:
+            print("Unforeseen Error:", repr(e))
