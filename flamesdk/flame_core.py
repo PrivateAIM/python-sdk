@@ -53,7 +53,7 @@ class FlameCoreSDK:
         self.flame_log("\tConnecting to PO service...", end='', suppress_tail=True)
         try:
             self._po_api = POAPI(self.config, self._flame_logger)
-            self._flame_logger.add_po_client(self._po_api.po_client)
+            self._flame_logger.add_po_api(self._po_api)
             self._flame_logger.send_logs_from_queue()
         except Exception as e:
             self._po_api = None

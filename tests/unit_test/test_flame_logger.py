@@ -11,8 +11,8 @@ def flame_logger():
     return FlameLogger()
 
 def test_add_po_client(flame_logger, mock_po_client):
-    flame_logger.add_po_client(mock_po_client)
-    assert flame_logger.po_client == mock_po_client
+    flame_logger.add_po_api(mock_po_client)
+    assert flame_logger.po_api == mock_po_client
 
 def test_set_runstatus(flame_logger):
     flame_logger.set_runstatus("running")

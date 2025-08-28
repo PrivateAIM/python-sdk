@@ -34,16 +34,16 @@ class FlameLogger:
         :param silent: If True, logs will not be printed to console.
         """
         self.queue = queue.Queue()
-        self.po_client = None  # Placeholder for POClient instance
+        self.po_api = None  # Placeholder for PO_API instance
         self.silent = silent
         self.runstatus = 'starting'  # Default status for logs
 
-    def add_po_client(self, po_client) -> None:
+    def add_po_api(self, po_api) -> None:
         """
-        Add a POClient instance to the FlameLogger.
-        :param po_client: An instance of POClient.
+        Add a POAPI instance to the FlameLogger.
+        :param po_api: An instance of POAPI.
         """
-        self.po_client = po_client
+        self.po_api = po_api
 
     def set_runstatus(self, status: str) -> None:
         """
@@ -56,7 +56,7 @@ class FlameLogger:
 
     def send_logs_from_queue(self) -> None:
         """
-        Send all logs from the queue to the POClient.
+        Send all logs from the queue to the POAPI.
         """
         self._send_queued_logs()
 
@@ -138,7 +138,7 @@ class FlameLogger:
                                  f"{[e.value for e in HUB_LOG_LITERALS]}).")
 
     def _submit_logs(self, log,log_type, status):
-        if self.po_client is None:
+        if self.po_api is None:
             log_dict = {
                 "msg": log,
                 "log_type":log_type,
@@ -148,9 +148,8 @@ class FlameLogger:
         else:
             try:
                 self._send_queued_logs()
-                self.po_client.stream_logs(log, log_type, status)
+                self.po_api.stream_logs(log, log_type, status)
             except Exception as e:
-                self.new_log(f"Failed to send log to POClient: {repr(e)}", log_type='warning')
                 # If sending fails, we can still queue the log
                 log_dict = {
                     "msg": log,
@@ -158,17 +157,24 @@ class FlameLogger:
                     "status": status
                 }
                 self.queue.put(log_dict)
+                # But also create new error log for queue
+                error_log_dict = {
+                    "msg": f"Failed to send log to POAPI: {repr(e)}",
+                    "log_type": 'warning',
+                    "status": status
+                }
+                self.queue.put(error_log_dict)
 
     def _send_queued_logs(self) -> None:
         """
         Send all logs from the queue
         """
-        if self.po_client is None:
+        if self.po_api is None:
             try:
-                raise ValueError("POClient instance is not set. Use add_po_client() to set it.")
+                raise ValueError("POAPI instance is not set. Use add_po_api() to set it.")
             except ValueError as e:
                 self.raise_error(repr(e))
 
         while not self.queue.empty():
             log_dict = self.queue.get()
-            self.po_client.stream_logs(log_dict['msg'], log_dict['log_type'], log_dict['status'])
+            self.po_api.stream_logs(log_dict['msg'], log_dict['log_type'], log_dict['status'])
