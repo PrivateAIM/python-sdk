@@ -34,7 +34,7 @@ class POClient:
         }
         print("Sending logs to PO:", log_dict)
         response = await self.client.put("/stream_logs",
-                                         data=log_dict,
+                                         json=log_dict,
                                          headers={"Content-Type": "application/json"},
                                          timeout=30.0)
         try:
