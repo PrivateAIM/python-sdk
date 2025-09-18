@@ -29,11 +29,10 @@ class POClient:
             "log": log,
             "log_type": log_type,
             "analysis_id": analysis_id,
-            "node_id": node_id,
             "status": status
         }
         print("Sending logs to PO:", log_dict)
-        response = await self.client.put("/stream_logs",
+        response = await self.client.post("/stream_logs",
                                          json=log_dict,
                                          headers={"Content-Type": "application/json"},
                                          timeout=30.0)
