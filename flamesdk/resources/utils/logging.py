@@ -101,12 +101,12 @@ class FlameLogger:
             if suppress_tail:
                 tail = ''
             else:
-                tail = f"!suff!{_LOG_TYPE_LITERALS[log_type]}"
+                tail = f"!suff!{log_type}"
             log = f"{head}{msg_cleaned}{tail}"
             print(log, sep=sep, end=end, file=file)
 
         if log is not None:
-            self._submit_logs(log, log_type, self.runstatus)
+            self._submit_logs(log, _LOG_TYPE_LITERALS[log_type], self.runstatus)
 
     def waiting_for_health_check(self, seconds: int = 100) -> None:
         time.sleep(seconds)
