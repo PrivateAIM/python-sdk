@@ -37,6 +37,7 @@ class FlameLogger:
         self.po_api = None  # Placeholder for PO_API instance
         self.silent = silent
         self.runstatus = 'starting'  # Default status for logs
+        self.log_queue = ""
 
     def add_po_api(self, po_api) -> None:
         """
@@ -106,7 +107,13 @@ class FlameLogger:
             print(log, sep=sep, end=end, file=file)
 
         if log is not None:
-            self._submit_logs(log, _LOG_TYPE_LITERALS[log_type], self.runstatus)
+            if suppress_tail:
+                self.log_queue = log
+            else:
+                if suppress_head:
+                    log = self.log_queue + log
+                    self.log_queue = ""
+                self._submit_logs(log, _LOG_TYPE_LITERALS[log_type], self.runstatus)
 
     def waiting_for_health_check(self, seconds: int = 100) -> None:
         time.sleep(seconds)
