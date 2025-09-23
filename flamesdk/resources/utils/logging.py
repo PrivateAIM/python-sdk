@@ -181,7 +181,9 @@ class FlameLogger:
                 raise ValueError("POAPI instance is not set. Use add_po_api() to set it.")
             except ValueError as e:
                 self.raise_error(repr(e))
-
+        if self.queue.empty():
+            print("No queued logs to send to POAPI.")
+            return
         print("Sending queued logs to POAPI...")
         while not self.queue.empty():
             print(self.queue.qsize(), "logs left in queue.")
@@ -189,4 +191,6 @@ class FlameLogger:
             log_dict = self.queue.get()
             self.po_api.stream_logs(log_dict['msg'], log_dict['log_type'], log_dict['status'])
             print(self.queue.empty())
+            self.queue.task_done()
+
         print("All queued logs sent to POAPI.")
