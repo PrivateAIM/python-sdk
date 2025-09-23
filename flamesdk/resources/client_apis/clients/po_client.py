@@ -23,7 +23,6 @@ class POClient:
                           log: str,
                           log_type: str,
                           analysis_id: str,
-                          node_id: str,
                           status: str) -> None:
         log_dict = {
             "log": log,

@@ -188,3 +188,5 @@ class FlameLogger:
             print(self.queue.empty())
             log_dict = self.queue.get()
             self.po_api.stream_logs(log_dict['msg'], log_dict['log_type'], log_dict['status'])
+            print(self.queue.empty())
+        print("All queued logs sent to POAPI.")

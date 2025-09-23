@@ -55,6 +55,7 @@ class FlameCoreSDK:
             self._po_api = POAPI(self.config, self._flame_logger)
             self._flame_logger.add_po_api(self._po_api)
             self._flame_logger.send_logs_from_queue()
+            print("after send logs from queue")
             self.flame_log("success", suppress_head=True)
         except Exception as e:
             self._po_api = None
@@ -73,7 +74,7 @@ class FlameCoreSDK:
             ## Connection to data service
             self.flame_log("\tConnecting to DataApi...", end='', suppress_tail=True)
             try:
-                self._data_api = DataAPI(self.config)
+                self._data_api = DataAPI(self.config, self._flame_logger)
                 self.flame_log("success", suppress_head=True)
             except Exception as e:
                 self._data_api = None
