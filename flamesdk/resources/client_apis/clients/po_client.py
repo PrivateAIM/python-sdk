@@ -34,8 +34,7 @@ class POClient:
         print("Sending logs to PO:", log_dict)
         response = await self.client.post("/stream_logs",
                                          json=log_dict,
-                                         headers={"Content-Type": "application/json"},
-                                         timeout=120.0)
+                                         headers={"Content-Type": "application/json"})
         try:
             response.raise_for_status()
             print("Successfully streamed logs to PO")
