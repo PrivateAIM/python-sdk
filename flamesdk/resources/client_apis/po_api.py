@@ -7,7 +7,6 @@ from flamesdk.resources.utils.logging import FlameLogger
 class POAPI:
     def __init__(self, config: NodeConfig, flame_logger: FlameLogger) -> None:
         self.po_client = POClient(config.nginx_name, config.keycloak_token, flame_logger)
-        self.node_id = config.node_id
         self.analysis_id = config.analysis_id
 
     def stream_logs(self, log: str, log_type: str, status: str) -> None:
@@ -17,4 +16,4 @@ class POAPI:
         :param log_type: type of the log (e.g., 'info', 'error')
         :param status: status of the log
         """
-        asyncio.run(self.po_client.stream_logs(log, log_type, self.analysis_id, self.node_id, status))
+        asyncio.run(self.po_client.stream_logs(log, log_type, self.analysis_id, status))
