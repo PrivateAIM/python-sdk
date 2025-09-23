@@ -144,11 +144,11 @@ class FlameLogger:
                                  f"invalid Hub log field = {v} (known field values: "
                                  f"{[e.value for e in HUB_LOG_LITERALS]}).")
 
-    def _submit_logs(self, log,log_type, status):
+    def _submit_logs(self, log: str, log_type: str, status: str):
         if self.po_api is None:
             log_dict = {
                 "msg": log,
-                "log_type":log_type,
+                "log_type": log_type,
                 "status": status
             }
             self.queue.put(log_dict)
