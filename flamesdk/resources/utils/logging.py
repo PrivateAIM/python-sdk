@@ -59,7 +59,22 @@ class FlameLogger:
         """
         Send all logs from the queue to the POAPI.
         """
-        self._send_queued_logs()
+        if self.po_api is None:
+            try:
+                raise ValueError("POAPI instance is not set. Use add_po_api() to set it.")
+            except ValueError as e:
+                self.raise_error(repr(e))
+        if not self.queue.empty():
+            print("Sending queued logs to POAPI...")
+            while not self.queue.empty():
+                print(self.queue.qsize(), "logs left in queue.")
+                print(self.queue.empty())
+                log_dict = self.queue.get()
+                self.po_api.stream_logs(log_dict['msg'], log_dict['log_type'], log_dict['status'])
+                print(self.queue.empty())
+                self.queue.task_done()
+
+        print("All queued logs sent to POAPI.")
 
     def new_log(self,
                 msg: Union[str, bytes],
@@ -93,20 +108,17 @@ class FlameLogger:
             if isinstance(msg, bytes):
                 msg = msg.decode('utf-8', errors='replace')
             msg_cleaned = ''.join(filter(lambda x: x in string.printable, msg))
-            if suppress_head:                                           # suppressing head (ignore log_type)
+
+            if suppress_head:
                 head = ''
-            elif log_type == 'normal':                                  # if log_type=='normal', add nothing to head
-                head = f"[flame {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}] "
-            else:                                                       # else, add uppercase log_type
-                head = f"[flame -- {log_type.upper()} -- {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}] "
-            if suppress_tail:
-                tail = ''
             else:
-                tail = f"!suff!{log_type}"
+                log_type_fill = "" if log_type == 'normal' else f"-- {log_type.upper()} --"
+                head = f"[flame {log_type_fill} {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}] "
+            tail = "" if suppress_tail else f"!suff!{log_type}"
+
             log = f"{head}{msg_cleaned}{tail}"
             print(log, sep=sep, end=end, file=file)
 
-        if log is not None:
             if suppress_tail:
                 self.log_queue = log
             else:
@@ -154,7 +166,7 @@ class FlameLogger:
             self.queue.put(log_dict)
         else:
             try:
-                self._send_queued_logs()
+                self.send_logs_from_queue()
                 self.po_api.stream_logs(log, log_type, status)
             except Exception as e:
                 # If sending fails, we can still queue the log
@@ -171,24 +183,3 @@ class FlameLogger:
                     "status": status
                 }
                 self.queue.put(error_log_dict)
-
-    def _send_queued_logs(self) -> None:
-        """
-        Send all logs from the queue
-        """
-        if self.po_api is None:
-            try:
-                raise ValueError("POAPI instance is not set. Use add_po_api() to set it.")
-            except ValueError as e:
-                self.raise_error(repr(e))
-        if not self.queue.empty():
-            print("Sending queued logs to POAPI...")
-            while not self.queue.empty():
-                print(self.queue.qsize(), "logs left in queue.")
-                print(self.queue.empty())
-                log_dict = self.queue.get()
-                self.po_api.stream_logs(log_dict['msg'], log_dict['log_type'], log_dict['status'])
-                print(self.queue.empty())
-                self.queue.task_done()
-
-        print("All queued logs sent to POAPI.")

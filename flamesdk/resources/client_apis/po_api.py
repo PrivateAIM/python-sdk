@@ -16,4 +16,4 @@ class POAPI:
         :param log_type: type of the log (e.g., 'info', 'error')
         :param status: status of the log
         """
-        asyncio.run(self.po_client.stream_logs(log, log_type, self.analysis_id, status))
+        self.po_client.stream_logs(log, log_type, self.analysis_id, status)
