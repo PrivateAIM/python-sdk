@@ -38,6 +38,7 @@ class POClient:
             response.raise_for_status()
             print("Successfully streamed logs to PO")
         except HTTPError as e:
-            self.flame_logger.new_log(f"Failed to stream logs to PO: {repr(e)}", log_type='error')
+            #self.flame_logger.new_log(f"Failed to stream logs to PO: {repr(e)}", log_type='error')
+            print("HTTP Error in po api:", repr(e))
         except Exception as e:
             print("Unforeseen Error:", repr(e))
