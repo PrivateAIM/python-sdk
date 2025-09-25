@@ -9,6 +9,7 @@ from flamesdk.resources.utils.logging import FlameLogger
 
 class MessageBrokerAPI:
     def __init__(self, config: NodeConfig, flame_logger: FlameLogger) -> None:
+        self.flame_logger = flame_logger
         self.message_broker_client = MessageBrokerClient(config, flame_logger)
         self.config = self.message_broker_client.nodeConfig
         self.participants = asyncio.run(self.message_broker_client.get_partner_nodes(self.config.node_id,
@@ -38,13 +39,13 @@ class MessageBrokerAPI:
         :raises TimeoutError: if the message is not acknowledged within the specified timeout
         :return: a tuple of nodes ids that acknowledged and not acknowledged the message
         """
-        # Create a message object
-        message = Message(recipients=receivers,
-                          message=message,
-                          category=message_category,
+        message = Message(message=message,
                           config=self.config,
+                          outgoing=True,
+                          flame_logger=self.flame_logger,
                           message_number=self.message_broker_client.message_number,
-                          outgoing=True)
+                          category=message_category,
+                          recipients=receivers)
         start_time = datetime.now()
         acknowledged = []
         not_acknowledged = receivers

@@ -112,8 +112,8 @@ class FlameLogger:
             if suppress_head:
                 head = ''
             else:
-                log_type_fill = "" if log_type == 'normal' else f"-- {log_type.upper()} --"
-                head = f"[flame {log_type_fill} {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}] "
+                log_type_fill = "" if log_type == 'normal' else f"-- {log_type.upper()} -- "
+                head = f"[flame {log_type_fill}{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}] "
             tail = "" if suppress_tail else f"!suff!{log_type}"
 
             log = f"{head}{msg_cleaned}{tail}"
