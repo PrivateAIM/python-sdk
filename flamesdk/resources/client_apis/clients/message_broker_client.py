@@ -144,6 +144,7 @@ class MessageBrokerClient:
             return True
         except HTTPStatusError as e:
             self.flame_logger.raise_error(f"Failed to connect to message broker: {repr(e)}")
+            return False
 
     async def _connect(self) -> None:
         response = await self._message_broker.post(
@@ -180,7 +181,7 @@ class MessageBrokerClient:
 
     def receive_message(self, body: dict) -> None:
         needs_acknowledgment = body["meta"]["akn_id"] is None
-        message = Message(message=body, config=self.nodeConfig, outgoing=False)
+        message = Message(message=body, config=self.nodeConfig, outgoing=False, flame_logger=self.flame_logger )
         self.list_of_incoming_messages.append(message)
 
         if needs_acknowledgment:
