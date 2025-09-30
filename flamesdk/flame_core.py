@@ -34,7 +34,7 @@ class FlameCoreSDK:
             self.flame_log(f"Nginx connection failure (error_msg='{repr(e)}')", log_type='error')
 
         # Set up the connection to all the services needed
-        ## Connect to message broker
+        ## Connect to MessageBroker
         self.flame_log("\tConnecting to MessageBroker...", end='', suppress_tail=True)
         try:
             self._message_broker_api = MessageBrokerAPI(self.config, self._flame_logger)
@@ -43,13 +43,13 @@ class FlameCoreSDK:
             self._message_broker_api = None
             self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', suppress_head=True)
         try:
-            ### Update config with self_config from Messagebroker
+            ### Update config with self_config from MessageBroker
             self.config = self._message_broker_api.config
         except Exception as e:
             self.flame_log(f"Unable to retrieve node config from message broker (error_msg='{repr(e)}')",
                            log_type='error')
 
-        ## Connect to po service
+        ## Connect to POService
         self.flame_log("\tConnecting to PO service...", end='', suppress_tail=True)
         try:
             self._po_api = POAPI(self.config, self._flame_logger)
@@ -59,7 +59,7 @@ class FlameCoreSDK:
             self._po_api = None
             self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', suppress_head=True)
 
-        ## Connect to result service
+        ## Connect to ResultService
         self.flame_log("\tConnecting to ResultService...", end='', suppress_tail=True)
         try:
             self._storage_api = StorageAPI(self.config, self._flame_logger)
@@ -69,7 +69,7 @@ class FlameCoreSDK:
             self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', suppress_head=True)
 
         if (self.config.node_role == 'default') or aggregator_requires_data:
-            ## Connection to data service
+            ## Connection to DataService
             self.flame_log("\tConnecting to DataApi...", end='', suppress_tail=True)
             try:
                 self._data_api = DataAPI(self.config, self._flame_logger)
@@ -80,7 +80,7 @@ class FlameCoreSDK:
         else:
             self._data_api = True
 
-        # Start the flame api thread used for incoming messages and health checks
+        # Start the FlameAPI thread used for incoming messages and health checks
         self.flame_log("\tStarting FlameApi thread...", end='', suppress_tail=True)
         try:
             self._flame_api_thread = Thread(target=self._start_flame_api)
@@ -120,7 +120,7 @@ class FlameCoreSDK:
         Returns a list of all participant ids in the analysis
         :return: the list of participants
         """
-        return [participant['nodeId'] for participant in self._message_broker_api.participants]
+        return [p['nodeId'] for p in self.get_participants()]
 
     def get_node_status(self,
                         timeout: Optional[int] = None) -> dict[str, Literal["online", "offline", "not_connected"]]:
@@ -186,7 +186,6 @@ class FlameCoreSDK:
         specified interval until all nodes respond or the timeout is reached.
 
         Parameters:
-            flame (FlameCoreSDK): The SDK instance used to communicate with the nodes.
             nodes (list[str]): A list of node identifiers to check for readiness.
             attempt_interval (int, optional): The interval (in seconds) between successive attempts.
                                               Defaults to 30 seconds.
@@ -586,7 +585,7 @@ class FlameCoreSDK:
         :param data_id: the id of the data source
         :return: the data client
         """
-        if type(self._data_api) == DataAPI:
+        if isinstance(self._data_api, DataAPI):
             return self._data_api.get_data_client(data_id)
         else:
             self.flame_log("Data API is not available, cannot retrieve data client",
@@ -598,7 +597,7 @@ class FlameCoreSDK:
         Returns a list of all data sources available for this project.
         :return: the list of data sources
         """
-        if type(self._data_api) == DataAPI:
+        if isinstance(self._data_api, DataAPI):
             return self._data_api.get_data_sources()
         else:
             self.flame_log("Data API is not available, cannot retrieve data sources",
@@ -611,7 +610,7 @@ class FlameCoreSDK:
         :param fhir_queries: list of queries to get the data
         :return:
         """
-        if type(self._data_api) == DataAPI:
+        if isinstance(self._data_api, DataAPI):
             return self._data_api.get_fhir_data(fhir_queries)
         else:
             self.flame_log("Data API is not available, cannot retrieve FHIR data",
@@ -624,7 +623,7 @@ class FlameCoreSDK:
         :param s3_keys:f
         :return:
         """
-        if type(self._data_api) == DataAPI:
+        if isinstance(self._data_api, DataAPI):
             return self._data_api.get_s3_data(s3_keys)
         else:
             self.flame_log("Data API is not available, cannot retrieve S3 data",
@@ -639,7 +638,7 @@ class FlameCoreSDK:
         :return:
         """
         self.flame_api = FlameAPI(self._message_broker_api.message_broker_client,
-                                  self._data_api.data_client if hasattr(self._data_api, 'data_client') else 'ignore',
+                                  self._data_api.data_client if isinstance(self._data_api, DataAPI) else self._data_api,
                                   self._storage_api.result_client,
                                   self._po_api.po_client,
                                   self._flame_logger,

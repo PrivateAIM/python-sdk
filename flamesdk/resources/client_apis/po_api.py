@@ -1,8 +1,7 @@
-import asyncio
-
 from flamesdk.resources.client_apis.clients.po_client import POClient
 from flamesdk.resources.node_config import NodeConfig
 from flamesdk.resources.utils.logging import FlameLogger
+
 
 class POAPI:
     def __init__(self, config: NodeConfig, flame_logger: FlameLogger) -> None:

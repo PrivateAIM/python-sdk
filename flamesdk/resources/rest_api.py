@@ -1,7 +1,7 @@
 import sys
 import threading
 import uvicorn
-from typing import Any, Callable, Union
+from typing import Any, Callable, Union, Optional
 
 from fastapi import FastAPI, APIRouter, Request, Depends
 from fastapi.responses import JSONResponse
@@ -18,7 +18,7 @@ from flamesdk.resources.utils.logging import FlameLogger
 class FlameAPI:
     def __init__(self,
                  message_broker: MessageBrokerClient,
-                 data_client: Union[DataApiClient, str],
+                 data_client: Union[DataApiClient, Optional[bool]],
                  result_client: ResultClient,
                  po_client: POClient,
                  flame_logger: FlameLogger,
@@ -49,7 +49,7 @@ class FlameAPI:
         self.finishing_call = finishing_call
 
         @router.post("/token_refresh", response_class=JSONResponse)
-        async def token_refresh(request: Request) -> JSONResponse:
+        async def token_refresh(request: Request) -> Optional[JSONResponse]:
             try:
                 # get body
                 body = await request.json()
@@ -64,7 +64,7 @@ class FlameAPI:
                 po_client.refresh_token(new_token)
                 # refresh token in message-broker
                 message_broker.refresh_token(new_token)
-                if type(data_client) is DataApiClient:
+                if isinstance(data_client, DataApiClient):
                     # refresh token in data client
                     data_client.refresh_token(new_token)
                 # refresh token in result client

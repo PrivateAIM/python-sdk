@@ -26,9 +26,9 @@ _LOG_TYPE_LITERALS = {'info': HUB_LOG_LITERALS.info_log.value,
                       'error': HUB_LOG_LITERALS.error_code.value,
                       'critical-error': HUB_LOG_LITERALS.critical_error_code.value}
 
-class FlameLogger:
 
-    def __init__(self, silent: bool = False):
+class FlameLogger:
+    def __init__(self, silent: bool = False) -> None:
         """
         Initialize the FlameLog class with a silent mode.
         :param silent: If True, logs will not be printed to console.
@@ -37,7 +37,7 @@ class FlameLogger:
         self.po_api = None  # Placeholder for PO_API instance
         self.silent = silent
         self.runstatus = 'starting'  # Default status for logs
-        self.log_queue = ""
+        self.log_ph = ""
 
     def add_po_api(self, po_api) -> None:
         """
@@ -65,16 +65,10 @@ class FlameLogger:
             except ValueError as e:
                 self.raise_error(repr(e))
         if not self.queue.empty():
-            print("Sending queued logs to POAPI...")
             while not self.queue.empty():
-                print(self.queue.qsize(), "logs left in queue.")
-                print(self.queue.empty())
                 log_dict = self.queue.get()
                 self.po_api.stream_logs(log_dict['msg'], log_dict['log_type'], log_dict['status'])
-                print(self.queue.empty())
                 self.queue.task_done()
-
-        print("All queued logs sent to POAPI.")
 
     def new_log(self,
                 msg: Union[str, bytes],
@@ -103,7 +97,6 @@ class FlameLogger:
             except IOError as e:
                 self.raise_error(f"When attempting to use logging function, this error occurred: {repr(e)}")
 
-        log = None
         if not self.silent:
             if isinstance(msg, bytes):
                 msg = msg.decode('utf-8', errors='replace')
@@ -117,23 +110,20 @@ class FlameLogger:
             tail = "" if suppress_tail else f"!suff!{log_type}"
 
             log = f"{head}{msg_cleaned}{tail}"
-            print(log, sep=sep, end=end, file=file)
+            print(log, sep=sep, end=end, file=file) #TODO: Address sep, end, and file
 
             if suppress_tail:
-                self.log_queue = log
+                self.log_ph = log
             else:
                 if suppress_head:
-                    log = self.log_queue + log
-                    self.log_queue = ""
+                    log = self.log_ph + log
+                    self.log_ph = ""
                 self._submit_logs(log, _LOG_TYPE_LITERALS[log_type], self.runstatus)
-
-    def waiting_for_health_check(self, seconds: int = 100) -> None:
-        time.sleep(seconds)
         
-    def raise_error(self, message: str) -> None:
+    def raise_error(self, message: str, seconds: int = 100) -> None:
         self.set_runstatus("failed")
         self.new_log(message, log_type="error")
-        self.waiting_for_health_check()
+        time.sleep(seconds)
 
     def declare_log_types(self, new_log_types: dict[str, str]) -> None:
         """
@@ -156,7 +146,7 @@ class FlameLogger:
                                  f"invalid Hub log field = {v} (known field values: "
                                  f"{[e.value for e in HUB_LOG_LITERALS]}).")
 
-    def _submit_logs(self, log: str, log_type: str, status: str):
+    def _submit_logs(self, log: str, log_type: str, status: str) -> None:
         if self.po_api is None:
             log_dict = {
                 "msg": log,

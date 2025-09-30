@@ -16,7 +16,6 @@ class LocalDifferentialPrivacyParams(TypedDict, total=True):
 
 
 class ResultClient:
-
     def __init__(self, nginx_name, keycloak_token, flame_logger: FlameLogger) -> None:
         self.nginx_name = nginx_name
         self.client = Client(base_url=f"http://{nginx_name}/storage",
@@ -99,8 +98,10 @@ class ResultClient:
                     file_body = pickle.dumps(result)
                 except pickle.PicklingError as e:
                     self.flame_logger.raise_error(f"Failed to pickle result data: {repr(e)}")
+                    file_body = None
             else:
                 self.flame_logger.raise_error(f"Failed to pickle result data: {repr(e)}")
+                file_body = None
 
         if remote_node_id:
             data = {"remote_node_id": remote_node_id}
@@ -157,7 +158,7 @@ class ResultClient:
         type = "intermediate" if type == "global" else type
 
         if tag:
-            urls = self._get_location_url_for_tag(tag)
+            urls = self._get_location_urls_for_tag(tag)
             if tag_option == "last":
                 urls = urls[-1:]
             elif tag_option == "first":
@@ -172,7 +173,7 @@ class ResultClient:
             else:
                 return self._get_file(f"/{type}/{id}?node_id={sender_node_id}")
 
-    def _get_location_url_for_tag(self, tag: str) -> str:
+    def _get_location_urls_for_tag(self, tag: str) -> list[str]:
         """
         Retrieves the URL associated with the specified tag.
         :param tag:

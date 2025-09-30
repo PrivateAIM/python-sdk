@@ -95,5 +95,3 @@ class DataApiClient:
             self.flame_logger.raise_error(f"Data source with id {data_id} not found")
         client = AsyncClient(base_url=f"{path}")
         return client
-
-
