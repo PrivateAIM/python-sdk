@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "flamesdk"
-version = "0.2.4"
+version = "0.3.0"
 description = ""
 authors = ["Alexander Röhl <alexander.roehl@uni-tuebingen.de>", "David Hieber <david.hieber@uni-tuebingen.de>"]
 readme = "README.md"
