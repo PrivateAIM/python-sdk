@@ -9,7 +9,6 @@ from flamesdk.resources.utils.logging import FlameLogger
 
 class MessageBrokerAPI:
     def __init__(self, config: NodeConfig, flame_logger: FlameLogger) -> None:
-        self.flame_logger = flame_logger
         self.message_broker_client = MessageBrokerClient(config, flame_logger)
         self.config = self.message_broker_client.nodeConfig
         self.participants = asyncio.run(self.message_broker_client.get_partner_nodes(self.config.node_id,
@@ -42,7 +41,7 @@ class MessageBrokerAPI:
         message = Message(message=message,
                           config=self.config,
                           outgoing=True,
-                          flame_logger=self.flame_logger,
+                          flame_logger=self.message_broker_client.flame_logger,
                           message_number=self.message_broker_client.message_number,
                           category=message_category,
                           recipients=receivers)
@@ -180,13 +179,12 @@ class MessageBrokerAPI:
         """
         time_start = datetime.now()
         # Send the message
-        asyncio.run(self.send_message(receivers,
-                                      message_category,
-                                      message,
-                                      max_attempts,
-                                      timeout,
-                                      attempt_timeout,
-                                      ))
+        asyncio.run(self.send_message(receivers=receivers,
+                                      message_category=message_category,
+                                      message=message,
+                                      max_attempts=max_attempts,
+                                      timeout=timeout,
+                                      attempt_timeout=attempt_timeout))
         timeout = timeout - (datetime.now() - time_start).seconds
         if timeout < 0:
             timeout = 1

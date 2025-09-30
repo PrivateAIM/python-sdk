@@ -4,6 +4,7 @@ from flamesdk.resources.client_apis.clients.result_client import ResultClient, L
 from flamesdk.resources.node_config import NodeConfig
 from flamesdk.resources.utils.logging import FlameLogger
 
+
 class StorageAPI:
     def __init__(self, config: NodeConfig,  flame_logger: FlameLogger) -> None:
         self.result_client = ResultClient(config.nginx_name, config.keycloak_token, flame_logger)

@@ -19,7 +19,6 @@ def wait_until_nginx_online(nginx_name: str, flame_logger: FlameLogger) -> None:
                 nginx_is_online = True
             except HTTPStatusError as e:
                 flame_logger.new_log(f"{repr(e)}", log_type="warning")
-            #nginx_is_online = True
         except TransportError:
             time.sleep(1)
     flame_logger.new_log("success", suppress_head=True)
@@ -45,6 +44,7 @@ def extract_remaining_time_from_token(token: str, flame_logger: FlameLogger) -> 
                 raise ValueError("Token does not contain expiration ('exp') claim.")
             except ValueError as e:
                 flame_logger.raise_error(f"Error extracting expiration time from token: {repr(e)}")
+                return 0
 
         # Calculate the time remaining until the expiration
         current_time = int(time.time())
@@ -52,3 +52,4 @@ def extract_remaining_time_from_token(token: str, flame_logger: FlameLogger) -> 
         return remaining_time if remaining_time > 0 else 0
     except Exception as e:
         flame_logger.raise_error(f"{repr(e)}")
+        return 0

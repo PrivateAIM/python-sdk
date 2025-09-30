@@ -137,13 +137,13 @@ class MessageBrokerClient:
         return response
 
     async def test_connection(self) -> bool:
-        response = await self._message_broker.get("/healthz",
-                                                  headers=[('Connection', 'close')])
+        response = await self._message_broker.get("/healthz", headers=[('Connection', 'close')])
         try:
             response.raise_for_status()
             return True
         except HTTPStatusError as e:
             self.flame_logger.raise_error(f"Failed to connect to message broker: {repr(e)}")
+            return False
 
     async def _connect(self) -> None:
         response = await self._message_broker.post(
@@ -180,12 +180,14 @@ class MessageBrokerClient:
 
     def receive_message(self, body: dict) -> None:
         needs_acknowledgment = body["meta"]["akn_id"] is None
-        message = Message(message=body, config=self.nodeConfig, outgoing=False)
+        message = Message(message=body, config=self.nodeConfig, flame_logger=self.flame_logger, outgoing=False)
         self.list_of_incoming_messages.append(message)
 
         if needs_acknowledgment:
-            self.flame_logger.new_log("acknowledging ready check" if body["meta"]["category"] == "ready_check" else "incoming message",
-                                      log_type='info')
+            self.flame_logger.new_log(
+                "acknowledging ready check" if body["meta"]["category"] == "ready_check" else "incoming message",
+                log_type='info'
+            )
             asyncio.run(self.acknowledge_message(message))
 
     def delete_message_by_id(self, message_id: str, type: Literal["outgoing", "incoming"]) -> int:

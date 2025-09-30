@@ -2,8 +2,7 @@ import os
 
 
 class NodeConfig:
-
-    def __init__(self):
+    def __init__(self) -> None:
         # init analysis status
         self.finished = False
 
@@ -18,11 +17,11 @@ class NodeConfig:
         self.node_role = None
         self.node_id = None
 
-    def set_role(self, role):
+    def set_role(self, role) -> None:
         self.node_role = role
 
-    def set_node_id(self, node_id):
+    def set_node_id(self, node_id) -> None:
         self.node_id = node_id
 
-    def finish_analysis(self):
+    def finish_analysis(self) -> None:
         self.finished = True

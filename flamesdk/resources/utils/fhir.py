@@ -19,7 +19,7 @@ def fhir_to_csv(fhir_data: dict[str, Any],
                 row_col_name: str = '',
                 separator: str = ',',
                 output_type: Literal["file", "dict"] = "file",
-                data_client: Optional[DataAPI] = None) -> Union[StringIO, dict[Any, dict[Any, Any]]]:
+                data_client: Optional[Union[DataAPI, bool]] = None) -> Union[StringIO, dict[Any, dict[Any, Any]]]:
     if input_resource not in _KNOWN_RESOURCES:
         flame_logger.raise_error(f"Unknown resource specified (given={input_resource}, known={_KNOWN_RESOURCES})")
     if input_resource == 'Observation' and not row_key_seq:
@@ -33,9 +33,9 @@ def fhir_to_csv(fhir_data: dict[str, Any],
         if input_resource == 'Observation':
             for i, entry in enumerate(fhir_data['entry']):
                 flame_logger.new_log(f"Parsing fhir data entry no={i + 1} of {len(fhir_data['entry'])}")
-                col_id = _search_fhir_resource(entry, flame_logger, key_sequence=col_key_seq)
-                row_id = _search_fhir_resource(entry, flame_logger, key_sequence=row_key_seq)
-                value = _search_fhir_resource(entry, flame_logger, key_sequence=value_key_seq)
+                col_id = _search_fhir_resource(fhir_entry=entry, flame_logger=flame_logger, key_sequence=col_key_seq)
+                row_id = _search_fhir_resource(fhir_entry=entry, flame_logger=flame_logger, key_sequence=row_key_seq)
+                value = _search_fhir_resource(fhir_entry=entry, flame_logger=flame_logger, key_sequence=value_key_seq)
                 if row_id_filters is not None:
                     if (row_id is None) or (not any([row_id_filter in row_id for row_id_filter in row_id_filters])):
                         continue
@@ -51,8 +51,14 @@ def fhir_to_csv(fhir_data: dict[str, Any],
             for i, entry in enumerate(fhir_data['entry']):
                 flame_logger.new_log(f"Parsing fhir data entry no={i + 1} of {len(fhir_data['entry'])}")
                 for item in entry['resource']['item']:
-                    col_id = _search_fhir_resource(item, flame_logger, key_sequence=col_key_seq, current=2)
-                    value = _search_fhir_resource(item, flame_logger, key_sequence=value_key_seq, current=2)
+                    col_id = _search_fhir_resource(fhir_entry=item,
+                                                   flame_logger=flame_logger,
+                                                   key_sequence=col_key_seq,
+                                                   current=2)
+                    value = _search_fhir_resource(fhir_entry=item,
+                                                  flame_logger=flame_logger,
+                                                  key_sequence=value_key_seq,
+                                                  current=2)
                     if col_id_filters is not None:
                         if (col_id is None) or (not any([col_id_filter in col_id for col_id_filter in col_id_filters])):
                             continue
@@ -66,7 +72,7 @@ def fhir_to_csv(fhir_data: dict[str, Any],
                 flame_logger.raise_error(f"Error while parsing fhir data: {repr(e)}")
 
         # get next data
-        if data_client is None:
+        if (data_client is None) or (isinstance(data_client, bool)):
             break
         else:
             next_query = ''
@@ -83,7 +89,7 @@ def fhir_to_csv(fhir_data: dict[str, Any],
 
     # set output format
     if output_type == "file":
-        output = _dict_to_csv(df_dict, row_col_name=row_col_name, separator=separator, flame_logger=flame_logger)
+        output = _dict_to_csv(data=df_dict, row_col_name=row_col_name, separator=separator, flame_logger=flame_logger)
     else:
         output = df_dict
 

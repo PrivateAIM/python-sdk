@@ -5,13 +5,14 @@ from flamesdk.resources.client_apis.clients.data_api_client import DataApiClient
 from flamesdk.resources.node_config import NodeConfig
 from flamesdk.resources.utils.logging import FlameLogger
 
+
 class DataAPI:
     def __init__(self, config: NodeConfig, flame_logger: FlameLogger) -> None:
-        self.data_client = DataApiClient(config.project_id,
-                                         config.nginx_name,
-                                         config.data_source_token,
-                                         config.keycloak_token,
-                                         flame_logger= flame_logger)
+        self.data_client = DataApiClient(project_id=config.project_id,
+                                         nginx_name=config.nginx_name,
+                                         data_source_token=config.data_source_token,
+                                         keycloak_token=config.keycloak_token,
+                                         flame_logger=flame_logger)
 
     def get_data_client(self, data_id: str) -> AsyncClient:
         """
