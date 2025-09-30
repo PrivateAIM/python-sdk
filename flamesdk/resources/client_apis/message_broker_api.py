@@ -4,11 +4,13 @@ from typing import Literal, Optional
 
 from flamesdk.resources.node_config import NodeConfig
 from flamesdk.resources.client_apis.clients.message_broker_client import MessageBrokerClient, Message
+from flamesdk.resources.utils.logging import FlameLogger
 
 
 class MessageBrokerAPI:
-    def __init__(self, config: NodeConfig, silent: bool = False):
-        self.message_broker_client = MessageBrokerClient(config, silent)
+    def __init__(self, config: NodeConfig, flame_logger: FlameLogger) -> None:
+        self.flame_logger = flame_logger
+        self.message_broker_client = MessageBrokerClient(config, flame_logger)
         self.config = self.message_broker_client.nodeConfig
         self.participants = asyncio.run(self.message_broker_client.get_partner_nodes(self.config.node_id,
                                                                                      self.config.analysis_id))
@@ -19,8 +21,7 @@ class MessageBrokerAPI:
                            message: dict,
                            max_attempts: int = 1,
                            timeout: Optional[int] = None,
-                           attempt_timeout: int = 10,
-                           silent: bool = False) -> tuple[list[str], list[str]]:
+                           attempt_timeout: int = 10) -> tuple[list[str], list[str]]:
         """
         Sends a message to specified nodes with support for multiple attempts and timeout handling.
 
@@ -35,16 +36,16 @@ class MessageBrokerAPI:
         :param max_attempts: the maximum number of attempts to send the message
         :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinitely
         :param attempt_timeout: timeout of each attempt, if timeout is None (the last attempt will be indefinite though)
-        :param silent: if True, the response will not be logged
+        :raises TimeoutError: if the message is not acknowledged within the specified timeout
         :return: a tuple of nodes ids that acknowledged and not acknowledged the message
         """
-        # Create a message object
-        message = Message(recipients=receivers,
-                          message=message,
-                          category=message_category,
+        message = Message(message=message,
                           config=self.config,
+                          outgoing=True,
+                          flame_logger=self.flame_logger,
                           message_number=self.message_broker_client.message_number,
-                          outgoing=True)
+                          category=message_category,
+                          recipients=receivers)
         start_time = datetime.now()
         acknowledged = []
         not_acknowledged = receivers
@@ -58,7 +59,7 @@ class MessageBrokerAPI:
             message.recipients = not_acknowledged
 
             # Send the message
-            await self.message_broker_client.send_message(message, silent)
+            await self.message_broker_client.send_message(message)
 
             # await the message acknowledgement
             await_list = []
@@ -93,15 +94,13 @@ class MessageBrokerAPI:
                              node_ids: list[str],
                              message_category: str,
                              message_id: Optional[str] = None,
-                             timeout: Optional[int] = None,
-                             silent: bool = False) -> dict[str, Optional[list[Message]]]:
+                             timeout: Optional[int] = None) -> dict[str, Optional[list[Message]]]:
         """
         Wait for responses from the specified nodes
         :param node_ids: list of node ids to wait for
         :param message_category: the message category to wait for
         :param message_id: optional message id to wait for
         :param timeout: time in seconds to wait for the message, if None waits indefinitely
-        :param silent: if True, the response will not be logged
         :return:
         """
         await_list = []
@@ -146,7 +145,8 @@ class MessageBrokerAPI:
             number_of_deleted_messages += self.message_broker_client.delete_message_by_id(message_id, type="outgoing")
         return number_of_deleted_messages
 
-    def clear_messages(self, status: Literal["read", "unread", "all"] = "read",
+    def clear_messages(self,
+                       status: Literal["read", "unread", "all"] = "read",
                        min_age: Optional[int] = None) -> int:
         """
         Deletes all messages by status (default: read messages) and if they are older than the specified min_age. It
@@ -161,13 +161,13 @@ class MessageBrokerAPI:
         number_of_deleted_messages += self.message_broker_client.clear_messages("outgoing", status, min_age)
         return number_of_deleted_messages
 
-    def send_message_and_wait_for_responses(self, receivers: list[str],
+    def send_message_and_wait_for_responses(self,
+                                            receivers: list[str],
                                             message_category: str,
                                             message: dict,
                                             max_attempts: int = 1,
                                             timeout: Optional[int] = None,
-                                            attempt_timeout: int = 10,
-                                            silent: bool = False) -> dict[str, Optional[list[Message]]]:
+                                            attempt_timeout: int = 10) -> dict[str, Optional[list[Message]]]:
         """
         Sends a message to all specified nodes and waits for responses, (combines send_message and await_responses)
         :param receivers:  list of node ids to send the message to
@@ -176,7 +176,6 @@ class MessageBrokerAPI:
         :param max_attempts: the maximum number of attempts to send the message
         :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinitely
         :param attempt_timeout: timeout of each attempt, if timeout is None (the last attempt will be indefinite though)
-        :param silent: if True, the response will not be logged
         :return: the responses
         """
         time_start = datetime.now()
@@ -187,7 +186,7 @@ class MessageBrokerAPI:
                                       max_attempts,
                                       timeout,
                                       attempt_timeout,
-                                      silent))
+                                      ))
         timeout = timeout - (datetime.now() - time_start).seconds
         if timeout < 0:
             timeout = 1
