@@ -2,7 +2,7 @@ import math
 from httpx import Client, HTTPStatusError
 import pickle
 import re
-import uuid
+from datetime import datetime
 from io import BytesIO
 from typing import Any, Literal, Optional
 from typing_extensions import TypedDict
@@ -119,7 +119,8 @@ class ResultClient:
             data.update({k: str(v) for k, v in local_dp.items()})
 
         response = self.client.put(request_path,
-                                   files={"file": (str(uuid.uuid4()), BytesIO(file_body))},
+                                   files={"file": (f"result_{datetime.now().strftime("%y%m%d%H%M%S")}",
+                                                   BytesIO(file_body))},
                                    data=data,
                                    headers=[('Connection', 'close')])
         try:
