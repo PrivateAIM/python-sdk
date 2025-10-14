@@ -23,6 +23,7 @@ class FlameAPI:
                  po_client: POClient,
                  flame_logger: FlameLogger,
                  keycloak_token: str,
+                 progress_call: Callable,
                  finished_check: Callable,
                  finishing_call: Callable) -> None:
         app = FastAPI(title=f"FLAME node",
@@ -45,6 +46,7 @@ class FlameAPI:
         self.flame_logger = flame_logger
         self.keycloak_token = keycloak_token
         self.finished = False
+        self.get_progress = progress_call
         self.finished_check = finished_check
         self.finishing_call = finishing_call
 
@@ -77,6 +79,7 @@ class FlameAPI:
         @router.get("/healthz", response_class=JSONResponse)
         def health() -> dict[str, Union[str, int]]:
             return {"status": self._finished([message_broker, data_client, result_client]),
+                    "progress": self.get_progress,
                     "token_remaining_time": extract_remaining_time_from_token(self.keycloak_token, self.flame_logger)}
 
         async def get_body(request: Request) -> dict[str, Any]:
