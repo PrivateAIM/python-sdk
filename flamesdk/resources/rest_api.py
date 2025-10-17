@@ -79,7 +79,7 @@ class FlameAPI:
         @router.get("/healthz", response_class=JSONResponse)
         def health() -> dict[str, Union[str, int]]:
             return {"status": self._finished([message_broker, data_client, result_client]),
-                    "progress": self.get_progress,
+                    "progress": self.get_progress(),
                     "token_remaining_time": extract_remaining_time_from_token(self.keycloak_token, self.flame_logger)}
 
         async def get_body(request: Request) -> dict[str, Any]:
