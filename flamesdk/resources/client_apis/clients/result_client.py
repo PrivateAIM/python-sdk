@@ -1,4 +1,5 @@
 import math
+import uuid
 from httpx import Client, HTTPStatusError
 import pickle
 import re
@@ -119,7 +120,7 @@ class ResultClient:
             data.update({k: str(v) for k, v in local_dp.items()})
 
         response = self.client.put(request_path,
-                                   files={"file": (f"result_{datetime.now().strftime("%y%m%d%H%M%S")}",
+                                   files={"file": (f"result_{datetime.now().strftime("%y%m%d%H%M%S")}_{str(uuid.uuid4())[:4]}",
                                                    BytesIO(file_body))},
                                    data=data,
                                    headers=[('Connection', 'close')])
