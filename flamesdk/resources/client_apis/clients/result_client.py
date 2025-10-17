@@ -120,7 +120,7 @@ class ResultClient:
             data.update({k: str(v) for k, v in local_dp.items()})
 
         response = self.client.put(request_path,
-                                   files={"file": (f"result_{datetime.now().strftime("%y%m%d%H%M%S")}_{str(uuid.uuid4())[:4]}",
+                                   files={"file": (f"result_{str(uuid.uuid4())[:4]}_{datetime.now().strftime("%y%m%d%H%M%S")}",
                                                    BytesIO(file_body))},
                                    data=data,
                                    headers=[('Connection', 'close')])
