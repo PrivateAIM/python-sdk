@@ -679,6 +679,8 @@ class FlameCoreSDK:
         :return:
         """
         self.progress = 100
+        self._flame_logger.set_runstatus("finished")
+        self.flame_log("Node finished successfully")
         self.config.finish_analysis()
         return self.config.finished
 
