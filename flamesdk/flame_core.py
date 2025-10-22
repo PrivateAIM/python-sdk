@@ -288,8 +288,9 @@ class FlameCoreSDK:
         if not progress in range(0, 101):
             self.flame_log(msg=f"Invalid progress: {progress} (should be a numeric value between 0 and 100).",
                            log_type='warning')
-        elif self.progress > progress:
-            self.flame_log(msg=f"Progress value needs to be higher or equal to current status.",
+        elif self.progress >= progress:
+            self.flame_log(msg=f"Progress value needs to be higher to current progress (i.e. only register progress, "
+                               f"if actual progress has been made).",
                            log_type='warning')
         else:
             self.progress = progress
