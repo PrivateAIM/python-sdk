@@ -24,7 +24,7 @@ class POClient:
             "log_type": log_type,
             "analysis_id": analysis_id,
             "status": status,
-            "progress": progress
+            #"progress": progress
         }
         response = self.client.post("/stream_logs",
                                     json=log_dict,
