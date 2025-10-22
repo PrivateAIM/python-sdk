@@ -18,12 +18,13 @@ class POClient:
                                       "accept": "application/json"},
                              follow_redirects=True)
 
-    def stream_logs(self, log: str, log_type: str, analysis_id: str, status: str) -> None:
+    def stream_logs(self, log: str, log_type: str, analysis_id: str, status: str, progress: int) -> None:
         log_dict = {
             "log": log,
             "log_type": log_type,
             "analysis_id": analysis_id,
-            "status": status
+            "status": status,
+            "progress": progress
         }
         response = self.client.post("/stream_logs",
                                     json=log_dict,

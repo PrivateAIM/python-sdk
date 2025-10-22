@@ -38,6 +38,7 @@ class FlameLogger:
         self.silent = silent
         self.runstatus = 'starting'  # Default status for logs
         self.log_ph = ""
+        self.progress = 0
 
     def add_po_api(self, po_api) -> None:
         """
@@ -54,6 +55,23 @@ class FlameLogger:
         if status not in ['starting', 'running', 'finished', 'failed']:
             status = 'failed'  # Default to 'running' if an invalid status is provided
         self.runstatus = status
+
+    def set_progress(self, progress: Union[int, float]) -> None:
+        """
+        Set the analysis progress in the logger.
+        :param progress:
+        """
+        if isinstance(progress, float):
+            progress = int(progress)
+        if not (0 <= progress <= 100):
+            self.new_log(msg=f"Invalid progress: {progress} (should be a numeric value between 0 and 100).",
+                         log_type='warning')
+        elif self.progress > progress:
+            self.new_log(msg=f"Progress value needs to be higher to current progress (i.e. only register progress, "
+                             f"if actual progress has been made).",
+                         log_type='warning')
+        else:
+            self.progress = progress
 
     def send_logs_from_queue(self) -> None:
         """
@@ -157,7 +175,7 @@ class FlameLogger:
         else:
             try:
                 self.send_logs_from_queue()
-                self.po_api.stream_logs(log, log_type, status)
+                self.po_api.stream_logs(log, log_type, status, self.progress)
             except Exception as e:
                 # If sending fails, we can still queue the log
                 log_dict = {

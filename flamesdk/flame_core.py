@@ -20,7 +20,6 @@ from flamesdk.resources.utils.logging import FlameLogger
 class FlameCoreSDK:
 
     def __init__(self, aggregator_requires_data: bool = False, silent: bool = False):
-        self.progress = 0
         self._flame_logger = FlameLogger(silent=silent)
         self.flame_log("Starting FlameCoreSDK")
 
@@ -275,7 +274,7 @@ class FlameCoreSDK:
         Return current progress integer of this analysis
         :return int: current progress integer
         """
-        return self.progress
+        return self._flame_logger.progress
 
     def set_progress(self, progress: Union[int, float]) -> None:
         """
@@ -283,17 +282,7 @@ class FlameCoreSDK:
         :param progress: current progress integer (int/float)
         :return:
         """
-        if type(progress) == float:
-            progress = int(progress)
-        if not progress in range(0, 101):
-            self.flame_log(msg=f"Invalid progress: {progress} (should be a numeric value between 0 and 100).",
-                           log_type='warning')
-        elif self.progress >= progress:
-            self.flame_log(msg=f"Progress value needs to be higher to current progress (i.e. only register progress, "
-                               f"if actual progress has been made).",
-                           log_type='warning')
-        else:
-            self.progress = progress
+        self._flame_logger.set_progress(progress)
 
     def fhir_to_csv(self,
                     fhir_data: dict[str, Any],
@@ -669,7 +658,6 @@ class FlameCoreSDK:
                                   self._po_api.po_client,
                                   self._flame_logger,
                                   self.config.keycloak_token,
-                                  progress_call=self.get_progress,
                                   finished_check=self._has_finished,
                                   finishing_call=self._node_finished)
 
@@ -679,7 +667,7 @@ class FlameCoreSDK:
         Needs to be called when all processing is done.
         :return:
         """
-        self.progress = 100
+        self.set_progress(100)
         self._flame_logger.set_runstatus("finished")
         self.flame_log("Node finished successfully")
         self.config.finish_analysis()
