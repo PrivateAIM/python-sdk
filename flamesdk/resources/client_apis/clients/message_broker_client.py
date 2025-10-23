@@ -3,10 +3,10 @@ import uuid
 import asyncio
 import datetime
 from typing import Optional, Literal
-from httpx import AsyncClient, HTTPError
+from httpx import AsyncClient, HTTPStatusError
 
 from flamesdk.resources.node_config import NodeConfig
-from flamesdk.resources.utils.logging import flame_log
+from flamesdk.resources.utils.logging import FlameLogger
 
 
 class Message:
@@ -14,6 +14,7 @@ class Message:
                  message: dict,
                  config: NodeConfig,
                  outgoing: bool,
+                 flame_logger: FlameLogger,
                  message_number: Optional[int] = None,
                  category: Optional[str] = None,
                  recipients: Optional[list[str]] = None) -> None:
@@ -26,25 +27,25 @@ class Message:
         :param category: the message category
         :param recipients: the list of recipients
         """
+        self.flame_logger = flame_logger
         if outgoing:
             if "meta" in message.keys():
-                raise ValueError("Cannot use field 'meta' in message body. "
-                                 "This field is reserved for meta data used by the message broker.")
+                self.flame_logger.raise_error("Cannot use field 'meta' in message body. "
+                                              "This field is reserved for meta data used by the message broker.")
             elif type(message_number) != int:
-                raise ValueError(f"Specified outgoing message, but did not specify integer value for message_number "
-                                 f"(received: {type(message_number)}).")
+                self.flame_logger.raise_error(f"Specified outgoing message, but did not specify integer value for "
+                                              f"message_number (received: {type(message_number)}).")
             elif type(category) != str:
-                raise ValueError("Specified outgoing message, but did not specify string value for category "
-                                 f"(received: {type(category)}).")
-
+                self.flame_logger.raise_error(f"Specified outgoing message, but did not specify string value for "
+                                              f"category (received: {type(category)}).")
             elif (type(recipients) != list) or (any([type(recipient) != str for recipient in recipients])):
                 if hasattr(recipients, '__iter__'):
-                    raise ValueError(f"Specified outgoing message, but did not specify list of strings value for "
-                                     f"recipients (received: {type(recipients)} containing "
-                                     f"{set([type(recipient) for recipient in recipients])}).")
+                    self.flame_logger.raise_error(f"Specified outgoing message, but did not specify list of strings "
+                                                  f"value for recipients (received: {type(recipients)} containing "
+                                                  f"{set([type(recipient) for recipient in recipients])}).")
                 else:
-                    raise ValueError(f"Specified outgoing message, but did not specify list of strings value for "
-                                     f"recipients (received: {type(recipients)}).")
+                    self.flame_logger.raise_error(f"Specified outgoing message, but did not specify list of strings "
+                                                  f"value for recipients (received: {type(recipients)}).")
             self.recipients = recipients
 
         self.body = message
@@ -92,14 +93,15 @@ class Message:
 
 
 class MessageBrokerClient:
-    def __init__(self, config: NodeConfig, silent: bool = False) -> None:
+    def __init__(self, config: NodeConfig, flame_logger: FlameLogger) -> None:
         self.nodeConfig = config
+        self.flame_logger = flame_logger
         self._message_broker = AsyncClient(
             base_url=f"http://{self.nodeConfig.nginx_name}/message-broker",
             headers={"Authorization": f"Bearer {config.keycloak_token}", "Accept": "application/json"},
             follow_redirects=True
         )
-        asyncio.run(self._connect(silent=silent))
+        asyncio.run(self._connect())
         self.list_of_incoming_messages: list[Message] = []
         self.list_of_outgoing_messages: list[Message] = []
         self.message_number = 0
@@ -117,46 +119,50 @@ class MessageBrokerClient:
     async def get_self_config(self, analysis_id: str) -> dict[str, str]:
         response = await self._message_broker.get(f'/analyses/{analysis_id}/participants/self',
                                                   headers=[('Connection', 'close')])
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except HTTPStatusError as e:
+            self.flame_logger.raise_error(f"Failed to retrieve self configuration for analysis {analysis_id}: "
+                                      f"{repr(e)}")
         return response.json()
 
     async def get_partner_nodes(self, self_node_id: str, analysis_id: str) -> list[dict[str, str]]:
         response = await self._message_broker.get(f'/analyses/{analysis_id}/participants',
                                                   headers=[('Connection', 'close')])
-
-        response.raise_for_status()
-
+        try:
+            response.raise_for_status()
+        except HTTPStatusError as e:
+            self.flame_logger.raise_error(f"Failed to retrieve partner nodes for analysis {analysis_id} : {repr(e)}")
         response = [node_conf for node_conf in response.json() if node_conf['nodeId'] != self_node_id]
         return response
 
     async def test_connection(self) -> bool:
-        response = await self._message_broker.get("/healthz",
-                                                  headers=[('Connection', 'close')])
+        response = await self._message_broker.get("/healthz", headers=[('Connection', 'close')])
         try:
             response.raise_for_status()
             return True
-        except HTTPError:
+        except HTTPStatusError as e:
+            self.flame_logger.raise_error(f"Failed to connect to message broker: {repr(e)}")
             return False
 
-    async def _connect(self, silent: bool = False) -> None:
+    async def _connect(self) -> None:
         response = await self._message_broker.post(
             f'/analyses/{os.getenv("ANALYSIS_ID")}/messages/subscriptions',
             json={'webhookUrl': f'http://{self.nodeConfig.nginx_name}/analysis/webhook'}
         )
         try:
             response.raise_for_status()
-        except HTTPError as e:
-            flame_log("Failed to subscribe to message broker", silent)
-            flame_log(repr(e), silent)
+        except HTTPStatusError as e:
+            self.flame_logger.raise_error(f"Failed to subscribe to message broker: {repr(e)}")
         response = await self._message_broker.get(f'/analyses/{os.getenv("ANALYSIS_ID")}/participants/self',
                                                   headers=[('Connection', 'close')])
         try:
             response.raise_for_status()
-        except HTTPError as e:
-            flame_log("Successfully subscribed to message broker, but failed to retrieve participants", silent)
-            flame_log(repr(e), silent)
+        except HTTPStatusError as e:
+            self.flame_logger.raise_error(f"Successfully subscribed to message broker, "
+                                          f"but failed to retrieve participants: {repr(e)}")
 
-    async def send_message(self, message: Message, silent: bool = False) -> None:
+    async def send_message(self, message: Message) -> None:
         self.message_number += 1
         body = {
             "recipients": message.recipients,
@@ -168,18 +174,20 @@ class MessageBrokerClient:
                                             headers=[('Connection', 'close'),
                                                      ("Content-Type", "application/json")])
         if message.body["meta"]["sender"] == self.nodeConfig.node_id:
-            flame_log(f"send message: {body}", silent)
+            self.flame_logger.new_log(f"send message: {body}", log_type='info')
 
         self.list_of_outgoing_messages.append(message)
 
-    def receive_message(self, body: dict, silent: bool = False) -> None:
+    def receive_message(self, body: dict) -> None:
         needs_acknowledgment = body["meta"]["akn_id"] is None
-        message = Message(message=body, config=self.nodeConfig, outgoing=False)
+        message = Message(message=body, config=self.nodeConfig, flame_logger=self.flame_logger, outgoing=False)
         self.list_of_incoming_messages.append(message)
 
         if needs_acknowledgment:
-            flame_log("acknowledging ready check" if body["meta"]["category"] == "ready_check" else "incoming message",
-                      silent)
+            self.flame_logger.new_log(
+                "acknowledging ready check" if body["meta"]["category"] == "ready_check" else "incoming message",
+                log_type='info'
+            )
             asyncio.run(self.acknowledge_message(message))
 
     def delete_message_by_id(self, message_id: str, type: Literal["outgoing", "incoming"]) -> int:
@@ -196,14 +204,18 @@ class MessageBrokerClient:
                     self.list_of_outgoing_messages.remove(message)
                     number_of_deleted_messages += 1
             if number_of_deleted_messages == 0:
-                raise ValueError(f"Could not find message with id={message_id} in outgoing messages.")
+                self.flame_logger.new_log(f"Could not find message with id={message_id} in outgoing messages.",
+                                          log_type='warning')
+                return 0
         if type == "incoming":
             for message in self.list_of_outgoing_messages:
                 if message.body["meta"]["id"] == message_id:
                     self.list_of_outgoing_messages.remove(message)
                     number_of_deleted_messages += 1
             if number_of_deleted_messages == 0:
-                raise ValueError(f"Could not find message with id={message_id} in outgoing messages.")
+                self.flame_logger.new_log(f"Could not find message with id={message_id} in incoming messages.",
+                                          log_type='warning')
+                return 0
         return number_of_deleted_messages
 
     async def await_message(self,
