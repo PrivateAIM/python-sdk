@@ -1,4 +1,4 @@
-from flamesdk.resources.utils.fhir import fhir_to_csv
+from flamesdk.resources.utils.fhir_debug import fhir_to_csv
 from flamesdk.resources.utils.utils import extract_remaining_time_from_token
 from flamesdk.resources.utils.logging import FlameLogger
 import ast

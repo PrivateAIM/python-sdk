@@ -282,7 +282,8 @@ class FlameCoreSDK:
                     col_id_filters: Optional[list[str]] = None,
                     row_col_name: str = '',
                     separator: str = ',',
-                    output_type: Literal["file", "dict"] = "file"
+                    output_type: Literal["file", "dict"] = "file",
+                    max_iterations: int = -1 # -1 means no limit
                     ) -> Optional[Union[StringIO, dict[Any, dict[Any, Any]]]]:
         """
         Convert a FHIR Bundle (or other FHIR-formatted dict) to CSV, pivoting on specified keys.
@@ -315,7 +316,8 @@ class FlameCoreSDK:
                                row_col_name=row_col_name,
                                separator=separator,
                                output_type=output_type,
-                               data_client=self._data_api)
+                               data_client=self._data_api,
+                               max_iterations=max_iterations)
         else:
             self.flame_log("Data API is not available, cannot convert FHIR to CSV",
                            log_type='warning')
