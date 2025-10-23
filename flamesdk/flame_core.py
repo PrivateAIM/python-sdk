@@ -13,7 +13,10 @@ from flamesdk.resources.client_apis.storage_api import StorageAPI, LocalDifferen
 from flamesdk.resources.client_apis.po_api import POAPI
 from flamesdk.resources.node_config import NodeConfig
 from flamesdk.resources.rest_api import FlameAPI
-from flamesdk.resources.utils.fhir import fhir_to_csv
+
+# from flamesdk.resources.utils.fhir import fhir_to_csv
+from flamesdk.resources.utils.fhir_debug import fhir_to_csv
+
 from flamesdk.resources.utils.utils import wait_until_nginx_online
 from flamesdk.resources.utils.logging import FlameLogger
 
