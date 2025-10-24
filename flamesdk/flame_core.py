@@ -83,6 +83,8 @@ class FlameCoreSDK:
         # Start the FlameAPI thread used for incoming messages and health checks
         self.flame_log("\tStarting FlameApi thread...", end='', suppress_tail=True)
         try:
+            time.sleep(1000)    # Delay for testing purposes to couse the po go into failed state and restart
+            #
             self._flame_api_thread = Thread(target=self._start_flame_api)
             self._flame_api_thread.start()
             self.flame_log("success", suppress_head=True)
