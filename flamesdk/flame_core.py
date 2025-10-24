@@ -654,7 +654,8 @@ class FlameCoreSDK:
         """
         self.flame_api = FlameAPI(self._message_broker_api.message_broker_client,
                                   self._data_api.data_client if isinstance(self._data_api, DataAPI) else self._data_api,
-                                  self._storage_api.result_client,
+                                  None, #remove storage api from flame api to produce a failed state in the flame api health check
+                                                 # if the api is creating the correct errors,
                                   self._po_api.po_client,
                                   self._flame_logger,
                                   self.config.keycloak_token,
