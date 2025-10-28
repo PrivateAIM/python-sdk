@@ -62,7 +62,7 @@ class FlameCoreSDK:
         ## Connect to ResultService
         self.flame_log("\tConnecting to ResultService...", end='', suppress_tail=True)
         try:
-            self._storage_api = StorageAPI(self.config, self._flame_logger)
+            self._storage_api = None #TODO: Fix this!!!!
             self.flame_log("success", suppress_head=True)
         except Exception as e:
             self._storage_api = None
@@ -94,6 +94,7 @@ class FlameCoreSDK:
             self._flame_logger.set_runstatus('running')
             self.flame_log("FlameCoreSDK ready")
         else:
+            self._flame_logger.set_runstatus('stuck')
             self.flame_log("FlameCoreSDK startup failed", log_type='error')
 
 
@@ -652,11 +653,15 @@ class FlameCoreSDK:
         Start the flame api, this is used for incoming messages from the message broker and health checks
         :return:
         """
-        self.flame_api = FlameAPI(self._message_broker_api.message_broker_client,
-                                  self._data_api.data_client if isinstance(self._data_api, DataAPI) else self._data_api,
-                                  None, #remove storage api from flame api to produce a failed state in the flame api health check
-                                                 # if the api is creating the correct errors,
-                                  self._po_api.po_client,
+        mb_client = self._message_broker_api.message_broker_client \
+            if isinstance(self._message_broker_api, MessageBrokerAPI) else self._message_broker_api
+        data_client = self._data_api.data_client if isinstance(self._data_api, DataAPI) else self._data_api
+        st_client = self._storage_api.result_client if isinstance(self._storage_api, StorageAPI) else self._storage_api
+        po_client = self._po_api.po_client if isinstance(self._po_api, POAPI) else self._po_api
+        self.flame_api = FlameAPI(mb_client,
+                                  data_client,
+                                  st_client,
+                                  po_client,
                                   self._flame_logger,
                                   self.config.keycloak_token,
                                   finished_check=self._has_finished,

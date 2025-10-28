@@ -17,10 +17,10 @@ from flamesdk.resources.utils.logging import FlameLogger
 
 class FlameAPI:
     def __init__(self,
-                 message_broker: MessageBrokerClient,
-                 data_client: Union[DataApiClient, Optional[bool]],
-                 result_client: ResultClient,
-                 po_client: POClient,
+                 message_broker: Optional[MessageBrokerClient],
+                 data_client: Optional[Union[DataApiClient, bool]],
+                 result_client: Optional[ResultClient],
+                 po_client: Optional[POClient],
                  flame_logger: FlameLogger,
                  keycloak_token: str,
                  finished_check: Callable,
@@ -58,8 +58,6 @@ class FlameAPI:
                     self.flame_logger.raise_error(f"No token provided for refresh")
                     raise HTTPException(status_code=400, detail="Token is required")
 
-                # refresh token in po client
-                po_client.refresh_token(new_token)
                 # refresh token in message-broker
                 message_broker.refresh_token(new_token)
                 if isinstance(data_client, DataApiClient):
@@ -67,6 +65,8 @@ class FlameAPI:
                     data_client.refresh_token(new_token)
                 # refresh token in result client
                 result_client.refresh_token(new_token)
+                # refresh token in po client
+                po_client.refresh_token(new_token)
                 # refresh token in self
                 self.keycloak_token = new_token
                 return JSONResponse(content={"message": "Token refreshed successfully"})
@@ -76,7 +76,7 @@ class FlameAPI:
 
         @router.get("/healthz", response_class=JSONResponse)
         def health() -> dict[str, Union[str, int]]:
-            return {"status": self._finished([message_broker, data_client, result_client]),
+            return {"status": self._finished([message_broker, data_client, result_client, po_client]),
                     "token_remaining_time": extract_remaining_time_from_token(self.keycloak_token, self.flame_logger)}
 
         async def get_body(request: Request) -> dict[str, Any]:
