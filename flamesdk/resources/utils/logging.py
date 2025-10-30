@@ -85,7 +85,7 @@ class FlameLogger:
         if not self.queue.empty():
             while not self.queue.empty():
                 log_dict = self.queue.get()
-                self.po_api.stream_logs(log_dict['msg'], log_dict['log_type'], log_dict['status'])
+                self.po_api.stream_logs(log_dict['msg'], log_dict['log_type'], log_dict['status'], log_dict['progress'])
                 self.queue.task_done()
 
     def new_log(self,
@@ -169,7 +169,8 @@ class FlameLogger:
             log_dict = {
                 "msg": log,
                 "log_type": log_type,
-                "status": status
+                "status": status,
+                "progress": self.progress
             }
             self.queue.put(log_dict)
         else:
@@ -181,13 +182,15 @@ class FlameLogger:
                 log_dict = {
                     "msg": log,
                     "log_type": log_type,
-                    "status": status
+                    "status": status,
+                    "progress": self.progress
                 }
                 self.queue.put(log_dict)
                 # But also create new error log for queue
                 error_log_dict = {
                     "msg": f"Failed to send log to POAPI: {repr(e)}",
                     "log_type": 'warning',
-                    "status": status
+                    "status": status,
+                    "progress": self.progress
                 }
                 self.queue.put(error_log_dict)
