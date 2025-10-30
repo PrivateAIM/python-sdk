@@ -187,8 +187,10 @@ class FlameLogger:
                 }
                 self.queue.put(log_dict)
                 # But also create new error log for queue
+                error_msg = f"Failed to send log to POAPI: {repr(e)}"
+                print(error_msg)
                 error_log_dict = {
-                    "msg": f"Failed to send log to POAPI: {repr(e)}",
+                    "msg": error_msg,
                     "log_type": 'warning',
                     "status": status,
                     "progress": self.progress
