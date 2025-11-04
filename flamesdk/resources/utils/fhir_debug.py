@@ -19,6 +19,7 @@ def fhir_to_csv(fhir_data: dict[str, Any],
                 row_col_name: str = '',
                 separator: str = ',',
                 output_type: Literal["file", "dict"] = "file",
+                max_iterations: int = -1, # -1 means no limit
                 data_client: Optional[Union[DataAPI, bool]] = None) -> Union[StringIO, dict[Any, dict[Any, Any]]]:
     if input_resource not in _KNOWN_RESOURCES:
         flame_logger.raise_error(f"Unknown resource specified (given={input_resource}, known={_KNOWN_RESOURCES})")
@@ -28,7 +29,17 @@ def fhir_to_csv(fhir_data: dict[str, Any],
 
     df_dict = {}
     flame_logger.new_log(f"Converting fhir data resource of type={input_resource} to csv")
+
+    counter = 0
+
     while True:
+        counter += 1
+        flame_logger.new_log(f"Processing fhir data batch number == {counter}")
+
+        if (max_iterations > 0) and (counter > max_iterations):
+            flame_logger.new_log(f"Maximum number of iterations reached (max={max_iterations})")
+            break
+
         # extract from resource
         if input_resource == 'Observation':
             for i, entry in enumerate(fhir_data['entry']):
@@ -88,8 +99,10 @@ def fhir_to_csv(fhir_data: dict[str, Any],
                 break
 
     # set output format
+    flame_logger.new_log(f"Setting output format to type={output_type}")
     if output_type == "file":
         output = _dict_to_csv(data=df_dict, row_col_name=row_col_name, separator=separator, flame_logger=flame_logger)
+        flame_logger.new_log("Fhir data conversion to csv completed")
     else:
         output = df_dict
 
@@ -135,6 +148,9 @@ def _search_fhir_resource(fhir_entry: Union[dict[str, Any], list[Any]],
                           current: int = 0) -> Optional[Any]:
     keys = key_sequence.split('.')
     key = keys[current]
+
+    flame_logger.new_log(f"### Searching recursively for key='{key}' at level={current + 1} ### \n *** current entry type={type(fhir_entry)}) ***")
+    
     if (current < (len(keys) - 1)) or (type(fhir_entry) == list):
         if type(fhir_entry) == dict:
             for field in fhir_entry.keys():
