@@ -168,13 +168,17 @@ class MessageBrokerClient:
             "recipients": message.recipients,
             "message": message.body
         }
-
         _ = await self._message_broker.post(f'/analyses/{os.getenv("ANALYSIS_ID")}/messages',
                                             json=body,
                                             headers=[('Connection', 'close'),
                                                      ("Content-Type", "application/json")])
-        if message.body["meta"]["sender"] == self.nodeConfig.node_id:
-            self.flame_logger.new_log(f"send message: {body}", log_type='info')
+
+        msg_meta_dict = message.body["meta"]
+        if msg_meta_dict["sender"] == self.nodeConfig.node_id:
+            self.flame_logger.new_log(
+                f"send message with category={msg_meta_dict['category']} to receiver={msg_meta_dict['receiver']}",
+                log_type='info'
+            )
 
         self.list_of_outgoing_messages.append(message)
 
@@ -185,7 +189,9 @@ class MessageBrokerClient:
 
         if needs_acknowledgment:
             self.flame_logger.new_log(
-                "acknowledging ready check" if body["meta"]["category"] == "ready_check" else "incoming message",
+                f"acknowledging ready check by sender={message.body['meta']['sender']}"
+                if body["meta"]["category"] == "ready_check" else
+                f"incoming message with category={body['meta']['category']} from sender={body['meta']['sender']}",
                 log_type='info'
             )
             asyncio.run(self.acknowledge_message(message))
