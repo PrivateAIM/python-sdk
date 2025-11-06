@@ -26,7 +26,6 @@ class POClient:
             "status": status,
             #"progress": progress
         }
-        print("\tStream logs (Client)")
         response = self.client.post("/stream_logs",
                                     json=log_dict,
                                     headers={"Content-Type": "application/json"})
