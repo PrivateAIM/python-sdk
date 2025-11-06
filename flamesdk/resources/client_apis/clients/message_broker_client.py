@@ -204,24 +204,16 @@ class MessageBrokerClient:
         :return:
         """
         number_of_deleted_messages = 0
-        if type == "outgoing":
-            for message in self.list_of_outgoing_messages:
+        if type in ["outgoing", "incoming"]:
+            for message in self.list_of_outgoing_messages if type == "outgoing" else self.list_of_incoming_messages:
                 if message.body["meta"]["id"] == message_id:
-                    self.list_of_outgoing_messages.remove(message)
+                    self.list_of_outgoing_messages.remove(message) \
+                        if type == "outgoing" else self.list_of_incoming_messages.remove(message)
                     number_of_deleted_messages += 1
-            if number_of_deleted_messages == 0:
-                self.flame_logger.new_log(f"Could not find message with id={message_id} in outgoing messages.",
-                                          log_type='warning')
-                return 0
-        if type == "incoming":
-            for message in self.list_of_outgoing_messages:
-                if message.body["meta"]["id"] == message_id:
-                    self.list_of_outgoing_messages.remove(message)
-                    number_of_deleted_messages += 1
-            if number_of_deleted_messages == 0:
-                self.flame_logger.new_log(f"Could not find message with id={message_id} in incoming messages.",
-                                          log_type='warning')
-                return 0
+        if number_of_deleted_messages == 0:
+            self.flame_logger.new_log(f"Could not find message with id={message_id} in {type} messages.",
+                                      log_type='warning')
+            return 0
         return number_of_deleted_messages
 
     async def await_message(self,
