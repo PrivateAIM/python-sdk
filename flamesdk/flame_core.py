@@ -35,7 +35,7 @@ class FlameCoreSDK:
 
         # Set up the connection to all the services needed
         ## Connect to MessageBroker
-        self.flame_log("\tConnecting to MessageBroker...", end='', suppress_tail=True)
+        self.flame_log("\tConnecting to MessageBroker...", end='', halt_submission=True)
         try:
             self._message_broker_api = MessageBrokerAPI(self.config, self._flame_logger)
             self.flame_log("success", suppress_head=True)
@@ -50,7 +50,7 @@ class FlameCoreSDK:
                            log_type='error')
 
         ## Connect to POService
-        self.flame_log("\tConnecting to PO service...", end='', suppress_tail=True)
+        self.flame_log("\tConnecting to PO service...", end='', halt_submission=True)
         try:
             self._po_api = POAPI(self.config, self._flame_logger)
             self._flame_logger.add_po_api(self._po_api)
@@ -60,7 +60,7 @@ class FlameCoreSDK:
             self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', suppress_head=True)
 
         ## Connect to ResultService
-        self.flame_log("\tConnecting to ResultService...", end='', suppress_tail=True)
+        self.flame_log("\tConnecting to ResultService...", end='', halt_submission=True)
         try:
             self._storage_api = StorageAPI(self.config, self._flame_logger)
             self.flame_log("success", suppress_head=True)
@@ -70,7 +70,7 @@ class FlameCoreSDK:
 
         if (self.config.node_role == 'default') or aggregator_requires_data:
             ## Connection to DataService
-            self.flame_log("\tConnecting to DataApi...", end='', suppress_tail=True)
+            self.flame_log("\tConnecting to DataApi...", end='', halt_submission=True)
             try:
                 self._data_api = DataAPI(self.config, self._flame_logger)
                 self.flame_log("success", suppress_head=True)
@@ -81,7 +81,7 @@ class FlameCoreSDK:
             self._data_api = True
 
         # Start the FlameAPI thread used for incoming messages and health checks
-        self.flame_log("\tStarting FlameApi thread...", end='', suppress_tail=True)
+        self.flame_log("\tStarting FlameApi thread...", end='', halt_submission=True)
         try:
             self._flame_api_thread = Thread(target=self._start_flame_api)
             self._flame_api_thread.start()
@@ -237,7 +237,7 @@ class FlameCoreSDK:
                   file: object = None,
                   log_type: str = 'normal',
                   suppress_head: bool = False,
-                  suppress_tail: bool = False) -> None:
+                  halt_submission: bool = False) -> None:
         """
         Print logs to console.
         :param msg:
@@ -246,7 +246,7 @@ class FlameCoreSDK:
         :param file:
         :param log_type:
         :param suppress_head:
-        :param suppress_tail:
+        :param halt_submission:
         :return:
         """
         if log_type != 'error':
@@ -256,7 +256,7 @@ class FlameCoreSDK:
                                        file=file,
                                        log_type=log_type,
                                        suppress_head=suppress_head,
-                                       suppress_tail=suppress_tail)
+                                       halt_submission=halt_submission)
         else:
             self._flame_logger.raise_error(msg)
 

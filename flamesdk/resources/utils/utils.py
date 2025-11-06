@@ -8,7 +8,7 @@ from flamesdk.resources.utils.logging import FlameLogger
 
 
 def wait_until_nginx_online(nginx_name: str, flame_logger: FlameLogger) -> None:
-    flame_logger.new_log("\tConnecting to nginx...", end='', suppress_tail=True)
+    flame_logger.new_log("\tConnecting to nginx...", end='', halt_submission=True)
     nginx_is_online = False
     while not nginx_is_online:
         try:

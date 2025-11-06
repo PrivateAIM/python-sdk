@@ -95,7 +95,7 @@ class FlameLogger:
                 file = None,
                 log_type: str = 'normal',
                 suppress_head: bool = False,
-                suppress_tail: bool = False) -> None:
+                halt_submission: bool = False) -> None:
         """
         Print logs to console, if silent is set to False. May raise IOError, if suppress_head=False and log_type receives
         an invalid value.
@@ -105,7 +105,7 @@ class FlameLogger:
         :param file:
         :param log_type:
         :param suppress_head:
-        :param suppress_tail:
+        :param halt_submission:
         :return:
         """
         if log_type not in _LOG_TYPE_LITERALS.keys():
@@ -125,12 +125,11 @@ class FlameLogger:
             else:
                 log_type_fill = "" if log_type == 'normal' else f"-- {log_type.upper()} -- "
                 head = f"[flame {log_type_fill}{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}] "
-            tail = "" if suppress_tail else f"!suff!{log_type}"
 
-            log = f"{head}{msg_cleaned}{tail}"
+            log = f"{head}{msg_cleaned}"
             print(log, sep=sep, end=end, file=file) #TODO: Address sep, end, and file
 
-            if suppress_tail:
+            if halt_submission:
                 self.log_ph = log
             else:
                 if suppress_head:
