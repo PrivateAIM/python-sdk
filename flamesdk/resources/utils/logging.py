@@ -174,12 +174,9 @@ class FlameLogger:
             self.queue.put(log_dict)
         else:
             try:
-                print("Stream logs")
                 self.send_logs_from_queue()
                 self.po_api.stream_logs(log, log_type, status, self.progress)
             except Exception as e:
-                error_msg = f"Failed to send log to POAPI: {repr(e)}" # TODO: Remove this
-                print(error_msg) # TODO: Remove this
                 # If sending fails, we can still queue the log
                 log_dict = {
                     "msg": log,
@@ -188,6 +185,7 @@ class FlameLogger:
                     "progress": self.progress
                 }
                 self.queue.put(log_dict)
+
                 # But also create new error log for queue
                 error_log_dict = {
                     "msg": f"Failed to send log to POAPI: {repr(e)}",
