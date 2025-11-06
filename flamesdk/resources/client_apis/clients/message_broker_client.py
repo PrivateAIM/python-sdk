@@ -176,7 +176,7 @@ class MessageBrokerClient:
         msg_meta_dict = message.body["meta"]
         if msg_meta_dict["sender"] == self.nodeConfig.node_id:
             self.flame_logger.new_log(
-                f"send message with category={msg_meta_dict['category']} to receiver={msg_meta_dict['receiver']}",
+                f"send message with category={msg_meta_dict['category']} to recipients={message.recipients}",
                 log_type='info'
             )
 
