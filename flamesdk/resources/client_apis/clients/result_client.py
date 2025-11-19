@@ -23,6 +23,7 @@ class ResultClient:
                              headers={"Authorization": f"Bearer {keycloak_token}"},
                              follow_redirects=True)
         self.flame_logger = flame_logger
+
     def refresh_token(self, keycloak_token: str):
         self.client = Client(base_url=f"http://{self.nginx_name}/storage",
                              headers={"Authorization": f"Bearer {keycloak_token}"},

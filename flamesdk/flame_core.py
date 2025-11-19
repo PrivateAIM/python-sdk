@@ -389,7 +389,8 @@ class FlameCoreSDK:
         """
         return self._message_broker_api.delete_messages_by_id(message_ids)
 
-    def clear_messages(self, status: Literal["read", "unread", "all"] = "read",
+    def clear_messages(self,
+                       status: Literal["read", "unread", "all"] = "read",
                        min_age: Optional[int] = None) -> int:
         """
         Deletes all messages by status (default: read messages) and if they are older than the specified min_age. It
@@ -427,7 +428,8 @@ class FlameCoreSDK:
 
     ########################################Storage Client###########################################
     def submit_final_result(self,
-                            result: Any, output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                            result: Any,
+                            output_type: Literal['str', 'bytes', 'pickle'] = 'str',
                             local_dp: Optional[LocalDifferentialPrivacyParams] = None) -> dict[str, str]:
         """
         sends the final result to the hub. Making it available for analysts to download.
@@ -437,9 +439,7 @@ class FlameCoreSDK:
         :param local_dp:
         :return: the request status code
         """
-        return self._storage_api.submit_final_result(result,
-                                                     output_type,
-                                                     local_dp)
+        return self._storage_api.submit_final_result(result, output_type, local_dp)
 
     def save_intermediate_data(self,
                                data: Any,
