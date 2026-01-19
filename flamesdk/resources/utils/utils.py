@@ -13,7 +13,7 @@ def wait_until_nginx_online(nginx_name: str, flame_logger: FlameLogger) -> None:
     while not nginx_is_online:
         try:
             client = AsyncClient(base_url=f"http://{nginx_name}")
-            response = asyncio.run(client.get("/healthz", timeout=Timeout(connect=60.05, pool=3.05)))
+            response = asyncio.run(client.get("/healthz", timeout=Timeout(5, connect=60.05, pool=3.05)))
             try:
                 response.raise_for_status()
                 nginx_is_online = True

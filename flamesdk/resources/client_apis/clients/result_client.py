@@ -125,7 +125,7 @@ class ResultClient:
                                                    BytesIO(file_body))},
                                    data=data,
                                    headers=[('Connection', 'close')],
-                                   timeout=Timeout(read=None, write=None))
+                                   timeout=Timeout(5, read=None, write=None))
         try:
             response.raise_for_status()
         except HTTPStatusError as e:
@@ -200,7 +200,7 @@ class ResultClient:
         :param url:
         :return:
         """
-        response = self.client.get(url, timeout=Timeout(read=None, write=None))
+        response = self.client.get(url, timeout=Timeout(5, read=None, write=None))
         try:
             response.raise_for_status()
         except HTTPStatusError as e:

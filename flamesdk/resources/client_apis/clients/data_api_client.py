@@ -43,7 +43,7 @@ class DataApiClient:
                 for fhir_query in fhir_queries:  # premise: retrieves data for each fhir_query from each data source
                     response = asyncio.run(self.client.get(f"{source['name']}/fhir/{fhir_query}",
                                                            headers=[('Connection', 'close')],
-                                                           timeout=Timeout(write=None, read=None)))
+                                                           timeout=Timeout(5, write=None, read=None)))
                     try:
                         response.raise_for_status()
                     except HTTPStatusError as e:
@@ -58,7 +58,7 @@ class DataApiClient:
                     if (len(s3_keys) == 0) or (res_name in s3_keys):
                         response = asyncio.run(self.client.get(f"{source['name']}/s3/{res_name}",
                                                                headers=[('Connection', 'close')],
-                                                               timeout=Timeout(write=None, read=None)))
+                                                               timeout=Timeout(5, write=None, read=None)))
                         try:
                             response.raise_for_status()
                         except HTTPStatusError as e:
