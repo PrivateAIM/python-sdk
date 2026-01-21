@@ -239,7 +239,7 @@ class FlameCoreSDK:
                   suppress_head: bool = False,
                   halt_submission: bool = False) -> None:
         """
-        Print logs to console.
+        Prints logs to console and submits them to the hub (as soon as a connection is established, until then they will be queued).
         :param msg:
         :param sep:
         :param end:
@@ -389,7 +389,8 @@ class FlameCoreSDK:
         """
         return self._message_broker_api.delete_messages_by_id(message_ids)
 
-    def clear_messages(self, status: Literal["read", "unread", "all"] = "read",
+    def clear_messages(self,
+                       status: Literal["read", "unread", "all"] = "read",
                        min_age: Optional[int] = None) -> int:
         """
         Deletes all messages by status (default: read messages) and if they are older than the specified min_age. It
@@ -427,7 +428,8 @@ class FlameCoreSDK:
 
     ########################################Storage Client###########################################
     def submit_final_result(self,
-                            result: Any, output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                            result: Any,
+                            output_type: Literal['str', 'bytes', 'pickle'] = 'str',
                             local_dp: Optional[LocalDifferentialPrivacyParams] = None) -> dict[str, str]:
         """
         sends the final result to the hub. Making it available for analysts to download.
@@ -437,9 +439,7 @@ class FlameCoreSDK:
         :param local_dp:
         :return: the request status code
         """
-        return self._storage_api.submit_final_result(result,
-                                                     output_type,
-                                                     local_dp)
+        return self._storage_api.submit_final_result(result, output_type, local_dp)
 
     def save_intermediate_data(self,
                                data: Any,
@@ -447,7 +447,7 @@ class FlameCoreSDK:
                                remote_node_ids: Optional[list[str]] = None,
                                tag: Optional[str] = None) -> Union[dict[str, dict[str, str]], dict[str, str]]:
         """
-        saves intermediate results/data either on the hub (location="global"), or locally
+        Saves intermediate results/data either on the hub (location="global"), or locally (location="local")
         :param data: the result to save
         :param location: the location to save the result, local saves in the node, global saves in central instance of MinIO
         :param remote_node_ids: optional remote node ids (used for accessing remote node's public key for encryption)
@@ -594,6 +594,18 @@ class FlameCoreSDK:
         return self._storage_api.get_local_tags(filter)
 
     ########################################Data Client#######################################
+    def get_data_sources(self) -> Optional[list[dict[str, Any]]]:
+        """
+        Returns a list of all data sources available for this project.
+        :return: the list of data sources
+        """
+        if isinstance(self._data_api, DataAPI):
+            return self._data_api.get_data_sources()
+        else:
+            self.flame_log("Data API is not available, cannot retrieve data sources",
+                           log_type='warning')
+            return None
+
     def get_data_client(self, data_id: str) -> Optional[AsyncClient]:
         """
         Returns the data client for a specific fhir or S3 store used for this project.
@@ -607,19 +619,7 @@ class FlameCoreSDK:
                            log_type='warning')
             return None
 
-    def get_data_sources(self) -> Optional[list[str]]:
-        """
-        Returns a list of all data sources available for this project.
-        :return: the list of data sources
-        """
-        if isinstance(self._data_api, DataAPI):
-            return self._data_api.get_data_sources()
-        else:
-            self.flame_log("Data API is not available, cannot retrieve data sources",
-                           log_type='warning')
-            return None
-
-    def get_fhir_data(self, fhir_queries: Optional[list[str]] = None) -> Optional[list[Union[dict[str, dict], dict]]]:
+    def get_fhir_data(self, fhir_queries: Optional[list[str]] = []) -> Optional[list[dict[str, Union[str, dict]]]]:
         """
         Returns the data from the FHIR store for each of the specified queries.
         :param fhir_queries: list of queries to get the data
@@ -632,7 +632,7 @@ class FlameCoreSDK:
                            log_type='warning')
             return None
 
-    def get_s3_data(self, s3_keys: Optional[list[str]] = None) -> Optional[list[Union[dict[str, str], str]]]:
+    def get_s3_data(self, s3_keys: Optional[list[str]] = []) -> Optional[list[dict[str, bytes]]]:
         """
         Returns the data from the S3 store associated with the given key.
         :param s3_keys:f
