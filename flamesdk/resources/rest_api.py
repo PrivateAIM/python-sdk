@@ -43,9 +43,12 @@ class FlameAPI:
         )
         router = APIRouter()
 
+        self.message_broker = message_broker
+        self.data_client = data_client
+        self.result_client = result_client
+        self.po_client = po_client
         self.flame_logger = flame_logger
         self.keycloak_token = keycloak_token
-        self.finished = False
         self.finished_check = finished_check
         self.finishing_call = finishing_call
 
@@ -60,14 +63,14 @@ class FlameAPI:
                     raise HTTPException(status_code=400, detail="Token is required")
 
                 # refresh token in po client
-                po_client.refresh_token(new_token)
+                self.po_client.refresh_token(new_token)
                 # refresh token in message-broker
-                message_broker.refresh_token(new_token)
+                self.message_broker.refresh_token(new_token)
                 if isinstance(data_client, DataApiClient):
                     # refresh token in data client
-                    data_client.refresh_token(new_token)
+                    self.data_client.refresh_token(new_token)
                 # refresh token in result client
-                result_client.refresh_token(new_token)
+                self.result_client.refresh_token(new_token)
                 # refresh token in self
                 self.keycloak_token = new_token
                 return JSONResponse(content={"message": "Token refreshed successfully"})
@@ -77,7 +80,7 @@ class FlameAPI:
 
         @router.get("/healthz", response_class=JSONResponse)
         def health() -> dict[str, Union[str, int]]:
-            return {"status": self._finished([message_broker, data_client, result_client]),
+            return {"status": self._finished([self.message_broker, self.data_client, self.result_client]),
                     "token_remaining_time": extract_remaining_time_from_token(self.keycloak_token, self.flame_logger)}
 
         async def get_body(request: Request) -> dict[str, Any]:
@@ -85,14 +88,14 @@ class FlameAPI:
 
         @router.post("/webhook", response_class=JSONResponse)
         def get_message(msg: dict = Depends(get_body)) -> None:
-            if msg['meta']['sender'] != message_broker.nodeConfig.node_id:
+            if msg['meta']['sender'] != self.message_broker.nodeConfig.node_id:
                 self.flame_logger.new_log(f"received message webhook: {msg}", log_type='info')
 
-            message_broker.receive_message(msg)
+            self.message_broker.receive_message(msg)
 
             # check message category for finished
             if msg['meta']['category'] == "analysis_finished":
-                self.finished = True
+                self.flame_logger.set_runstatus('finished')
                 self.finishing_call()
 
         app.include_router(
@@ -107,7 +110,7 @@ class FlameAPI:
         main_alive = threading.main_thread().is_alive()
         print(f"time{time.time_ns()}")
         print(f"init_failed={init_failed}, main_alive={main_alive}, finished_check={self.finished_check()},"
-              f"flame_logger.runstatus={self.flame_logger.runstatus}, self.finished={self.finished}")
+              f"flame_logger.runstatus={self.flame_logger.runstatus}")
 
         if init_failed:
             return "stuck"
@@ -117,10 +120,10 @@ class FlameAPI:
             return "failed"
 
         try:
-            if self.finished:
+            if self.flame_logger.runstatus == "finished":
                 return "finished"
             elif self.finished_check():
-                self.finished = True
+                self.flame_logger.set_runstatus("finished")
                 return "finished"
             else:
                 return "running"
