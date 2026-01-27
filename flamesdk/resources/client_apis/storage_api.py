@@ -24,7 +24,7 @@ class StorageAPI:
         return self.result_client.push_result(result,
                                               type="final",
                                               output_type=output_type,
-                                              local_dp = local_dp)
+                                              local_dp=local_dp)
 
     def save_intermediate_data(self,
                                data: Any,

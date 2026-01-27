@@ -35,8 +35,7 @@ class ResultClient:
                     remote_node_id: Optional[str] = None,
                     type: Literal["final", "global", "local"] = "final",
                     output_type: Literal['str', 'bytes', 'pickle'] = 'pickle',
-                    local_dp: Optional[LocalDifferentialPrivacyParams] = None, #TODO:localdp
-                    ) -> dict[str, str]:
+                    local_dp: Optional[LocalDifferentialPrivacyParams] = None) -> dict[str, str]:
         """
         Pushes the result to the hub. Making it available for analysts to download.
 
@@ -45,7 +44,7 @@ class ResultClient:
         :param remote_node_id: optional remote node id (used for accessing remote node's public key for encryption)
         :param type: location to save the result, final saves in the hub to be downloaded, global saves in central instance of MinIO, local saves in the node
         :param output_type: the type of the result, str, bytes or pickle only for final results
-        :param local_dp: parameters for local differential privacy, only for final floating-point type results #TODO:localdp
+        :param local_dp: parameters for local differential privacy, only for final floating-point type results
         :return:
         """
         if tag and (type != "local"):
@@ -58,7 +57,6 @@ class ResultClient:
             self.flame_logger.raise_error(f"Invalid tag format: {tag}. "
                                           f"Tag must consist only of lowercase letters, numbers, and hyphens")
 
-        # TODO:localdp (start)
         # check if local dp parameters have been supplied
         use_local_dp = isinstance(local_dp, dict)
 
