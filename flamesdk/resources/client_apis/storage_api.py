@@ -10,21 +10,34 @@ class StorageAPI:
         self.result_client = ResultClient(config.nginx_name, config.keycloak_token, flame_logger)
 
     def submit_final_result(self,
-                            result: Any,
+                            result: Union[Any, list[Any]],
                             output_type: Literal['str', 'bytes', 'pickle'] = 'str',
-                            local_dp: Optional[LocalDifferentialPrivacyParams] = None) -> dict[str, str]:
+                            local_dp: Optional[LocalDifferentialPrivacyParams] = None) -> Union[dict[str, str], list[dict[str, str]]]:
         """
         sends the final result to the hub. Making it available for analysts to download.
-        This method is only available for nodes for which the method `get_role(self)` returns "aggregator”.
-        :param result: the final result
+        This method is only available for nodes for which the method `get_role(self)` returns "aggregator".
+        :param result: the final result (single object or list of objects)
         :param output_type: output type of final results (default: string)
         :param local_dp: tba
-        :return: the request status code
+        :return: the request status code (single dict if result is not a list, list of dicts if result is a list)
         """
-        return self.result_client.push_result(result,
-                                              type="final",
-                                              output_type=output_type,
-                                              local_dp = local_dp)
+        # Check if result is a list
+        if isinstance(result, list):
+            # Submit each element in the list separately
+            responses = []
+            for item in result:
+                response = self.result_client.push_result(item,
+                                                          type="final",
+                                                          output_type=output_type,
+                                                          local_dp=local_dp)
+                responses.append(response)
+            return responses
+        else:
+            # Submit single result as before
+            return self.result_client.push_result(result,
+                                                  type="final",
+                                                  output_type=output_type,
+                                                  local_dp=local_dp)
 
     def save_intermediate_data(self,
                                data: Any,
