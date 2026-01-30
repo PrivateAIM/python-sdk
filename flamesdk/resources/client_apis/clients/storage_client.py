@@ -94,7 +94,8 @@ class StorageClient:
                 file_body = pickle.dumps(result)
         except (TypeError, ValueError, UnicodeEncodeError, pickle.PicklingError) as e:
             if output_type != 'pickle':
-                self.flame_logger.new_log(f"Failed to translate result data to type={output_type}: {repr(e)}", log_type='warning')
+                self.flame_logger.new_log(f"Failed to translate result data to type={output_type}: {repr(e)}",
+                                          log_type='warning')
                 self.flame_logger.new_log("Attempting 'pickle' instead...", log_type='warning')
                 try:
                     file_body = pickle.dumps(result)

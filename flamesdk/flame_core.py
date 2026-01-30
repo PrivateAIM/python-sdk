@@ -118,7 +118,7 @@ class FlameCoreSDK:
     def get_participant_ids(self) -> list[str]:
         """
         Returns a list of all participant ids in the analysis
-        :return: the list of participants
+        :return: the list of participant ids
         """
         return [p['nodeId'] for p in self.get_participants()]
 
