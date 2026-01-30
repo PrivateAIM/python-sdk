@@ -10,17 +10,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import HTTPException
 from flamesdk.resources.client_apis.clients.message_broker_client import MessageBrokerClient
 from flamesdk.resources.client_apis.clients.data_api_client import DataApiClient
-from flamesdk.resources.client_apis.clients.result_client import ResultClient
+from flamesdk.resources.client_apis.clients.storage_client import StorageClient
 from flamesdk.resources.client_apis.clients.po_client import POClient
 from flamesdk.resources.utils.utils import extract_remaining_time_from_token
 from flamesdk.resources.utils.logging import FlameLogger
-
 
 class FlameAPI:
     def __init__(self,
                  message_broker: MessageBrokerClient,
                  data_client: Union[DataApiClient, Optional[bool]],
-                 result_client: ResultClient,
+                 storage_client: StorageClient,
                  po_client: POClient,
                  flame_logger: FlameLogger,
                  keycloak_token: str,
@@ -67,7 +66,7 @@ class FlameAPI:
                     # refresh token in data client
                     data_client.refresh_token(new_token)
                 # refresh token in result client
-                result_client.refresh_token(new_token)
+                storage_client.refresh_token(new_token)
                 # refresh token in self
                 self.keycloak_token = new_token
                 return JSONResponse(content={"message": "Token refreshed successfully"})
@@ -77,7 +76,7 @@ class FlameAPI:
 
         @router.get("/healthz", response_class=JSONResponse)
         def health() -> dict[str, Union[str, int]]:
-            return {"status": self._finished([message_broker, data_client, result_client]),
+            return {"status": self._finished([message_broker, data_client, storage_client]),
                     "token_remaining_time": extract_remaining_time_from_token(self.keycloak_token, self.flame_logger)}
 
         async def get_body(request: Request) -> dict[str, Any]:

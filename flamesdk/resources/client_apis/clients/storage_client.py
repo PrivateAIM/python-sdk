@@ -16,7 +16,7 @@ class LocalDifferentialPrivacyParams(TypedDict, total=True):
     sensitivity: float
 
 
-class ResultClient:
+class StorageClient:
     def __init__(self, nginx_name, keycloak_token, flame_logger: FlameLogger) -> None:
         self.nginx_name = nginx_name
         self.client = Client(base_url=f"http://{nginx_name}/storage",
