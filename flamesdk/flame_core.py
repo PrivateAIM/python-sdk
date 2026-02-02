@@ -19,7 +19,7 @@ from flamesdk.resources.utils.logging import FlameLogger
 
 class FlameCoreSDK:
 
-    def __init__(self, aggregator_requires_data: bool = False, silent: bool = False):
+    def __init__(self, aggregator_requires_data: bool = False, default_requires_data: bool = True, silent: bool = False):
         self._flame_logger = FlameLogger(silent=silent)
         self.flame_log("Starting FlameCoreSDK")
 
@@ -68,7 +68,7 @@ class FlameCoreSDK:
             self._storage_api = None
             self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', suppress_head=True)
 
-        if (self.config.node_role == 'default') or aggregator_requires_data:
+        if (self.config.node_role == 'default' and default_requires_data) or aggregator_requires_data:
             ## Connection to DataService
             self.flame_log("\tConnecting to DataApi...", end='', halt_submission=True)
             try:
