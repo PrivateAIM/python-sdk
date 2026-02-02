@@ -16,7 +16,7 @@ class LocalDifferentialPrivacyParams(TypedDict, total=True):
     sensitivity: float
 
 
-class ResultClient:
+class StorageClient:
     def __init__(self, nginx_name, keycloak_token, flame_logger: FlameLogger) -> None:
         self.nginx_name = nginx_name
         self.client = Client(base_url=f"http://{nginx_name}/storage",
@@ -92,7 +92,8 @@ class ResultClient:
                 file_body = pickle.dumps(result)
         except (TypeError, ValueError, UnicodeEncodeError, pickle.PicklingError) as e:
             if output_type != 'pickle':
-                self.flame_logger.new_log(f"Failed to translate result data to type={output_type}: {repr(e)}", log_type='warning')
+                self.flame_logger.new_log(f"Failed to translate result data to type={output_type}: {repr(e)}",
+                                          log_type='warning')
                 self.flame_logger.new_log("Attempting 'pickle' instead...", log_type='warning')
                 try:
                     file_body = pickle.dumps(result)

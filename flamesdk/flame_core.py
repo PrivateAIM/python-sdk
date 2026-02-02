@@ -118,7 +118,7 @@ class FlameCoreSDK:
     def get_participant_ids(self) -> list[str]:
         """
         Returns a list of all participant ids in the analysis
-        :return: the list of participants
+        :return: the list of participant ids
         """
         return [p['nodeId'] for p in self.get_participants()]
 
@@ -430,16 +430,19 @@ class FlameCoreSDK:
     def submit_final_result(self,
                             result: Any,
                             output_type: Literal['str', 'bytes', 'pickle'] = 'str',
-                            local_dp: Optional[LocalDifferentialPrivacyParams] = None) -> dict[str, str]:
+                            multiple_results: bool = False,
+                            local_dp: Optional[LocalDifferentialPrivacyParams] = None) -> Union[dict[str, str], list[dict[str, str]]]:
         """
         sends the final result to the hub. Making it available for analysts to download.
-        This method is only available for nodes for which the method `get_role(self)` returns "aggregator”.
-        :param result: the final result
+        This method is only available for nodes for which the method `get_role(self)` returns "aggregator".
+        :param result: the final result (single object or list of objects). If a list is provided,
+                       each element will be submitted separately by calling the endpoint multiple times.
         :param output_type: output type of final results (default: string)
+        :param multiple_results: whether the result is to be split into separate results (per element in tuple) or a single result
         :param local_dp:
-        :return: the request status code
+        :return: the request status code (single dict if result is not a list, list of dicts if result is a list)
         """
-        return self._storage_api.submit_final_result(result, output_type, local_dp)
+        return self._storage_api.submit_final_result(result, output_type, multiple_results, local_dp)
 
     def save_intermediate_data(self,
                                data: Any,
@@ -654,7 +657,7 @@ class FlameCoreSDK:
         """
         self.flame_api = FlameAPI(self._message_broker_api.message_broker_client,
                                   self._data_api.data_client if isinstance(self._data_api, DataAPI) else self._data_api,
-                                  self._storage_api.result_client,
+                                  self._storage_api.storage_client,
                                   self._po_api.po_client,
                                   self._flame_logger,
                                   self.config.keycloak_token,
