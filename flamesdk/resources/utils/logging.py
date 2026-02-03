@@ -38,6 +38,7 @@ class FlameLogger:
         self.silent = silent
         self.runstatus = 'starting'  # Default status for logs
         self.log_ph = ""
+        self.progress = 0
 
     def add_po_api(self, po_api) -> None:
         """
@@ -55,6 +56,23 @@ class FlameLogger:
             status = 'failed'  # Default to 'running' if an invalid status is provided
         self.runstatus = status
 
+    def set_progress(self, progress: Union[int, float]) -> None:
+        """
+        Set the analysis progress in the logger.
+        :param progress:
+        """
+        if isinstance(progress, float):
+            progress = int(progress)
+        if not (0 <= progress <= 100):
+            self.new_log(msg=f"Invalid progress: {progress} (should be a numeric value between 0 and 100).",
+                         log_type='warning')
+        elif self.progress > progress:
+            self.new_log(msg=f"Progress value needs to be higher to current progress (i.e. only register progress, "
+                             f"if actual progress has been made).",
+                         log_type='warning')
+        else:
+            self.progress = progress
+
     def send_logs_from_queue(self) -> None:
         """
         Send all logs from the queue to the POAPI.
@@ -67,7 +85,7 @@ class FlameLogger:
         if not self.queue.empty():
             while not self.queue.empty():
                 log_dict = self.queue.get()
-                self.po_api.stream_logs(log_dict['msg'], log_dict['log_type'], log_dict['status'])
+                self.po_api.stream_logs(log_dict['msg'], log_dict['log_type'], log_dict['status'], log_dict['progress'])
                 self.queue.task_done()
 
     def new_log(self,
@@ -77,7 +95,7 @@ class FlameLogger:
                 file = None,
                 log_type: str = 'normal',
                 suppress_head: bool = False,
-                suppress_tail: bool = False) -> None:
+                halt_submission: bool = False) -> None:
         """
         Print logs to console, if silent is set to False. May raise IOError, if suppress_head=False and log_type receives
         an invalid value.
@@ -87,7 +105,7 @@ class FlameLogger:
         :param file:
         :param log_type:
         :param suppress_head:
-        :param suppress_tail:
+        :param halt_submission:
         :return:
         """
         if log_type not in _LOG_TYPE_LITERALS.keys():
@@ -107,12 +125,11 @@ class FlameLogger:
             else:
                 log_type_fill = "" if log_type == 'normal' else f"-- {log_type.upper()} -- "
                 head = f"[flame {log_type_fill}{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}] "
-            tail = "" if suppress_tail else f"!suff!{log_type}"
 
-            log = f"{head}{msg_cleaned}{tail}"
+            log = f"{head}{msg_cleaned}"
             print(log, sep=sep, end=end, file=file) #TODO: Address sep, end, and file
 
-            if suppress_tail:
+            if halt_submission:
                 self.log_ph = log
             else:
                 if suppress_head:
@@ -151,25 +168,29 @@ class FlameLogger:
             log_dict = {
                 "msg": log,
                 "log_type": log_type,
-                "status": status
+                "status": status,
+                "progress": self.progress
             }
             self.queue.put(log_dict)
         else:
             try:
                 self.send_logs_from_queue()
-                self.po_api.stream_logs(log, log_type, status)
+                self.po_api.stream_logs(log, log_type, status, self.progress)
             except Exception as e:
                 # If sending fails, we can still queue the log
                 log_dict = {
                     "msg": log,
                     "log_type": log_type,
-                    "status": status
+                    "status": status,
+                    "progress": self.progress
                 }
                 self.queue.put(log_dict)
+
                 # But also create new error log for queue
                 error_log_dict = {
                     "msg": f"Failed to send log to POAPI: {repr(e)}",
                     "log_type": 'warning',
-                    "status": status
+                    "status": status,
+                    "progress": self.progress
                 }
                 self.queue.put(error_log_dict)

@@ -168,13 +168,17 @@ class MessageBrokerClient:
             "recipients": message.recipients,
             "message": message.body
         }
-
         _ = await self._message_broker.post(f'/analyses/{os.getenv("ANALYSIS_ID")}/messages',
                                             json=body,
                                             headers=[('Connection', 'close'),
                                                      ("Content-Type", "application/json")])
-        if message.body["meta"]["sender"] == self.nodeConfig.node_id:
-            self.flame_logger.new_log(f"send message: {body}", log_type='info')
+
+        msg_meta_dict = message.body["meta"]
+        if msg_meta_dict["sender"] == self.nodeConfig.node_id:
+            self.flame_logger.new_log(
+                f"send message with category={msg_meta_dict['category']} to recipients={message.recipients}",
+                log_type='info'
+            )
 
         self.list_of_outgoing_messages.append(message)
 
@@ -185,7 +189,9 @@ class MessageBrokerClient:
 
         if needs_acknowledgment:
             self.flame_logger.new_log(
-                "acknowledging ready check" if body["meta"]["category"] == "ready_check" else "incoming message",
+                f"acknowledging ready check by sender={message.body['meta']['sender']}"
+                if body["meta"]["category"] == "ready_check" else
+                f"incoming message with category={body['meta']['category']} from sender={body['meta']['sender']}",
                 log_type='info'
             )
             asyncio.run(self.acknowledge_message(message))
@@ -198,24 +204,16 @@ class MessageBrokerClient:
         :return:
         """
         number_of_deleted_messages = 0
-        if type == "outgoing":
-            for message in self.list_of_outgoing_messages:
+        if type in ["outgoing", "incoming"]:
+            for message in self.list_of_outgoing_messages if type == "outgoing" else self.list_of_incoming_messages:
                 if message.body["meta"]["id"] == message_id:
-                    self.list_of_outgoing_messages.remove(message)
+                    self.list_of_outgoing_messages.remove(message) \
+                        if type == "outgoing" else self.list_of_incoming_messages.remove(message)
                     number_of_deleted_messages += 1
-            if number_of_deleted_messages == 0:
-                self.flame_logger.new_log(f"Could not find message with id={message_id} in outgoing messages.",
-                                          log_type='warning')
-                return 0
-        if type == "incoming":
-            for message in self.list_of_outgoing_messages:
-                if message.body["meta"]["id"] == message_id:
-                    self.list_of_outgoing_messages.remove(message)
-                    number_of_deleted_messages += 1
-            if number_of_deleted_messages == 0:
-                self.flame_logger.new_log(f"Could not find message with id={message_id} in incoming messages.",
-                                          log_type='warning')
-                return 0
+        if number_of_deleted_messages == 0:
+            self.flame_logger.new_log(f"Could not find message with id={message_id} in {type} messages.",
+                                      log_type='warning')
+            return 0
         return number_of_deleted_messages
 
     async def await_message(self,

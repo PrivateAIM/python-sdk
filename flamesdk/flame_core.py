@@ -35,7 +35,7 @@ class FlameCoreSDK:
 
         # Set up the connection to all the services needed
         ## Connect to MessageBroker
-        self.flame_log("\tConnecting to MessageBroker...", end='', suppress_tail=True)
+        self.flame_log("\tConnecting to MessageBroker...", end='', halt_submission=True)
         try:
             self._message_broker_api = MessageBrokerAPI(self.config, self._flame_logger)
             self.flame_log("success", suppress_head=True)
@@ -50,7 +50,7 @@ class FlameCoreSDK:
                            log_type='error')
 
         ## Connect to POService
-        self.flame_log("\tConnecting to PO service...", end='', suppress_tail=True)
+        self.flame_log("\tConnecting to PO service...", end='', halt_submission=True)
         try:
             self._po_api = POAPI(self.config, self._flame_logger)
             self._flame_logger.add_po_api(self._po_api)
@@ -60,7 +60,7 @@ class FlameCoreSDK:
             self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', suppress_head=True)
 
         ## Connect to ResultService
-        self.flame_log("\tConnecting to ResultService...", end='', suppress_tail=True)
+        self.flame_log("\tConnecting to ResultService...", end='', halt_submission=True)
         try:
             self._storage_api = StorageAPI(self.config, self._flame_logger)
             self.flame_log("success", suppress_head=True)
@@ -70,7 +70,7 @@ class FlameCoreSDK:
 
         if (self.config.node_role == 'default') or aggregator_requires_data:
             ## Connection to DataService
-            self.flame_log("\tConnecting to DataApi...", end='', suppress_tail=True)
+            self.flame_log("\tConnecting to DataApi...", end='', halt_submission=True)
             try:
                 self._data_api = DataAPI(self.config, self._flame_logger)
                 self.flame_log("success", suppress_head=True)
@@ -81,7 +81,7 @@ class FlameCoreSDK:
             self._data_api = True
 
         # Start the FlameAPI thread used for incoming messages and health checks
-        self.flame_log("\tStarting FlameApi thread...", end='', suppress_tail=True)
+        self.flame_log("\tStarting FlameApi thread...", end='', halt_submission=True)
         try:
             self._flame_api_thread = Thread(target=self._start_flame_api)
             self._flame_api_thread.start()
@@ -118,7 +118,7 @@ class FlameCoreSDK:
     def get_participant_ids(self) -> list[str]:
         """
         Returns a list of all participant ids in the analysis
-        :return: the list of participants
+        :return: the list of participant ids
         """
         return [p['nodeId'] for p in self.get_participants()]
 
@@ -237,16 +237,16 @@ class FlameCoreSDK:
                   file: object = None,
                   log_type: str = 'normal',
                   suppress_head: bool = False,
-                  suppress_tail: bool = False) -> None:
+                  halt_submission: bool = False) -> None:
         """
-        Print logs to console.
+        Prints logs to console and submits them to the hub (as soon as a connection is established, until then they will be queued).
         :param msg:
         :param sep:
         :param end:
         :param file:
         :param log_type:
         :param suppress_head:
-        :param suppress_tail:
+        :param halt_submission:
         :return:
         """
         if log_type != 'error':
@@ -256,7 +256,7 @@ class FlameCoreSDK:
                                        file=file,
                                        log_type=log_type,
                                        suppress_head=suppress_head,
-                                       suppress_tail=suppress_tail)
+                                       halt_submission=halt_submission)
         else:
             self._flame_logger.raise_error(msg)
 
@@ -268,6 +268,21 @@ class FlameCoreSDK:
         :return:
         """
         self._flame_logger.declare_log_types(new_log_types)
+
+    def get_progress(self) -> int:
+        """
+        Return current progress integer of this analysis
+        :return int: current progress integer
+        """
+        return self._flame_logger.progress
+
+    def set_progress(self, progress: Union[int, float]) -> None:
+        """
+        Set current progress integer of this analysis (float values will be turned into integer values immediately)
+        :param progress: current progress integer (int/float)
+        :return:
+        """
+        self._flame_logger.set_progress(progress)
 
     def fhir_to_csv(self,
                     fhir_data: dict[str, Any],
@@ -374,7 +389,8 @@ class FlameCoreSDK:
         """
         return self._message_broker_api.delete_messages_by_id(message_ids)
 
-    def clear_messages(self, status: Literal["read", "unread", "all"] = "read",
+    def clear_messages(self,
+                       status: Literal["read", "unread", "all"] = "read",
                        min_age: Optional[int] = None) -> int:
         """
         Deletes all messages by status (default: read messages) and if they are older than the specified min_age. It
@@ -412,19 +428,21 @@ class FlameCoreSDK:
 
     ########################################Storage Client###########################################
     def submit_final_result(self,
-                            result: Any, output_type: Literal['str', 'bytes', 'pickle'] = 'str',
-                            local_dp: Optional[LocalDifferentialPrivacyParams] = None) -> dict[str, str]:
+                            result: Any,
+                            output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                            multiple_results: bool = False,
+                            local_dp: Optional[LocalDifferentialPrivacyParams] = None) -> Union[dict[str, str], list[dict[str, str]]]:
         """
         sends the final result to the hub. Making it available for analysts to download.
-        This method is only available for nodes for which the method `get_role(self)` returns "aggregator”.
-        :param result: the final result
+        This method is only available for nodes for which the method `get_role(self)` returns "aggregator".
+        :param result: the final result (single object or list of objects). If a list is provided,
+                       each element will be submitted separately by calling the endpoint multiple times.
         :param output_type: output type of final results (default: string)
+        :param multiple_results: whether the result is to be split into separate results (per element in tuple) or a single result
         :param local_dp:
-        :return: the request status code
+        :return: the request status code (single dict if result is not a list, list of dicts if result is a list)
         """
-        return self._storage_api.submit_final_result(result,
-                                                     output_type,
-                                                     local_dp)
+        return self._storage_api.submit_final_result(result, output_type, multiple_results, local_dp)
 
     def save_intermediate_data(self,
                                data: Any,
@@ -432,7 +450,7 @@ class FlameCoreSDK:
                                remote_node_ids: Optional[list[str]] = None,
                                tag: Optional[str] = None) -> Union[dict[str, dict[str, str]], dict[str, str]]:
         """
-        saves intermediate results/data either on the hub (location="global"), or locally
+        Saves intermediate results/data either on the hub (location="global"), or locally (location="local")
         :param data: the result to save
         :param location: the location to save the result, local saves in the node, global saves in central instance of MinIO
         :param remote_node_ids: optional remote node ids (used for accessing remote node's public key for encryption)
@@ -579,6 +597,18 @@ class FlameCoreSDK:
         return self._storage_api.get_local_tags(filter)
 
     ########################################Data Client#######################################
+    def get_data_sources(self) -> Optional[list[dict[str, Any]]]:
+        """
+        Returns a list of all data sources available for this project.
+        :return: the list of data sources
+        """
+        if isinstance(self._data_api, DataAPI):
+            return self._data_api.get_data_sources()
+        else:
+            self.flame_log("Data API is not available, cannot retrieve data sources",
+                           log_type='warning')
+            return None
+
     def get_data_client(self, data_id: str) -> Optional[AsyncClient]:
         """
         Returns the data client for a specific fhir or S3 store used for this project.
@@ -592,19 +622,7 @@ class FlameCoreSDK:
                            log_type='warning')
             return None
 
-    def get_data_sources(self) -> Optional[list[str]]:
-        """
-        Returns a list of all data sources available for this project.
-        :return: the list of data sources
-        """
-        if isinstance(self._data_api, DataAPI):
-            return self._data_api.get_data_sources()
-        else:
-            self.flame_log("Data API is not available, cannot retrieve data sources",
-                           log_type='warning')
-            return None
-
-    def get_fhir_data(self, fhir_queries: Optional[list[str]] = None) -> Optional[list[Union[dict[str, dict], dict]]]:
+    def get_fhir_data(self, fhir_queries: Optional[list[str]] = []) -> Optional[list[dict[str, Union[str, dict]]]]:
         """
         Returns the data from the FHIR store for each of the specified queries.
         :param fhir_queries: list of queries to get the data
@@ -617,7 +635,7 @@ class FlameCoreSDK:
                            log_type='warning')
             return None
 
-    def get_s3_data(self, s3_keys: Optional[list[str]] = None) -> Optional[list[Union[dict[str, str], str]]]:
+    def get_s3_data(self, s3_keys: Optional[list[str]] = []) -> Optional[list[dict[str, bytes]]]:
         """
         Returns the data from the S3 store associated with the given key.
         :param s3_keys:f
@@ -639,7 +657,7 @@ class FlameCoreSDK:
         """
         self.flame_api = FlameAPI(self._message_broker_api.message_broker_client,
                                   self._data_api.data_client if isinstance(self._data_api, DataAPI) else self._data_api,
-                                  self._storage_api.result_client,
+                                  self._storage_api.storage_client,
                                   self._po_api.po_client,
                                   self._flame_logger,
                                   self.config.keycloak_token,
@@ -652,6 +670,9 @@ class FlameCoreSDK:
         Needs to be called when all processing is done.
         :return:
         """
+        self.set_progress(100)
+        self._flame_logger.set_runstatus("finished")
+        self.flame_log("Node finished successfully")
         self.config.finish_analysis()
         return self.config.finished
 

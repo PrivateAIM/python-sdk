@@ -1,4 +1,4 @@
-from httpx import AsyncClient, TransportError, HTTPStatusError
+from httpx import AsyncClient, Timeout, TransportError, HTTPStatusError
 import asyncio
 import time
 import base64
@@ -8,12 +8,12 @@ from flamesdk.resources.utils.logging import FlameLogger
 
 
 def wait_until_nginx_online(nginx_name: str, flame_logger: FlameLogger) -> None:
-    flame_logger.new_log("\tConnecting to nginx...", end='', suppress_tail=True)
+    flame_logger.new_log("\tConnecting to nginx...", end='', halt_submission=True)
     nginx_is_online = False
     while not nginx_is_online:
         try:
             client = AsyncClient(base_url=f"http://{nginx_name}")
-            response = asyncio.run(client.get("/healthz"))
+            response = asyncio.run(client.get("/healthz", timeout=Timeout(5, connect=60.05, pool=3.05)))
             try:
                 response.raise_for_status()
                 nginx_is_online = True
