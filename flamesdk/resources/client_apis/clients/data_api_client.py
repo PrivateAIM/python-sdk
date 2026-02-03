@@ -1,6 +1,6 @@
 from typing import Optional, Any
 import asyncio
-from httpx import AsyncClient, HTTPStatusError
+from httpx import AsyncClient, HTTPStatusError, Timeout
 import re
 from flamesdk.resources.utils.logging import FlameLogger
 
@@ -42,7 +42,8 @@ class DataApiClient:
             if fhir_queries is not None:
                 for fhir_query in fhir_queries:  # premise: retrieves data for each fhir_query from each data source
                     response = asyncio.run(self.client.get(f"{source['name']}/fhir/{fhir_query}",
-                                                           headers=[('Connection', 'close')]))
+                                                           headers=[('Connection', 'close')],
+                                                           timeout=Timeout(5, write=None, read=None)))
                     try:
                         response.raise_for_status()
                     except HTTPStatusError as e:
@@ -56,7 +57,8 @@ class DataApiClient:
                 for res_name in response_names:  # premise: only retrieves data corresponding to s3_keys from each data source
                     if (len(s3_keys) == 0) or (res_name in s3_keys):
                         response = asyncio.run(self.client.get(f"{source['name']}/s3/{res_name}",
-                                                               headers=[('Connection', 'close')]))
+                                                               headers=[('Connection', 'close')],
+                                                               timeout=Timeout(5, write=None, read=None)))
                         try:
                             response.raise_for_status()
                         except HTTPStatusError as e:
@@ -96,6 +98,6 @@ class DataApiClient:
             response.raise_for_status()
         except HTTPStatusError as e:
             self.flame_logger.raise_error(f"Failed to retrieve available data sources for project {self.project_id}:"
-                                      f" {repr(e)}")
+                                          f" {repr(e)}")
 
         return response.json()['data']
