@@ -1,6 +1,6 @@
 import math
 import uuid
-from httpx import Client, HTTPStatusError
+from httpx import Client, HTTPStatusError, Timeout
 import pickle
 import re
 from datetime import datetime
@@ -16,7 +16,7 @@ class LocalDifferentialPrivacyParams(TypedDict, total=True):
     sensitivity: float
 
 
-class ResultClient:
+class StorageClient:
     def __init__(self, nginx_name, keycloak_token, flame_logger: FlameLogger) -> None:
         self.nginx_name = nginx_name
         self.client = Client(base_url=f"http://{nginx_name}/storage",
@@ -92,7 +92,8 @@ class ResultClient:
                 file_body = pickle.dumps(result)
         except (TypeError, ValueError, UnicodeEncodeError, pickle.PicklingError) as e:
             if output_type != 'pickle':
-                self.flame_logger.new_log(f"Failed to translate result data to type={output_type}: {repr(e)}", log_type='warning')
+                self.flame_logger.new_log(f"Failed to translate result data to type={output_type}: {repr(e)}",
+                                          log_type='warning')
                 self.flame_logger.new_log("Attempting 'pickle' instead...", log_type='warning')
                 try:
                     file_body = pickle.dumps(result)
@@ -122,7 +123,8 @@ class ResultClient:
                                    files={"file": (f"result_{str(uuid.uuid4())[:4]}_{datetime.now().strftime('%y%m%d%H%M%S')}",
                                                    BytesIO(file_body))},
                                    data=data,
-                                   headers=[('Connection', 'close')])
+                                   headers=[('Connection', 'close')],
+                                   timeout=Timeout(5, read=None, write=None))
         try:
             response.raise_for_status()
         except HTTPStatusError as e:
@@ -197,7 +199,7 @@ class ResultClient:
         :param url:
         :return:
         """
-        response = self.client.get(url)
+        response = self.client.get(url, timeout=Timeout(5, read=None, write=None))
         try:
             response.raise_for_status()
         except HTTPStatusError as e:
