@@ -38,9 +38,9 @@ def fhir_to_csv(fhir_data: dict[str, Any],
             for i, entry in enumerate(fhir_data['entry']):
                 if i == 0 or (i + 1) % 100 == 0 or i == num_entries - 1:
                     flame_logger.new_log(f"Parsing fhir data entry no={i + 1} of {num_entries}")
-                col_id = _search_fhir_resource(fhir_entry=entry, flame_logger=flame_logger, key_sequence=col_keys)
-                row_id = _search_fhir_resource(fhir_entry=entry, flame_logger=flame_logger, key_sequence=row_keys)
-                value = _search_fhir_resource(fhir_entry=entry, flame_logger=flame_logger, key_sequence=value_keys)
+                col_id = _search_fhir_resource(fhir_entry=entry, flame_logger=flame_logger, keys=col_keys)
+                row_id = _search_fhir_resource(fhir_entry=entry, flame_logger=flame_logger, keys=row_keys)
+                value = _search_fhir_resource(fhir_entry=entry, flame_logger=flame_logger, keys=value_keys)
                 if row_id_filters is not None:
                     if (row_id is None) or (not any(row_id_filter in row_id for row_id_filter in row_id_filters)):
                         continue
@@ -60,11 +60,11 @@ def fhir_to_csv(fhir_data: dict[str, Any],
                 for item in entry['resource']['item']:
                     col_id = _search_fhir_resource(fhir_entry=item,
                                                    flame_logger=flame_logger,
-                                                   key_sequence=col_keys,
+                                                   keys=col_keys,
                                                    current=2)
                     value = _search_fhir_resource(fhir_entry=item,
                                                   flame_logger=flame_logger,
-                                                  key_sequence=value_keys,
+                                                  keys=value_keys,
                                                   current=2)
                     if col_id_filters is not None:
                         if (col_id is None) or (not any(col_id_filter in col_id for col_id_filter in col_id_filters)):
@@ -140,22 +140,16 @@ def _dict_to_csv(data: dict[Any, dict[Any, Any]],
 
 def _search_fhir_resource(fhir_entry: Union[dict[str, Any], list[Any]],
                           flame_logger: FlameLogger,
-                          key_sequence: Union[str, list[str]],
+                          keys: list[str],
                           current: int = 0) -> Optional[Any]:
-    if isinstance(key_sequence, str):
-        key_sequence = key_sequence.split('.')
-    keys = key_sequence
     key = keys[current]
     if (current < (len(keys) - 1)) or (type(fhir_entry) == list):
         if type(fhir_entry) == dict:
-            if key in fhir_entry:
+            if key in fhir_entry.keys():
                 next_value = _search_fhir_resource(fhir_entry[key], flame_logger, keys, current + 1)
                 if next_value is not None:
                     return next_value
             else:
-                flame_logger.new_log(f"Unable to find field '{key}' in fhir data at level={current + 1} "
-                                     f"(keys found: {fhir_entry.keys()})",
-                                     log_type='warning')
                 return None
         elif type(fhir_entry) == list:
             for e in fhir_entry:
