@@ -35,15 +35,10 @@ def fhir_to_csv(fhir_data: dict[str, Any],
         # extract from resource
         if input_resource == 'Observation':
             for i, entry in enumerate(fhir_data['entry']):
-                if i == 0 or (i + 1) % 100 == 0 or i == num_entries - 1:
-                    flame_logger.new_log(f"Parsing fhir data entry no={i + 1} of {num_entries}")
+                flame_logger.new_log(f"Parsing fhir data entry no={i + 1} of {len(fhir_data['entry'])}")
                 col_id = _search_fhir_resource(fhir_entry=entry, flame_logger=flame_logger, keys=col_keys)
                 row_id = _search_fhir_resource(fhir_entry=entry, flame_logger=flame_logger, keys=row_keys)
                 value = _search_fhir_resource(fhir_entry=entry, flame_logger=flame_logger, keys=value_keys)
-                flame_logger.new_log(f"Parsing fhir data entry no={i + 1} of {len(fhir_data['entry'])}")
-                col_id = _search_fhir_resource(fhir_entry=entry, flame_logger=flame_logger, key_sequence=col_keys)
-                row_id = _search_fhir_resource(fhir_entry=entry, flame_logger=flame_logger, key_sequence=row_keys)
-                value = _search_fhir_resource(fhir_entry=entry, flame_logger=flame_logger, key_sequence=value_keys)
                 if row_id_filters is not None:
                     if (row_id is None) or (not any([row_id_filter in row_id for row_id_filter in row_id_filters])):
                         continue
