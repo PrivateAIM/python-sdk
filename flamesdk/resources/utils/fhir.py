@@ -109,30 +109,18 @@ def _dict_to_csv(data: dict[Any, dict[Any, Any]],
                  row_col_name: str,
                  separator: str,
                  flame_logger: FlameLogger) -> StringIO:
-    io = StringIO()
-    headers = [f"{row_col_name}"]
-    headers.extend(list(data.keys()))
-    headers = [f"{header}" for header in headers]
-    file_content = separator.join(headers)
-
     flame_logger.new_log("Writing fhir data dict to csv...")
-    visited_rows = []
-    for i, rows in enumerate(data.values()):
-        flame_logger.new_log(f"Writing col {i + 1} of {len(data.values())}")
-        for row_id in rows.keys():
-            if row_id in visited_rows:
-                continue
-            line_list = [row_id]
-            visited_rows.append(row_id)
-            for col_id in data.keys():
-                try:
-                    line_list.append(data[col_id][row_id])
-                except KeyError:
-                    line_list.append('')
-            line_list = [f"{e}" for e in line_list]
-            file_content += '\n' + separator.join(line_list)
+    columns = list(data.keys())
+    row_ids = dict.fromkeys(row_id for col in data.values() for row_id in col)
+    lines = [separator.join([row_col_name] + [str(c) for c in columns])]
+    for row_id in row_ids:
+        line = [str(row_id)]
+        for col in columns:
+            line.append(str(data[col].get(row_id, '')))
+        lines.append(separator.join(line))
 
-    io.write(file_content)
+    io = StringIO()
+    io.write('\n'.join(lines))
     io.seek(0)
     flame_logger.new_log("Fhir data converted to csv")
     return io
