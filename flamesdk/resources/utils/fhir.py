@@ -31,11 +31,18 @@ def fhir_to_csv(fhir_data: dict[str, Any],
     value_keys = value_key_seq.split('.')
     row_keys = row_key_seq.split('.') if row_key_seq else None
     flame_logger.new_log(f"Converting fhir data resource of type={input_resource} to csv")
+    total_count = int(fhir_data['total'])
+    count_mod = 10 ** (len(str(total_count)) - 2)
+    count_mod = count_mod if count_mod > 1 else 1
+    current_count = 0
     while True:
-        # extract from resource
-        if input_resource == 'Observation':
-            for i, entry in enumerate(fhir_data['entry']):
-                flame_logger.new_log(f"Parsing fhir data entry no={i + 1} of {len(fhir_data['entry'])}")
+        for i, entry in enumerate(fhir_data['entry']):
+            current_count += 1
+            if (current_count == 1) or not (current_count % count_mod):
+                flame_logger.new_log(f"Parsing fhir data entry no={current_count} of {total_count}")
+
+            # extract from resource
+            if input_resource == 'Observation':
                 col_id = _search_fhir_resource(fhir_entry=entry, flame_logger=flame_logger, keys=col_keys)
                 row_id = _search_fhir_resource(fhir_entry=entry, flame_logger=flame_logger, keys=row_keys)
                 value = _search_fhir_resource(fhir_entry=entry, flame_logger=flame_logger, keys=value_keys)
@@ -50,9 +57,8 @@ def fhir_to_csv(fhir_data: dict[str, Any],
                 if row_id not in df_dict[col_id].keys():
                     df_dict[col_id][row_id] = ''
                 df_dict[col_id][row_id] = value
-        elif input_resource == 'QuestionnaireResponse':
-            for i, entry in enumerate(fhir_data['entry']):
-                flame_logger.new_log(f"Parsing fhir data entry no={i + 1} of {len(fhir_data['entry'])}")
+
+            elif input_resource == 'QuestionnaireResponse':
                 for item in entry['resource']['item']:
                     col_id = _search_fhir_resource(fhir_entry=item,
                                                    flame_logger=flame_logger,
@@ -68,11 +74,11 @@ def fhir_to_csv(fhir_data: dict[str, Any],
                     if col_id not in df_dict.keys():
                         df_dict[col_id] = {}
                     df_dict[col_id][str(i)] = value
-        else:
-            try:
-                raise IOError(f"Unknown resource specified (given={input_resource}, known={_KNOWN_RESOURCES})")
-            except IOError as e:
-                flame_logger.raise_error(f"Error while parsing fhir data: {repr(e)}")
+            else:
+                try:
+                    raise IOError(f"Unknown resource specified (given={input_resource}, known={_KNOWN_RESOURCES})")
+                except IOError as e:
+                    flame_logger.raise_error(f"Error while parsing fhir data: {repr(e)}")
 
         # get next data
         if (data_client is None) or (isinstance(data_client, bool)):
@@ -112,7 +118,7 @@ def _dict_to_csv(data: dict[Any, dict[Any, Any]],
     flame_logger.new_log("Writing fhir data dict to csv...")
     visited_rows = []
     for i, rows in enumerate(data.values()):
-        flame_logger.new_log(f"Writing row {i + 1} of {len(data.values())}")
+        flame_logger.new_log(f"Writing col {i + 1} of {len(data.values())}")
         for row_id in rows.keys():
             if row_id in visited_rows:
                 continue
