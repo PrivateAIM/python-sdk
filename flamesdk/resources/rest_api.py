@@ -2,7 +2,7 @@ import sys
 import threading
 import uvicorn
 from typing import Any, Callable, Union, Optional
-import time
+
 
 from fastapi import FastAPI, APIRouter, Request, Depends
 from fastapi.responses import JSONResponse
@@ -108,9 +108,6 @@ class FlameAPI:
     def _finished(self, clients: list[Any]) -> str:
         init_failed = None in clients
         main_alive = threading.main_thread().is_alive()
-        print(f"time{time.time_ns()}")
-        print(f"init_failed={init_failed}, main_alive={main_alive}, finished_check={self.finished_check()},"
-              f"flame_logger.runstatus={self.flame_logger.runstatus}, self.finished={self.finished}")
         if init_failed:
             return "stuck"
         elif (not main_alive) and (not self.finished_check()):
