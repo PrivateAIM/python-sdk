@@ -3,6 +3,7 @@ import threading
 import uvicorn
 from typing import Any, Callable, Union, Optional
 
+
 from fastapi import FastAPI, APIRouter, Request, Depends
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -107,7 +108,6 @@ class FlameAPI:
     def _finished(self, clients: list[Any]) -> str:
         init_failed = None in clients
         main_alive = threading.main_thread().is_alive()
-
         if init_failed:
             return "stuck"
         elif (not main_alive) and (not self.finished_check()):
