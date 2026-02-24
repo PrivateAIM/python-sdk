@@ -228,6 +228,7 @@ class FlameCoreSDK:
         start_time = datetime.now()
 
         time_passed = (datetime.now() - start_time).seconds
+        nodes = nodes.copy()
         while (not all(received.values())) and ((timeout is None) or (time_passed < timeout)):
             acknowledged_list, _ = self.send_message(receivers=nodes,
                                                      message_category='ready_check',
