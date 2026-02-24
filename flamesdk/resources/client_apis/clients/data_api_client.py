@@ -20,6 +20,9 @@ class DataApiClient:
 
         self.project_id = project_id
         self.available_sources = asyncio.run(self._retrieve_available_sources())
+        if not self.available_sources:
+            self.flame_logger.new_log(f"No data sources found for project {project_id}", log_type='warning')
+            raise ValueError(f"No data sources found for project {project_id}")
 
     def refresh_token(self, keycloak_token: str) -> None:
         self.hub_client = AsyncClient(base_url=f"http://{self.nginx_name}/hub-adapter",

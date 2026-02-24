@@ -75,13 +75,13 @@ class FlameCoreSDK:
                 self._data_api = DataAPI(self.config, self._flame_logger)
                 self.flame_log("success", suppress_head=True)
             except Exception as e:
-                if default_requires_data:
-                    self._data_api = None
-                    self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', suppress_head=True)
-                else:
+                if isinstance(e, ValueError) and not default_requires_data:
                     self._data_api = True
                     self.config.set_role("proxy")  # set role to proxy if data api connection fails
                     self.flame_log("success (as proxy)", suppress_head=True)
+                else:
+                    self._data_api = None
+                    self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', suppress_head=True)
         else:
             self._data_api = True
 
