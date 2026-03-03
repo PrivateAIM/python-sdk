@@ -111,11 +111,11 @@ class StorageClient:
         else:
             data = {}
 
-        request_path = f"/{type}/"
+        request_path = f"/{type}"
 
         if use_local_dp:
             # append to request path
-            request_path += "localdp"
+            request_path += "/localdp"
             # local_dp is guaranteed to not be None, so remap values to string and update request data mapping
             data.update({k: str(v) for k, v in local_dp.items()})
 
