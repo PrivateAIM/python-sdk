@@ -143,7 +143,7 @@ class FlameCoreSDK:
         """
         return self.config.node_id
 
-    def get_role(self) -> str:
+    def get_role(self) -> Literal['default', 'aggregator']:
         """
         Returns the role of the node. "aggregator" means that the node can submit final results using
         "submit_final_result", else "default" (this may change with further permission settings).
