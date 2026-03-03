@@ -1,6 +1,6 @@
 import math
 import uuid
-from httpx import Client, HTTPStatusError
+from httpx import Client, HTTPStatusError, Timeout
 import pickle
 import re
 from datetime import datetime
@@ -111,11 +111,11 @@ class StorageClient:
         else:
             data = {}
 
-        request_path = f"/{type}/"
+        request_path = f"/{type}"
 
         if use_local_dp:
             # append to request path
-            request_path += "localdp"
+            request_path += "/localdp"
             # local_dp is guaranteed to not be None, so remap values to string and update request data mapping
             data.update({k: str(v) for k, v in local_dp.items()})
 
@@ -123,7 +123,8 @@ class StorageClient:
                                    files={"file": (f"result_{str(uuid.uuid4())[:4]}_{datetime.now().strftime('%y%m%d%H%M%S')}",
                                                    BytesIO(file_body))},
                                    data=data,
-                                   headers=[('Connection', 'close')])
+                                   headers=[('Connection', 'close')],
+                                   timeout=Timeout(5, read=None, write=None))
         try:
             response.raise_for_status()
         except HTTPStatusError as e:
@@ -198,7 +199,7 @@ class StorageClient:
         :param url:
         :return:
         """
-        response = self.client.get(url)
+        response = self.client.get(url, timeout=Timeout(5, read=None, write=None))
         try:
             response.raise_for_status()
         except HTTPStatusError as e:

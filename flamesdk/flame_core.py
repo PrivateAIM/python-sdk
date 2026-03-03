@@ -115,7 +115,7 @@ class FlameCoreSDK:
 
     def get_participants(self) -> list[dict[str, str]]:
         """
-        Returns a list of all participants in the analysis
+        Returns a list of all participant configs in the analysis
         :return: the list of participants
         """
         return self._message_broker_api.participants
@@ -126,15 +126,6 @@ class FlameCoreSDK:
         :return: the list of participant ids
         """
         return [p['nodeId'] for p in self.get_participants()]
-
-    def get_node_status(self,
-                        timeout: Optional[int] = None) -> dict[str, Literal["online", "offline", "not_connected"]]:
-        """
-        Returns the status of all nodes.
-        :param timeout: time in seconds to wait for the response, if None waits indefinitely
-        :return:
-        """
-        #TODO: Remove this? (-> ready check)
 
     def get_analysis_id(self) -> str:
         """
@@ -157,7 +148,7 @@ class FlameCoreSDK:
         """
         return self.config.node_id
 
-    def get_role(self) -> str:
+    def get_role(self) -> Literal['default', 'aggregator']:
         """
         Returns the role of the node. "aggregator" means that the node can submit final results using
         "submit_final_result", else "default" (this may change with further permission settings).
