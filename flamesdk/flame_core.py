@@ -19,7 +19,10 @@ from flamesdk.resources.utils.logging import FlameLogger
 
 class FlameCoreSDK:
 
-    def __init__(self, aggregator_requires_data: bool = False, silent: bool = False):
+    def __init__(self,
+                 aggregator_requires_data: bool = False,
+                 silent: bool = False,
+                 suggestible: Optional[tuple[Literal['finished', 'stopped', 'failed']]] = ('finished', 'stopped', 'failed')) -> None:
         self._flame_logger = FlameLogger(silent=silent)
         self.flame_log("Starting FlameCoreSDK")
 
@@ -84,6 +87,7 @@ class FlameCoreSDK:
         self.flame_log("\tStarting FlameApi thread...", end='', halt_submission=True)
         try:
             self._flame_api_thread = Thread(target=self._start_flame_api)
+            self._suggestible = suggestible
             self._flame_api_thread.start()
             self.flame_log("success", suppress_head=True)
         except Exception as e:
@@ -653,7 +657,8 @@ class FlameCoreSDK:
                                   self._flame_logger,
                                   self.config.keycloak_token,
                                   finished_check=self._has_finished,
-                                  finishing_call=self._node_finished)
+                                  finishing_call=self._node_finished,
+                                  suggestible=self._suggestible)
 
     def _node_finished(self) -> bool:
         """
