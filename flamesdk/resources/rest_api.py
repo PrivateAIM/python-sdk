@@ -1,7 +1,7 @@
 import sys
 import threading
 import uvicorn
-from typing import Any, Callable, Union, Optional
+from typing import Any, Callable, Union, Optional, Literal
 
 
 from fastapi import FastAPI, APIRouter, Request, Depends
@@ -25,7 +25,8 @@ class FlameAPI:
                  flame_logger: FlameLogger,
                  keycloak_token: str,
                  finished_check: Callable,
-                 finishing_call: Callable) -> None:
+                 finishing_call: Callable,
+                 suggestible: Optional[tuple[Literal['finished', 'stopped', 'failed']]] = None) -> None:
         app = FastAPI(title=f"FLAME node",
                       docs_url="/api/docs",
                       redoc_url="/api/redoc",
@@ -49,8 +50,26 @@ class FlameAPI:
         self.po_client = po_client
         self.flame_logger = flame_logger
         self.keycloak_token = keycloak_token
+        self.suggestible = suggestible
         self.finished_check = finished_check
         self.finishing_call = finishing_call
+
+        async def get_body(request: Request) -> dict[str, dict]:
+            return await request.json()
+
+        def apply_partner_status_to_self(partner_status: dict[str, Literal["starting", "started",
+                                                                           "executing", "executed",
+                                                                           "stopping", "stopped", "failed"]]) -> None:
+            if ("finished" in self.suggestible) and ("finished" in partner_status.values()):
+                self.flame_logger.set_runstatus("finished")
+            elif ("stopped" in self.suggestible) and ("stopped" in partner_status.values()):
+                self.flame_logger.set_runstatus("stopped")
+            elif ("failed" in self.suggestible) and ("failed" in partner_status.values()):
+                self.flame_logger.set_runstatus("failed")
+            elif self.suggestible is None:
+                pass
+            else:
+                raise HTTPException(status_code=500, detail="Unknown value for analysis suggestibility found.")
 
         @router.post("/token_refresh", response_class=JSONResponse)
         async def token_refresh(request: Request) -> JSONResponse:
@@ -78,14 +97,6 @@ class FlameAPI:
                 self.flame_logger.raise_error(f"stack trace {repr(e)}")
                 raise HTTPException(status_code=500, detail=str(e))
 
-        @router.get("/healthz", response_class=JSONResponse)
-        def health() -> dict[str, Union[str, int]]:
-            return {"status": self._finished([self.message_broker, self.data_client, self.storage_client]),
-                    "token_remaining_time": extract_remaining_time_from_token(self.keycloak_token, self.flame_logger)}
-
-        async def get_body(request: Request) -> dict[str, Any]:
-            return await request.json()
-
         @router.post("/webhook", response_class=JSONResponse)
         def get_message(msg: dict = Depends(get_body)) -> None:
             if msg['meta']['sender'] != message_broker.nodeConfig.node_id:
@@ -97,6 +108,23 @@ class FlameAPI:
             if msg['meta']['category'] == "analysis_finished":
                 self.finished = True
                 self.finishing_call()
+
+        @router.post("/partner_status", response_class=JSONResponse)
+        async def get_partner_status(request: Request) -> JSONResponse:
+            try:
+                body = await request.json()
+                partner_status = body.get("partner_status")
+                apply_partner_status_to_self(partner_status)
+                return JSONResponse(content={"status": self.flame_logger.runstatus})
+            except Exception as e:
+                self.flame_logger.raise_error(f"stack trace {repr(e)}")
+                raise HTTPException(status_code=500, detail=str(e))
+
+
+        @router.get("/healthz", response_class=JSONResponse)
+        def health() -> dict[str, Union[str, int]]:
+            return {"status": self._finished([self.message_broker, self.data_client, self.storage_client]),
+                    "token_remaining_time": extract_remaining_time_from_token(self.keycloak_token, self.flame_logger)}
 
         app.include_router(
             router,
