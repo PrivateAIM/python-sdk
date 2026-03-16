@@ -58,7 +58,7 @@ class FlameAPI:
             return await request.json()
 
         def apply_partner_status_to_self(partner_status: dict[str, Literal["starting", "started",
-                                                                           "executing", "executed",
+                                                                           "running", "finished",
                                                                            "stopping", "stopped", "failed"]]) -> None:
             if ("finished" in self.suggestible) and ("finished" in partner_status.values()):
                 self.flame_logger.set_runstatus("finished")
@@ -66,10 +66,8 @@ class FlameAPI:
                 self.flame_logger.set_runstatus("stopped")
             elif ("failed" in self.suggestible) and ("failed" in partner_status.values()):
                 self.flame_logger.set_runstatus("failed")
-            elif self.suggestible is None:
-                pass
             else:
-                raise HTTPException(status_code=500, detail="Unknown value for analysis suggestibility found.")
+                pass
 
         @router.post("/token_refresh", response_class=JSONResponse)
         async def token_refresh(request: Request) -> JSONResponse:
@@ -119,7 +117,6 @@ class FlameAPI:
             except Exception as e:
                 self.flame_logger.raise_error(f"stack trace {repr(e)}")
                 raise HTTPException(status_code=500, detail=str(e))
-
 
         @router.get("/healthz", response_class=JSONResponse)
         def health() -> dict[str, Union[str, int]]:
