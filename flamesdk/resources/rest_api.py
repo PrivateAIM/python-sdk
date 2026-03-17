@@ -61,13 +61,18 @@ class FlameAPI:
                                                                            "running", "finished",
                                                                            "stopping", "stopped", "failed"]]) -> None:
             if ("finished" in self.suggestible) and ("finished" in partner_status.values()):
-                self.flame_logger.set_runstatus("finished")
+                changed_statuses = "finished"
             elif ("stopped" in self.suggestible) and ("stopped" in partner_status.values()):
-                self.flame_logger.set_runstatus("stopped")
+                changed_statuses = "stopped"
             elif ("failed" in self.suggestible) and ("failed" in partner_status.values()):
-                self.flame_logger.set_runstatus("failed")
+                changed_statuses = "failed"
             else:
-                pass
+                changed_statuses = None
+
+            if changed_statuses is not None:
+                self.flame_logger.new_log(f"Set analysis status to {changed_statuses}, "
+                                          f"because of partner statuses: {partner_status}", log_type='info')
+                self.flame_logger.set_runstatus(changed_statuses)
 
         @router.post("/token_refresh", response_class=JSONResponse)
         async def token_refresh(request: Request) -> JSONResponse:
