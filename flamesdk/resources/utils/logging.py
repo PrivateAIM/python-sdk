@@ -50,10 +50,12 @@ class FlameLogger:
     def set_runstatus(self, status: str) -> None:
         """
         Set the run status for the logger.
-        :param status: The status to set (e.g., 'running', 'completed', 'failed').
+        :param status: The status to set (e.g., 'starting', 'running', 'stopped', 'finished', 'failed').
         """
-        if status not in ['starting', 'running', 'finished', 'failed']:
+        if status not in ['starting', 'running', 'stopped', 'finished', 'failed']:
             status = 'failed'  # Default to 'running' if an invalid status is provided
+        if status == 'stopped':
+            self.new_log(msg='Analysis execution was stopped on another node.', log_type='info')
         self.runstatus = status
 
     def set_progress(self, progress: Union[int, float]) -> None:

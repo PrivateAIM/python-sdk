@@ -11,7 +11,7 @@ class StorageAPI:
 
     def submit_final_result(self,
                             result: Any,
-                            output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                            output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                             multiple_results: bool = False,
                             local_dp: Optional[LocalDifferentialPrivacyParams] = None) -> Union[dict[str, str], list[dict[str, str]]]:
         """
@@ -27,10 +27,11 @@ class StorageAPI:
         if multiple_results and (isinstance(result, list) or isinstance(result, tuple)):
             # Submit each element in the list separately
             responses = []
-            for item in result:
+            has_multiple_types = isinstance(output_type, list) and (len(output_type) == len(result))
+            for i, item in enumerate(result):
                 response = self.storage_client.push_result(item,
                                                            type="final",
-                                                           output_type=output_type,
+                                                           output_type=output_type[i] if has_multiple_types else output_type,
                                                            local_dp=local_dp)
                 responses.append(response)
             return responses

@@ -19,7 +19,10 @@ from flamesdk.resources.utils.logging import FlameLogger
 
 class FlameCoreSDK:
 
-    def __init__(self, aggregator_requires_data: bool = False, silent: bool = False):
+    def __init__(self,
+                 aggregator_requires_data: bool = False,
+                 silent: bool = False,
+                 suggestible: Optional[tuple[Literal['finished', 'stopped', 'failed']]] = ('finished', 'stopped', 'failed')) -> None:
         self._flame_logger = FlameLogger(silent=silent)
         self.flame_log("Starting FlameCoreSDK")
 
@@ -84,6 +87,7 @@ class FlameCoreSDK:
         self.flame_log("\tStarting FlameApi thread...", end='', halt_submission=True)
         try:
             self._flame_api_thread = Thread(target=self._start_flame_api)
+            self._suggestible = suggestible
             self._flame_api_thread.start()
             self.flame_log("success", suppress_head=True)
         except Exception as e:
@@ -420,7 +424,7 @@ class FlameCoreSDK:
     ########################################Storage Client###########################################
     def submit_final_result(self,
                             result: Any,
-                            output_type: Literal['str', 'bytes', 'pickle'] = 'str',
+                            output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                             multiple_results: bool = False,
                             local_dp: Optional[LocalDifferentialPrivacyParams] = None) -> Union[dict[str, str], list[dict[str, str]]]:
         """
@@ -428,7 +432,7 @@ class FlameCoreSDK:
         This method is only available for nodes for which the method `get_role(self)` returns "aggregator".
         :param result: the final result (single object or list of objects). If a list is provided,
                        each element will be submitted separately by calling the endpoint multiple times.
-        :param output_type: output type of final results (default: string)
+        :param output_type: output type of final results (can be list of type literals if multiple_results=True, default: string)
         :param multiple_results: whether the result is to be split into separate results (per element in tuple) or a single result
         :param local_dp:
         :return: the request status code (single dict if result is not a list, list of dicts if result is a list)
@@ -653,7 +657,8 @@ class FlameCoreSDK:
                                   self._flame_logger,
                                   self.config.keycloak_token,
                                   finished_check=self._has_finished,
-                                  finishing_call=self._node_finished)
+                                  finishing_call=self._node_finished,
+                                  suggestible=self._suggestible)
 
     def _node_finished(self) -> bool:
         """
