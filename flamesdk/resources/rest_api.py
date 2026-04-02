@@ -14,6 +14,7 @@ from flamesdk.resources.client_apis.clients.storage_client import StorageClient
 from flamesdk.resources.client_apis.clients.po_client import POClient
 from flamesdk.resources.utils.utils import extract_remaining_time_from_token
 from flamesdk.resources.utils.logging import FlameLogger
+from flamesdk.resources.utils.constants import AnalysisStatus
 
 
 class FlameAPI:
@@ -26,7 +27,7 @@ class FlameAPI:
                  keycloak_token: str,
                  finished_check: Callable,
                  finishing_call: Callable,
-                 suggestible: Optional[tuple[Literal['finished', 'stopped', 'failed']]] = None) -> None:
+                 suggestible: Optional[tuple[Literal['executed', 'stopped', 'failed']]] = None) -> None:
         app = FastAPI(title=f"FLAME node",
                       docs_url="/api/docs",
                       redoc_url="/api/redoc",
@@ -58,14 +59,14 @@ class FlameAPI:
             return await request.json()
 
         def apply_partner_status_to_self(partner_status: dict[str, Literal["starting", "started",
-                                                                           "running", "finished",
+                                                                           "executing", "executed",
                                                                            "stopping", "stopped", "failed"]]) -> None:
-            if ("finished" in self.suggestible) and ("finished" in partner_status.values()):
-                changed_statuses = "finished"
-            elif ("stopped" in self.suggestible) and ("stopped" in partner_status.values()):
-                changed_statuses = "stopped"
-            elif ("failed" in self.suggestible) and ("failed" in partner_status.values()):
-                changed_statuses = "failed"
+            if (AnalysisStatus.EXECUTED.value in self.suggestible) and (AnalysisStatus.EXECUTED.value in partner_status.values()):
+                changed_statuses = AnalysisStatus.EXECUTED.value
+            elif (AnalysisStatus.STOPPED.value in self.suggestible) and (AnalysisStatus.STOPPED.value in partner_status.values()):
+                changed_statuses = AnalysisStatus.STOPPED.value
+            elif (AnalysisStatus.FAILED.value in self.suggestible) and (AnalysisStatus.FAILED.value in partner_status.values()):
+                changed_statuses = AnalysisStatus.FAILED.value
             else:
                 changed_statuses = None
 
@@ -139,19 +140,20 @@ class FlameAPI:
         init_failed = None in clients
         main_alive = threading.main_thread().is_alive()
         if init_failed:
-            return "stuck"
+            return AnalysisStatus.STUCK.value
         elif (not main_alive) and (not self.finished_check()):
-            return "failed"
-        elif self.flame_logger.runstatus == "failed":
-            return "failed"
+            return AnalysisStatus.FAILED.value
+        elif self.flame_logger.runstatus == AnalysisStatus.FAILED.value:
+            return AnalysisStatus.FAILED.value
 
         try:
-            if self.flame_logger.runstatus == "finished":
-                return "finished"
+            if self.flame_logger.runstatus == AnalysisStatus.EXECUTED.value:
+                return AnalysisStatus.EXECUTED.value
             elif self.finished_check():
-                self.flame_logger.set_runstatus("finished")
-                return "finished"
+                self.flame_logger.set_runstatus(AnalysisStatus.EXECUTED.value)
+                return AnalysisStatus.EXECUTED.value
             else:
-                return "running"
+                return AnalysisStatus.EXECUTING.value
         except AttributeError:
             sys.exit()
+

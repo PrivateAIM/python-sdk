@@ -16,13 +16,14 @@ from flamesdk.resources.rest_api import FlameAPI
 from flamesdk.resources.utils.fhir import fhir_to_csv
 from flamesdk.resources.utils.utils import wait_until_nginx_online
 from flamesdk.resources.utils.logging import FlameLogger
+from flamesdk.resources.utils.constants import AnalysisStatus
 
 class FlameCoreSDK:
 
     def __init__(self,
                  aggregator_requires_data: bool = False,
                  silent: bool = False,
-                 suggestible: Optional[tuple[Literal['finished', 'stopped', 'failed']]] = ('finished', 'stopped', 'failed')) -> None:
+                 suggestible: Optional[tuple[Literal['executed', 'stopped', 'failed']]] = (AnalysisStatus.EXECUTED.value, AnalysisStatus.STOPPED.value, AnalysisStatus.FAILED.value)) -> None:
         self._flame_logger = FlameLogger(silent=silent)
         self.flame_log("Starting FlameCoreSDK")
 
@@ -95,7 +96,7 @@ class FlameCoreSDK:
             self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', suppress_head=True)
 
         if all([self._message_broker_api, self._po_api, self._storage_api, self._data_api, self._flame_api_thread]):
-            self._flame_logger.set_runstatus('running')
+            self._flame_logger.set_runstatus(AnalysisStatus.EXECUTING.value)
             self.flame_log("FlameCoreSDK ready")
         else:
             self.flame_log("FlameCoreSDK startup failed", log_type='error')
@@ -157,7 +158,7 @@ class FlameCoreSDK:
 
     def analysis_finished(self) -> bool:
         """
-        Sends a signal to all nodes to set their node_finished to True, then sets the node to finished
+        Sends a signal to all nodes to set their node_finished to True, then sets the node to executed
         :return:
         """
         if self.get_participant_ids():
@@ -667,7 +668,7 @@ class FlameCoreSDK:
         :return:
         """
         self.set_progress(100)
-        self._flame_logger.set_runstatus("finished")
+        self._flame_logger.set_runstatus(AnalysisStatus.EXECUTED.value)
         self.flame_log("Node finished successfully")
         self.config.finish_analysis()
         return self.config.finished

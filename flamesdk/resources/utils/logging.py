@@ -4,6 +4,8 @@ from enum import Enum
 from typing import Union
 import queue
 
+from flamesdk.resources.utils.constants import AnalysisStatus
+
 
 class HUB_LOG_LITERALS(Enum):
     info_log = 'info'
@@ -36,7 +38,7 @@ class FlameLogger:
         self.queue = queue.Queue()
         self.po_api = None  # Placeholder for PO_API instance
         self.silent = silent
-        self.runstatus = 'starting'  # Default status for logs
+        self.runstatus = AnalysisStatus.STARTING.value  # Default status for logs
         self.log_ph = ""
         self.progress = 0
 
@@ -50,11 +52,11 @@ class FlameLogger:
     def set_runstatus(self, status: str) -> None:
         """
         Set the run status for the logger.
-        :param status: The status to set (e.g., 'starting', 'running', 'stopped', 'finished', 'failed').
+        :param status: The status to set (e.g., 'starting', 'executing', 'stopped', 'executed', 'failed').
         """
-        if status not in ['starting', 'running', 'stopped', 'finished', 'failed']:
-            status = 'failed'  # Default to 'running' if an invalid status is provided
-        if status == 'stopped':
+        if status not in [s.value for s in AnalysisStatus]:
+            status = AnalysisStatus.FAILED.value
+        if status == AnalysisStatus.STOPPED.value:
             self.new_log(msg='Analysis execution was stopped on another node.', log_type='info')
         self.runstatus = status
 
@@ -140,7 +142,7 @@ class FlameLogger:
                 self._submit_logs(log, _LOG_TYPE_LITERALS[log_type], self.runstatus)
         
     def raise_error(self, message: str, seconds: int = 100) -> None:
-        self.set_runstatus("failed")
+        self.set_runstatus(AnalysisStatus.FAILED.value)
         self.new_log(message, log_type="error")
         time.sleep(seconds)
 

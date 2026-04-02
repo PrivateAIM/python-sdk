@@ -15,8 +15,8 @@ def test_add_po_client(flame_logger, mock_po_client):
     assert flame_logger.po_api == mock_po_client
 
 def test_set_runstatus(flame_logger):
-    flame_logger.set_runstatus("running")
-    assert flame_logger.runstatus == "running"
+    flame_logger.set_runstatus("executing")
+    assert flame_logger.runstatus == "executing"
 
 def test_new_log_without_po_client(flame_logger):
     flame_logger.new_log("Test log message", log_type="info")
