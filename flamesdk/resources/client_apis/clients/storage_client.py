@@ -1,6 +1,6 @@
 import math
 import uuid
-from httpx import Client, HTTPStatusError
+from httpx import Client, HTTPStatusError, Timeout
 import pickle
 import re
 from datetime import datetime
@@ -16,13 +16,14 @@ class LocalDifferentialPrivacyParams(TypedDict, total=True):
     sensitivity: float
 
 
-class ResultClient:
+class StorageClient:
     def __init__(self, nginx_name, keycloak_token, flame_logger: FlameLogger) -> None:
         self.nginx_name = nginx_name
         self.client = Client(base_url=f"http://{nginx_name}/storage",
                              headers={"Authorization": f"Bearer {keycloak_token}"},
                              follow_redirects=True)
         self.flame_logger = flame_logger
+
     def refresh_token(self, keycloak_token: str):
         self.client = Client(base_url=f"http://{self.nginx_name}/storage",
                              headers={"Authorization": f"Bearer {keycloak_token}"},
@@ -34,8 +35,7 @@ class ResultClient:
                     remote_node_id: Optional[str] = None,
                     type: Literal["final", "global", "local"] = "final",
                     output_type: Literal['str', 'bytes', 'pickle'] = 'pickle',
-                    local_dp: Optional[LocalDifferentialPrivacyParams] = None, #TODO:localdp
-                    ) -> dict[str, str]:
+                    local_dp: Optional[LocalDifferentialPrivacyParams] = None) -> dict[str, str]:
         """
         Pushes the result to the hub. Making it available for analysts to download.
 
@@ -44,7 +44,7 @@ class ResultClient:
         :param remote_node_id: optional remote node id (used for accessing remote node's public key for encryption)
         :param type: location to save the result, final saves in the hub to be downloaded, global saves in central instance of MinIO, local saves in the node
         :param output_type: the type of the result, str, bytes or pickle only for final results
-        :param local_dp: parameters for local differential privacy, only for final floating-point type results #TODO:localdp
+        :param local_dp: parameters for local differential privacy, only for final floating-point type results
         :return:
         """
         if tag and (type != "local"):
@@ -57,7 +57,6 @@ class ResultClient:
             self.flame_logger.raise_error(f"Invalid tag format: {tag}. "
                                           f"Tag must consist only of lowercase letters, numbers, and hyphens")
 
-        # TODO:localdp (start)
         # check if local dp parameters have been supplied
         use_local_dp = isinstance(local_dp, dict)
 
@@ -93,7 +92,8 @@ class ResultClient:
                 file_body = pickle.dumps(result)
         except (TypeError, ValueError, UnicodeEncodeError, pickle.PicklingError) as e:
             if output_type != 'pickle':
-                self.flame_logger.new_log(f"Failed to translate result data to type={output_type}: {repr(e)}", log_type='warning')
+                self.flame_logger.new_log(f"Failed to translate result data to type={output_type}: {repr(e)}",
+                                          log_type='warning')
                 self.flame_logger.new_log("Attempting 'pickle' instead...", log_type='warning')
                 try:
                     file_body = pickle.dumps(result)
@@ -111,11 +111,11 @@ class ResultClient:
         else:
             data = {}
 
-        request_path = f"/{type}/"
+        request_path = f"/{type}"
 
         if use_local_dp:
             # append to request path
-            request_path += "localdp"
+            request_path += "/localdp"
             # local_dp is guaranteed to not be None, so remap values to string and update request data mapping
             data.update({k: str(v) for k, v in local_dp.items()})
 
@@ -123,7 +123,8 @@ class ResultClient:
                                    files={"file": (f"result_{str(uuid.uuid4())[:4]}_{datetime.now().strftime('%y%m%d%H%M%S')}",
                                                    BytesIO(file_body))},
                                    data=data,
-                                   headers=[('Connection', 'close')])
+                                   headers=[('Connection', 'close')],
+                                   timeout=Timeout(5, read=None, write=None))
         try:
             response.raise_for_status()
         except HTTPStatusError as e:
@@ -198,7 +199,7 @@ class ResultClient:
         :param url:
         :return:
         """
-        response = self.client.get(url)
+        response = self.client.get(url, timeout=Timeout(5, read=None, write=None))
         try:
             response.raise_for_status()
         except HTTPStatusError as e:

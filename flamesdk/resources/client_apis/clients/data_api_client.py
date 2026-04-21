@@ -1,6 +1,6 @@
-from typing import Optional, Union
+from typing import Optional, Any
 import asyncio
-from httpx import AsyncClient, HTTPStatusError
+from httpx import AsyncClient, HTTPStatusError, Timeout
 import re
 from flamesdk.resources.utils.logging import FlameLogger
 
@@ -21,35 +21,29 @@ class DataApiClient:
         self.project_id = project_id
         self.available_sources = asyncio.run(self._retrieve_available_sources())
 
-    def refresh_token(self, keycloak_token: str):
+    def refresh_token(self, keycloak_token: str) -> None:
         self.hub_client = AsyncClient(base_url=f"http://{self.nginx_name}/hub-adapter",
                                       headers={"Authorization": f"Bearer {keycloak_token}",
                                                "accept": "application/json"},
                                       follow_redirects=True)
 
-    async def _retrieve_available_sources(self) -> list[dict[str, str]]:
-        response = await self.hub_client.get(f"/kong/datastore/{self.project_id}")
-        try:
-            response.raise_for_status()
-        except HTTPStatusError as e:
-            self.flame_logger.raise_error(f"Failed to retrieve available data sources for project {self.project_id}:"
-                                      f" {repr(e)}")
-
-        return [{'name': source['name']} for source in response.json()['data']]
-
-    def get_available_sources(self):
+    def get_available_sources(self) -> list[dict[str, Any]]:
         return self.available_sources
 
     def get_data(self,
                  s3_keys: Optional[list[str]] = None,
-                 fhir_queries: Optional[list[str]] = None) -> list[Union[dict[str, Union[dict, str]], str]]:
+                 fhir_queries: Optional[list[str]] = None) -> Optional[list[dict[str, Any]]]:
+        if (s3_keys is None) and ((fhir_queries is None) or (len(fhir_queries) == 0)):
+            return None
         dataset_sources = []
         for source in self.available_sources:
             datasets = {}
+            # get fhir data
             if fhir_queries is not None:
                 for fhir_query in fhir_queries:  # premise: retrieves data for each fhir_query from each data source
                     response = asyncio.run(self.client.get(f"{source['name']}/fhir/{fhir_query}",
-                                                           headers=[('Connection', 'close')]))
+                                                           headers=[('Connection', 'close')],
+                                                           timeout=Timeout(5, write=None, read=None)))
                     try:
                         response.raise_for_status()
                     except HTTPStatusError as e:
@@ -57,12 +51,14 @@ class DataApiClient:
                                                   f"from source {source['name']}: {repr(e)}", log_type='warning')
                         continue
                     datasets[fhir_query] = response.json()
+            # get s3 data
             else:
                 response_names = asyncio.run(self._get_s3_dataset_names(source['name']))
                 for res_name in response_names:  # premise: only retrieves data corresponding to s3_keys from each data source
-                    if (s3_keys is None) or (res_name in s3_keys):
+                    if (len(s3_keys) == 0) or (res_name in s3_keys):
                         response = asyncio.run(self.client.get(f"{source['name']}/s3/{res_name}",
-                                                               headers=[('Connection', 'close')]))
+                                                               headers=[('Connection', 'close')],
+                                                               timeout=Timeout(5, write=None, read=None)))
                         try:
                             response.raise_for_status()
                         except HTTPStatusError as e:
@@ -88,10 +84,20 @@ class DataApiClient:
         :return:
         """
         path = None
-        for sources in self.available_sources:
-            if sources["id"] == data_id:
-                path = sources["paths"][0]
+        for source in self.available_sources:
+            if source["id"] == data_id:
+                path = source["paths"][0]
         if path is None:
-            self.flame_logger.raise_error(f"Data source with id {data_id} not found")
+            self.flame_logger.raise_error(f"Data source with id={data_id} not found")
         client = AsyncClient(base_url=f"{path}")
         return client
+
+    async def _retrieve_available_sources(self) -> list[dict[str, Any]]:
+        response = await self.hub_client.get(f"/kong/datastore/{self.project_id}")
+        try:
+            response.raise_for_status()
+        except HTTPStatusError as e:
+            self.flame_logger.raise_error(f"Failed to retrieve available data sources for project {self.project_id}:"
+                                          f" {repr(e)}")
+
+        return response.json()['data']
