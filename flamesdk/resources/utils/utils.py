@@ -18,10 +18,10 @@ def wait_until_nginx_online(nginx_name: str, flame_logger: FlameLogger) -> None:
                 response.raise_for_status()
                 nginx_is_online = True
             except HTTPStatusError as e:
-                flame_logger.new_log(f"{repr(e)}", log_type="warning")
+                flame_logger.new_log(f"{repr(e)}", log_type="warn")
         except TransportError:
             time.sleep(1)
-    flame_logger.new_log("success", suppress_head=True)
+    flame_logger.new_log("success", append=True)
 
 
 def extract_remaining_time_from_token(token: str, flame_logger: FlameLogger) -> int:

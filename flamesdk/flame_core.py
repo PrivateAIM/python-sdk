@@ -5,6 +5,7 @@ from datetime import datetime
 from io import StringIO
 
 from typing import Any, Literal, Optional, Union
+from collections.abc import Iterable
 from threading import Thread
 
 from flamesdk.resources.client_apis.data_api import DataAPI
@@ -17,6 +18,7 @@ from flamesdk.resources.utils.fhir import fhir_to_csv
 from flamesdk.resources.utils.utils import wait_until_nginx_online
 from flamesdk.resources.utils.logging import FlameLogger
 from flamesdk.resources.utils.constants import AnalysisStatus
+
 
 class FlameCoreSDK:
 
@@ -42,10 +44,10 @@ class FlameCoreSDK:
         self.flame_log("\tConnecting to MessageBroker...", end='', halt_submission=True)
         try:
             self._message_broker_api = MessageBrokerAPI(self.config, self._flame_logger)
-            self.flame_log("success", suppress_head=True)
+            self.flame_log("success", append=True)
         except Exception as e:
             self._message_broker_api = None
-            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', suppress_head=True)
+            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', append=True)
         try:
             ### Update config with self_config from MessageBroker
             self.config = self._message_broker_api.config
@@ -58,29 +60,29 @@ class FlameCoreSDK:
         try:
             self._po_api = POAPI(self.config, self._flame_logger)
             self._flame_logger.add_po_api(self._po_api)
-            self.flame_log("success", suppress_head=True)
+            self.flame_log("success", append=True)
         except Exception as e:
             self._po_api = None
-            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', suppress_head=True)
+            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', append=True)
 
         ## Connect to ResultService
         self.flame_log("\tConnecting to ResultService...", end='', halt_submission=True)
         try:
             self._storage_api = StorageAPI(self.config, self._flame_logger)
-            self.flame_log("success", suppress_head=True)
+            self.flame_log("success", append=True)
         except Exception as e:
             self._storage_api = None
-            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', suppress_head=True)
+            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', append=True)
 
         if (self.config.node_role == 'default') or aggregator_requires_data:
             ## Connection to DataService
             self.flame_log("\tConnecting to DataApi...", end='', halt_submission=True)
             try:
                 self._data_api = DataAPI(self.config, self._flame_logger)
-                self.flame_log("success", suppress_head=True)
+                self.flame_log("success", append=True)
             except Exception as e:
                 self._data_api = None
-                self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', suppress_head=True)
+                self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', append=True)
         else:
             self._data_api = True
 
@@ -90,10 +92,10 @@ class FlameCoreSDK:
             self._flame_api_thread = Thread(target=self._start_flame_api)
             self._suggestible = suggestible
             self._flame_api_thread.start()
-            self.flame_log("success", suppress_head=True)
+            self.flame_log("success", append=True)
         except Exception as e:
             self._flame_api_thread = None
-            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', suppress_head=True)
+            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', append=True)
 
         if all([self._message_broker_api, self._po_api, self._storage_api, self._data_api, self._flame_api_thread]):
             self._flame_logger.set_runstatus(AnalysisStatus.EXECUTING.value)
@@ -227,12 +229,11 @@ class FlameCoreSDK:
         return received
 
     def flame_log(self,
-                  msg: Union[str, bytes],
-                  sep: str = ' ',
-                  end: str = '\n',
-                  file: object = None,
-                  log_type: str = 'normal',
-                  suppress_head: bool = False,
+                  msg: Union[str, bytes, Iterable],
+                  sep: str = '',
+                  end: str = '',
+                  log_type: str = 'info',
+                  append: bool = False,
                   halt_submission: bool = False) -> None:
         """
         Prints logs to console and submits them to the hub (as soon as a connection is established, until then they will be queued).
@@ -241,7 +242,7 @@ class FlameCoreSDK:
         :param end:
         :param file:
         :param log_type:
-        :param suppress_head:
+        :param append:
         :param halt_submission:
         :return:
         """
@@ -249,21 +250,11 @@ class FlameCoreSDK:
             self._flame_logger.new_log(msg=msg,
                                        sep=sep,
                                        end=end,
-                                       file=file,
                                        log_type=log_type,
-                                       suppress_head=suppress_head,
+                                       append=append,
                                        halt_submission=halt_submission)
         else:
             self._flame_logger.raise_error(msg)
-
-    def declare_log_types(self, new_log_types: dict[str, str]) -> None:
-        """
-        Declare new log_types to be added to log_type literals, and how/as what they should be interpreted by Flame
-        (the latter have to be known values from HUB_LOG_LITERALS for existing log status fields).
-        :param new_log_types:
-        :return:
-        """
-        self._flame_logger.declare_log_types(new_log_types)
 
     def get_progress(self) -> int:
         """

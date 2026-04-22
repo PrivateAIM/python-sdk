@@ -158,12 +158,12 @@ def _search_fhir_resource(fhir_entry: Union[dict[str, Any], list[Any]],
                     else:
                         flame_logger.new_log(f"Unable to find field '{key}' in fhir data at level={current + 1} "
                                              f"(keys found: fhir_entry.keys())",
-                                             log_type='warning')
+                                             log_type='warn')
                         return None
                 return value
             else:
                 return None
         else:
             flame_logger.new_log(f"Unexpected data type found (found type={type(fhir_entry)})",
-                                 log_type='warning')
+                                 log_type='warn')
             return None

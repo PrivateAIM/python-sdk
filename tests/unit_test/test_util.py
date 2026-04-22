@@ -16,7 +16,7 @@ def test_flame_log():
     with open('tests/unit_test/stream.tar', 'rb') as file:
         file_content = file.read()
     flame_logger.new_log(file_content)
-    flame_logger.new_log("file_content", suppress_head=True)
+    flame_logger.new_log("file_content", append=True)
 
 
 def test_multi_param_observation():

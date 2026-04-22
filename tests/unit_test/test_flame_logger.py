@@ -31,8 +31,3 @@ def test_send_logs_from_queue(flame_logger, mock_po_client):
     flame_logger.send_logs_from_queue()
     assert flame_logger.queue.empty() == True
 
-def test_declare_log_types(flame_logger):
-    new_log_types = {"custom": "info"}
-    flame_logger.declare_log_types(new_log_types)
-    assert "custom" in _LOG_TYPE_LITERALS
-    assert _LOG_TYPE_LITERALS["custom"] == "info"
