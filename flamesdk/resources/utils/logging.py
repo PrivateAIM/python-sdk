@@ -116,7 +116,7 @@ class FlameLogger:
                 msg = msg.decode('utf-8', errors='replace')
                 log = ''.join(filter(lambda x: x in string.printable, msg)) + end
             elif isinstance(msg, str):
-                log_type = msg + end
+                log = msg + end
             elif isinstance(msg, Iterable):
                 log = sep.join(msg) + end
             else:
