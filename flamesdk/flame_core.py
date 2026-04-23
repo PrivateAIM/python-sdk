@@ -441,8 +441,11 @@ class FlameCoreSDK:
         :param location: the location to save the result, local saves in the node, global saves in central instance of MinIO
         :param remote_node_ids: optional remote node ids (used for accessing remote node's public key for encryption)
         :param tag: optional storage tag
-        :return: the request status code{"status": ,"url":, "id": }, or dict of said dicts if encrypted mode is used, i.e. remote_node_ids are set
+        :return: the request status code{"status":, "url":, "id": }, or dict of said dicts if encrypted mode is used, i.e. remote_node_ids are set
         """
+        if (location == "global") and (remote_node_ids is None):
+            raise ValueError("remote_node_ids must be provided when saving global intermediate data")
+
         return self._storage_api.save_intermediate_data(data,
                                                         location=location,
                                                         remote_node_ids=remote_node_ids,
@@ -475,8 +478,7 @@ class FlameCoreSDK:
                                message_category: str = "intermediate_data",
                                max_attempts: int = 1,
                                timeout: Optional[int] = None,
-                               attempt_timeout: int = 10,
-                               encrypted: bool = False) -> tuple[list[str], list[str]]:
+                               attempt_timeout: int = 10) -> tuple[list[str], list[str]]:
         """
         Sends intermediate data to specified receivers using the Result Service and Message Broker.
 
@@ -492,14 +494,13 @@ class FlameCoreSDK:
             max_attempts (int): the maximum number of attempts to send the message
             timeout (int, optional): time in seconds to wait for the message acknowledgement, if None waits indefinitely
             attempt_timeout (int): timeout of each attempt, if timeout is None (the last attempt will be indefinite though)
-            encrypted (bool): bool whether data should be encrypted or not
 
         Returns:
             tuple[list[str], list[str]]:
                 - A list of node IDs that successfully received the message.
                 - A list of node IDs that failed to receive the message.
 
-       Example:
+        Example:
             ```python
             receivers = ["node1", "node2", "node3"]
             data = {"key": "value"}
@@ -510,13 +511,11 @@ class FlameCoreSDK:
             print("Failed nodes:", failed)  # e.g., ["node3"]
             ```
         """
-        if encrypted:
-            result_id_body = {k: v['id']
-                              for k, v in self.save_intermediate_data(data,
-                                                                      "global",
-                                                                      remote_node_ids=receivers).items()}
-        else:
-            result_id_body = self.save_intermediate_data(data, "global")['id']
+
+        result_id_body = {k: v['id']
+                          for k, v in self.save_intermediate_data(data,
+                                                                  "global",
+                                                                  remote_node_ids=receivers).items()}
 
         return self.send_message(receivers,
                                  message_category,
