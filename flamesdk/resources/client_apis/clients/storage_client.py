@@ -183,7 +183,7 @@ class StorageClient:
                 data.append(self._get_file(url))
             return data
         else:
-            return self._get_file(f"/{type}/{id}?node_id={sender_node_id}")
+            return self._get_file(f"/{type}/{id}?remote_node_id={sender_node_id}")
 
     def _get_location_urls_for_tag(self, tag: str) -> list[str]:
         """
