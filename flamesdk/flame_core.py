@@ -17,7 +17,7 @@ from flamesdk.resources.rest_api import FlameAPI
 from flamesdk.resources.utils.fhir import fhir_to_csv
 from flamesdk.resources.utils.utils import wait_until_nginx_online
 from flamesdk.resources.utils.logging import FlameLogger
-from flamesdk.resources.utils.constants import AnalysisStatus
+from flamesdk.resources.utils.constants import AnalysisStatus, LogTypeLiteral
 
 
 class FlameCoreSDK:
@@ -37,7 +37,7 @@ class FlameCoreSDK:
         try:
             wait_until_nginx_online(self.config.nginx_name, self._flame_logger)
         except Exception as e:
-            self.flame_log(f"Nginx connection failure (error_msg='{repr(e)}')", log_type='error')
+            self.flame_log(f"Nginx connection failure (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value)
 
         # Set up the connection to all the services needed
         ## Connect to MessageBroker
@@ -47,13 +47,13 @@ class FlameCoreSDK:
             self.flame_log("success", append=True)
         except Exception as e:
             self._message_broker_api = None
-            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', append=True)
+            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value, append=True)
         try:
             ### Update config with self_config from MessageBroker
             self.config = self._message_broker_api.config
         except Exception as e:
             self.flame_log(f"Unable to retrieve node config from message broker (error_msg='{repr(e)}')",
-                           log_type='error')
+                           log_type=LogTypeLiteral.ERROR.value)
 
         ## Connect to POService
         self.flame_log("\tConnecting to PO service...", end='', halt_submission=True)
@@ -63,7 +63,7 @@ class FlameCoreSDK:
             self.flame_log("success", append=True)
         except Exception as e:
             self._po_api = None
-            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', append=True)
+            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value, append=True)
 
         ## Connect to ResultService
         self.flame_log("\tConnecting to ResultService...", end='', halt_submission=True)
@@ -72,7 +72,7 @@ class FlameCoreSDK:
             self.flame_log("success", append=True)
         except Exception as e:
             self._storage_api = None
-            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', append=True)
+            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value, append=True)
 
         if (self.config.node_role == 'default') or aggregator_requires_data:
             ## Connection to DataService
@@ -82,7 +82,7 @@ class FlameCoreSDK:
                 self.flame_log("success", append=True)
             except Exception as e:
                 self._data_api = None
-                self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', append=True)
+                self.flame_log(f"failed (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value, append=True)
         else:
             self._data_api = True
 
@@ -95,13 +95,13 @@ class FlameCoreSDK:
             self.flame_log("success", append=True)
         except Exception as e:
             self._flame_api_thread = None
-            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', append=True)
+            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value, append=True)
 
         if all([self._message_broker_api, self._po_api, self._storage_api, self._data_api, self._flame_api_thread]):
             self._flame_logger.set_runstatus(AnalysisStatus.EXECUTING.value)
             self.flame_log("FlameCoreSDK ready")
         else:
-            self.flame_log("FlameCoreSDK startup failed", log_type='error')
+            self.flame_log("FlameCoreSDK startup failed", log_type=LogTypeLiteral.ERROR.value)
 
 
     ########################################General##################################################
@@ -232,7 +232,7 @@ class FlameCoreSDK:
                   msg: Union[str, bytes, Iterable],
                   sep: str = '',
                   end: str = '',
-                  log_type: str = 'info',
+                  log_type: str = LogTypeLiteral.INFO.value,
                   append: bool = False,
                   halt_submission: bool = False) -> None:
         """
@@ -245,7 +245,7 @@ class FlameCoreSDK:
         :param halt_submission:
         :return:
         """
-        if log_type != 'error':
+        if log_type != LogTypeLiteral.ERROR.value:
             self._flame_logger.new_log(msg=msg,
                                        sep=sep,
                                        end=end,
@@ -316,7 +316,7 @@ class FlameCoreSDK:
                                data_client=self._data_api)
         else:
             self.flame_log("Data API is not available, cannot convert FHIR to CSV",
-                           log_type='warn')
+                           log_type=LogTypeLiteral.WARNING.value)
             return None
 
     ########################################Message Broker Client####################################
@@ -592,7 +592,7 @@ class FlameCoreSDK:
             return self._data_api.get_data_sources()
         else:
             self.flame_log("Data API is not available, cannot retrieve data sources",
-                           log_type='warn')
+                           log_type=LogTypeLiteral.WARNING.value)
             return None
 
     def get_data_client(self, data_id: str) -> Optional[AsyncClient]:
@@ -605,7 +605,7 @@ class FlameCoreSDK:
             return self._data_api.get_data_client(data_id)
         else:
             self.flame_log("Data API is not available, cannot retrieve data client",
-                           log_type='warn')
+                           log_type=LogTypeLiteral.WARNING.value)
             return None
 
     def get_fhir_data(self, fhir_queries: Optional[list[str]] = []) -> Optional[list[dict[str, Union[str, dict]]]]:
@@ -618,7 +618,7 @@ class FlameCoreSDK:
             return self._data_api.get_fhir_data(fhir_queries)
         else:
             self.flame_log("Data API is not available, cannot retrieve FHIR data",
-                           log_type='warn')
+                           log_type=LogTypeLiteral.WARNING.value)
             return None
 
     def get_s3_data(self, s3_keys: Optional[list[str]] = []) -> Optional[list[dict[str, bytes]]]:
@@ -631,7 +631,7 @@ class FlameCoreSDK:
             return self._data_api.get_s3_data(s3_keys)
         else:
             self.flame_log("Data API is not available, cannot retrieve S3 data",
-                           log_type='warn')
+                           log_type=LogTypeLiteral.WARNING.value)
             return None
 
 

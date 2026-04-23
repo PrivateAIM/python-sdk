@@ -2,7 +2,10 @@ from typing import Optional, Any
 import asyncio
 from httpx import AsyncClient, HTTPStatusError, Timeout
 import re
+
+
 from flamesdk.resources.utils.logging import FlameLogger
+from flamesdk.resources.utils.constants import LogTypeLiteral
 
 
 class DataApiClient:
@@ -48,7 +51,8 @@ class DataApiClient:
                         response.raise_for_status()
                     except HTTPStatusError as e:
                         self.flame_logger.new_log(f"Failed to retrieve fhir data for query {fhir_query} "
-                                                  f"from source {source['name']}: {repr(e)}", log_type='warn')
+                                                  f"from source {source['name']}: {repr(e)}",
+                                                  log_type=LogTypeLiteral.WARNING.value)
                         continue
                     datasets[fhir_query] = response.json()
             # get s3 data

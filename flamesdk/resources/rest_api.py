@@ -14,7 +14,7 @@ from flamesdk.resources.client_apis.clients.storage_client import StorageClient
 from flamesdk.resources.client_apis.clients.po_client import POClient
 from flamesdk.resources.utils.utils import extract_remaining_time_from_token
 from flamesdk.resources.utils.logging import FlameLogger
-from flamesdk.resources.utils.constants import AnalysisStatus
+from flamesdk.resources.utils.constants import AnalysisStatus, LogTypeLiteral
 
 
 class FlameAPI:
@@ -72,7 +72,8 @@ class FlameAPI:
 
             if changed_statuses is not None:
                 self.flame_logger.new_log(f"Set analysis status to {changed_statuses}, "
-                                          f"because of partner statuses: {partner_status}", log_type='info')
+                                          f"because of partner statuses: {partner_status}",
+                                          log_type=LogTypeLiteral.INFO.value)
                 self.flame_logger.set_runstatus(changed_statuses)
 
         @router.post("/token_refresh", response_class=JSONResponse)
@@ -104,7 +105,7 @@ class FlameAPI:
         @router.post("/webhook", response_class=JSONResponse)
         def get_message(msg: dict = Depends(get_body)) -> None:
             if msg['meta']['sender'] != message_broker.nodeConfig.node_id:
-                self.flame_logger.new_log(f"received message webhook: {msg}", log_type='info')
+                self.flame_logger.new_log(f"received message webhook: {msg}", log_type=LogTypeLiteral.INFO.value)
 
             message_broker.receive_message(msg)
 

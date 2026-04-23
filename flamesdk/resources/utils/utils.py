@@ -5,6 +5,7 @@ import base64
 import json
 
 from flamesdk.resources.utils.logging import FlameLogger
+from flamesdk.resources.utils.constants import LogTypeLiteral
 
 
 def wait_until_nginx_online(nginx_name: str, flame_logger: FlameLogger) -> None:
@@ -18,7 +19,7 @@ def wait_until_nginx_online(nginx_name: str, flame_logger: FlameLogger) -> None:
                 response.raise_for_status()
                 nginx_is_online = True
             except HTTPStatusError as e:
-                flame_logger.new_log(f"{repr(e)}", log_type="warn")
+                flame_logger.new_log(f"{repr(e)}", log_type=LogTypeLiteral.WARNING.value)
         except TransportError:
             time.sleep(1)
     flame_logger.new_log("success", append=True)

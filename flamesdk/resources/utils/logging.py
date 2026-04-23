@@ -1,6 +1,5 @@
 import string
 import time
-from enum import Enum
 from typing import Union
 import queue
 import logging
@@ -9,17 +8,7 @@ import sys
 import threading
 from collections.abc import Iterable
 
-from flamesdk.resources.utils.constants import AnalysisStatus
-
-
-_LOG_TYPE_LITERALS = ['debug',      # method=debug,     level=10
-                      'info',       # method=info,      level=20
-                      'notice',     # method=notice,    level=25
-                      'warn',       # method=warning,   level=30
-                      'alert',      # method=alert,     level=33
-                      'emerg',      # method=emerg,     level=36
-                      'error',      # method=error,     level=40
-                      'crit']       # method=critical,  level=50
+from flamesdk.resources.utils.constants import AnalysisStatus, LogTypeLiteral
 
 
 class FlameLogger:
@@ -51,7 +40,7 @@ class FlameLogger:
         if status not in [s.value for s in AnalysisStatus]:
             status = AnalysisStatus.FAILED.value
         if status == AnalysisStatus.STOPPED.value:
-            self.new_log(msg='Analysis execution was stopped on another node.', log_type='info')
+            self.new_log(msg='Analysis execution was stopped on another node.', log_type=LogTypeLiteral.INFO.value)
         self.runstatus = status
 
     def set_progress(self, progress: Union[int, float]) -> None:
@@ -63,11 +52,11 @@ class FlameLogger:
             progress = int(progress)
         if not (0 <= progress <= 100):
             self.new_log(msg=f"Invalid progress: {progress} (should be a numeric value between 0 and 100).",
-                         log_type='warn')
+                         log_type=LogTypeLiteral.WARNING.value)
         elif self.progress > progress:
             self.new_log(msg=f"Progress value needs to be higher to current progress (i.e. only register progress, "
                              f"if actual progress has been made).",
-                         log_type='warn')
+                         log_type=LogTypeLiteral.WARNING.value)
         else:
             self.progress = progress
 
@@ -90,7 +79,7 @@ class FlameLogger:
                 msg: Union[str, bytes, Iterable],
                 sep: str = '',
                 end: str = '',
-                log_type: str = 'info',
+                log_type: str = LogTypeLiteral.INFO.value,
                 append: bool = False,
                 halt_submission: bool = False) -> None:
         """
@@ -104,10 +93,11 @@ class FlameLogger:
         :param halt_submission:
         :return:
         """
-        if log_type not in _LOG_TYPE_LITERALS:
+        log_type_literals = [lt.value for lt in LogTypeLiteral]
+        if log_type not in log_type_literals:
             try:
                 raise IOError(f"Invalid log type given to logging function "
-                              f"(known log_types={_LOG_TYPE_LITERALS}, received log_type={log_type}).")
+                              f"(known log_types={log_type_literals}, received log_type={log_type}).")
             except IOError as e:
                 self.raise_error(f"When attempting to use logging function, this error occurred: {repr(e)}")
 
@@ -124,21 +114,21 @@ class FlameLogger:
                                  f"(type(msg)={type(msg)}).")
                 return
 
-            if log_type == 'debug':
+            if log_type == LogTypeLiteral.DEBUG.value:
                 self.logger.debug(log)
-            elif log_type == 'info':
+            elif log_type == LogTypeLiteral.INFO.value:
                 self.logger.info(log)
-            elif log_type == 'notice':
+            elif log_type == LogTypeLiteral.NOTICE.value:
                 self.logger.notice(log)
-            elif log_type == 'warn':
+            elif log_type == LogTypeLiteral.WARNING.value:
                 self.logger.warning(log)
-            elif log_type == 'alert':
+            elif log_type == LogTypeLiteral.ALERT.value:
                 self.logger.alert(log)
-            elif log_type == 'emerg':
+            elif log_type == LogTypeLiteral.EMERGENCY.value:
                 self.logger.emerg(log)
-            elif log_type == 'error':
+            elif log_type == LogTypeLiteral.ERROR.value:
                 self.logger.error(log)
-            elif log_type == 'crit':
+            elif log_type == LogTypeLiteral.CRITICAL.value:
                 self.logger.critical(log)
             else:
                 pass # Impossible to reach
@@ -153,7 +143,7 @@ class FlameLogger:
         
     def raise_error(self, message: str, seconds: int = 100) -> None:
         self.set_runstatus(AnalysisStatus.FAILED.value)
-        self.new_log(message, log_type="error")
+        self.new_log(message, log_type=LogTypeLiteral.ERROR.value)
         time.sleep(seconds)
 
     def _submit_logs(self, log: str, log_type: str, status: str) -> None:
@@ -182,7 +172,7 @@ class FlameLogger:
                 # But also create new error log for queue
                 error_log_dict = {
                     "msg": f"Failed to send log to POAPI: {repr(e)}",
-                    "log_type": 'warn',
+                    "log_type": LogTypeLiteral.WARNING.value,
                     "status": status,
                     "progress": self.progress
                 }
@@ -219,9 +209,9 @@ def _get_logger() -> logging.Logger:
     Returns:
         A :class:`logging.Logger` ready for use.
     """
-    _set_custom_log_level(25, 'NOTICE')
-    _set_custom_log_level(33, 'ALERT')
-    _set_custom_log_level(36, 'EMERG')
+    _set_custom_log_level(25, LogTypeLiteral.NOTICE.value.upper())
+    _set_custom_log_level(33, LogTypeLiteral.ALERT.value.upper())
+    _set_custom_log_level(36, LogTypeLiteral.EMERGENCY.value.upper())
 
     root = logging.getLogger()
     if not any(isinstance(h.formatter, JsonFormatter) for h in root.handlers):

@@ -3,6 +3,7 @@ from typing import Optional, Any, Literal, Union
 
 from flamesdk.resources.client_apis.data_api import DataAPI
 from flamesdk.resources.utils.logging import FlameLogger
+from flamesdk.resources.utils.constants import LogTypeLiteral
 
 
 _KNOWN_RESOURCES = ['Observation', 'QuestionnaireResponse']
@@ -158,12 +159,12 @@ def _search_fhir_resource(fhir_entry: Union[dict[str, Any], list[Any]],
                     else:
                         flame_logger.new_log(f"Unable to find field '{key}' in fhir data at level={current + 1} "
                                              f"(keys found: fhir_entry.keys())",
-                                             log_type='warn')
+                                             log_type=LogTypeLiteral.WARNING.value)
                         return None
                 return value
             else:
                 return None
         else:
             flame_logger.new_log(f"Unexpected data type found (found type={type(fhir_entry)})",
-                                 log_type='warn')
+                                 log_type=LogTypeLiteral.WARNING.value)
             return None

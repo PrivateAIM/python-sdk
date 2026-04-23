@@ -9,6 +9,7 @@ from typing import Any, Literal, Optional
 from typing_extensions import TypedDict
 
 from flamesdk.resources.utils.logging import FlameLogger
+from flamesdk.resources.utils.constants import LogTypeLiteral
 
 
 class LocalDifferentialPrivacyParams(TypedDict, total=True):
@@ -80,7 +81,7 @@ class StorageClient:
                     self.flame_logger.new_log(
                     f"Result submission with local differential privacy requested but output type is set to `{output_type}`."
                         "`str` is enforced but this may change in a future version.",
-                        log_type='warn')
+                        log_type=LogTypeLiteral.WARNING.value)
 
                 # write as string to request body
                 file_body = str(result).encode("utf-8")
@@ -93,8 +94,8 @@ class StorageClient:
         except (TypeError, ValueError, UnicodeEncodeError, pickle.PicklingError) as e:
             if output_type != 'pickle':
                 self.flame_logger.new_log(f"Failed to translate result data to type={output_type}: {repr(e)}",
-                                          log_type='warn')
-                self.flame_logger.new_log("Attempting 'pickle' instead...", log_type='warn')
+                                          log_type=LogTypeLiteral.WARNING.value)
+                self.flame_logger.new_log("Attempting 'pickle' instead...", log_type=LogTypeLiteral.WARNING.value)
                 try:
                     file_body = pickle.dumps(result)
                 except pickle.PicklingError as e:
@@ -130,7 +131,8 @@ class StorageClient:
         except HTTPStatusError as e:
             self.flame_logger.raise_error(f"Failed to push results: {repr(e)}")
         if type != "final":
-            self.flame_logger.new_log(f"response push_results: {response.json()}", log_type='info')
+            self.flame_logger.new_log(f"response push_results: {response.json()}",
+                                      log_type=LogTypeLiteral.INFO.value)
         else:
             return {"status": "success"}
         return {"status": "success",

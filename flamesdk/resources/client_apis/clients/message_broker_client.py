@@ -7,6 +7,7 @@ from httpx import AsyncClient, HTTPStatusError
 
 from flamesdk.resources.node_config import NodeConfig
 from flamesdk.resources.utils.logging import FlameLogger
+from flamesdk.resources.utils.constants import LogTypeLiteral
 
 
 class Message:
@@ -177,7 +178,7 @@ class MessageBrokerClient:
         if msg_meta_dict["sender"] == self.nodeConfig.node_id:
             self.flame_logger.new_log(
                 f"send message with category={msg_meta_dict['category']} to recipients={message.recipients}",
-                log_type='info'
+                log_type=LogTypeLiteral.INFO.value
             )
 
         self.list_of_outgoing_messages.append(message)
@@ -192,7 +193,7 @@ class MessageBrokerClient:
                 f"acknowledging ready check by sender={message.body['meta']['sender']}"
                 if body["meta"]["category"] == "ready_check" else
                 f"incoming message with category={body['meta']['category']} from sender={body['meta']['sender']}",
-                log_type='info'
+                log_type=LogTypeLiteral.INFO.value
             )
             asyncio.run(self.acknowledge_message(message))
 
@@ -212,7 +213,7 @@ class MessageBrokerClient:
                     number_of_deleted_messages += 1
         if number_of_deleted_messages == 0:
             self.flame_logger.new_log(f"Could not find message with id={message_id} in {type} messages.",
-                                      log_type='warn')
+                                      log_type=LogTypeLiteral.WARNING.value)
             return 0
         return number_of_deleted_messages
 
