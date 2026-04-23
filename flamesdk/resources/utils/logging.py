@@ -122,6 +122,7 @@ class FlameLogger:
             else:
                 self.raise_error(f"Attempted to log msg of neither type str, bytes, or joinable iterable "
                                  f"(type(msg)={type(msg)}).")
+                return
 
             if log_type == 'debug':
                 self.logger.debug(log)
@@ -181,7 +182,7 @@ class FlameLogger:
                 # But also create new error log for queue
                 error_log_dict = {
                     "msg": f"Failed to send log to POAPI: {repr(e)}",
-                    "log_type": 'warning',
+                    "log_type": 'warn',
                     "status": status,
                     "progress": self.progress
                 }

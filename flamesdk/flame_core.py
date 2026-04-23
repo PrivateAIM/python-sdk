@@ -240,7 +240,6 @@ class FlameCoreSDK:
         :param msg:
         :param sep:
         :param end:
-        :param file:
         :param log_type:
         :param append:
         :param halt_submission:
@@ -317,7 +316,7 @@ class FlameCoreSDK:
                                data_client=self._data_api)
         else:
             self.flame_log("Data API is not available, cannot convert FHIR to CSV",
-                           log_type='warning')
+                           log_type='warn')
             return None
 
     ########################################Message Broker Client####################################
@@ -593,7 +592,7 @@ class FlameCoreSDK:
             return self._data_api.get_data_sources()
         else:
             self.flame_log("Data API is not available, cannot retrieve data sources",
-                           log_type='warning')
+                           log_type='warn')
             return None
 
     def get_data_client(self, data_id: str) -> Optional[AsyncClient]:
@@ -606,7 +605,7 @@ class FlameCoreSDK:
             return self._data_api.get_data_client(data_id)
         else:
             self.flame_log("Data API is not available, cannot retrieve data client",
-                           log_type='warning')
+                           log_type='warn')
             return None
 
     def get_fhir_data(self, fhir_queries: Optional[list[str]] = []) -> Optional[list[dict[str, Union[str, dict]]]]:
@@ -619,7 +618,7 @@ class FlameCoreSDK:
             return self._data_api.get_fhir_data(fhir_queries)
         else:
             self.flame_log("Data API is not available, cannot retrieve FHIR data",
-                           log_type='warning')
+                           log_type='warn')
             return None
 
     def get_s3_data(self, s3_keys: Optional[list[str]] = []) -> Optional[list[dict[str, bytes]]]:
@@ -632,7 +631,7 @@ class FlameCoreSDK:
             return self._data_api.get_s3_data(s3_keys)
         else:
             self.flame_log("Data API is not available, cannot retrieve S3 data",
-                           log_type='warning')
+                           log_type='warn')
             return None
 
 

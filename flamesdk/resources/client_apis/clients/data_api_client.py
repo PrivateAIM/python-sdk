@@ -48,7 +48,7 @@ class DataApiClient:
                         response.raise_for_status()
                     except HTTPStatusError as e:
                         self.flame_logger.new_log(f"Failed to retrieve fhir data for query {fhir_query} "
-                                                  f"from source {source['name']}: {repr(e)}", log_type='warning')
+                                                  f"from source {source['name']}: {repr(e)}", log_type='warn')
                         continue
                     datasets[fhir_query] = response.json()
             # get s3 data

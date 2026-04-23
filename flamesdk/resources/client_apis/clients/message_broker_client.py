@@ -212,7 +212,7 @@ class MessageBrokerClient:
                     number_of_deleted_messages += 1
         if number_of_deleted_messages == 0:
             self.flame_logger.new_log(f"Could not find message with id={message_id} in {type} messages.",
-                                      log_type='warning')
+                                      log_type='warn')
             return 0
         return number_of_deleted_messages
 
