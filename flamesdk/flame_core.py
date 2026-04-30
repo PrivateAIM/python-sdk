@@ -5,6 +5,7 @@ from datetime import datetime
 from io import StringIO
 
 from typing import Any, Literal, Optional, Union
+from collections.abc import Iterable
 from threading import Thread
 
 from flamesdk.resources.client_apis.data_api import DataAPI
@@ -16,13 +17,15 @@ from flamesdk.resources.rest_api import FlameAPI
 from flamesdk.resources.utils.fhir import fhir_to_csv
 from flamesdk.resources.utils.utils import wait_until_nginx_online
 from flamesdk.resources.utils.logging import FlameLogger
+from flamesdk.resources.utils.constants import AnalysisStatus, LogTypeLiteral
+
 
 class FlameCoreSDK:
 
     def __init__(self,
                  aggregator_requires_data: bool = False,
                  silent: bool = False,
-                 suggestible: Optional[tuple[Literal['finished', 'stopped', 'failed']]] = ('finished', 'stopped', 'failed')) -> None:
+                 suggestible: Optional[tuple[Literal['executed', 'stopped', 'failed']]] = (AnalysisStatus.EXECUTED.value, AnalysisStatus.STOPPED.value, AnalysisStatus.FAILED.value)) -> None:
         self._flame_logger = FlameLogger(silent=silent)
         self.flame_log("Starting FlameCoreSDK")
 
@@ -34,52 +37,52 @@ class FlameCoreSDK:
         try:
             wait_until_nginx_online(self.config.nginx_name, self._flame_logger)
         except Exception as e:
-            self.flame_log(f"Nginx connection failure (error_msg='{repr(e)}')", log_type='error')
+            self.flame_log(f"Nginx connection failure (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value)
 
         # Set up the connection to all the services needed
         ## Connect to MessageBroker
         self.flame_log("\tConnecting to MessageBroker...", end='', halt_submission=True)
         try:
             self._message_broker_api = MessageBrokerAPI(self.config, self._flame_logger)
-            self.flame_log("success", suppress_head=True)
+            self.flame_log("success", append=True)
         except Exception as e:
             self._message_broker_api = None
-            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', suppress_head=True)
+            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value, append=True)
         try:
             ### Update config with self_config from MessageBroker
             self.config = self._message_broker_api.config
         except Exception as e:
             self.flame_log(f"Unable to retrieve node config from message broker (error_msg='{repr(e)}')",
-                           log_type='error')
+                           log_type=LogTypeLiteral.ERROR.value)
 
         ## Connect to POService
         self.flame_log("\tConnecting to PO service...", end='', halt_submission=True)
         try:
             self._po_api = POAPI(self.config, self._flame_logger)
             self._flame_logger.add_po_api(self._po_api)
-            self.flame_log("success", suppress_head=True)
+            self.flame_log("success", append=True)
         except Exception as e:
             self._po_api = None
-            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', suppress_head=True)
+            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value, append=True)
 
         ## Connect to ResultService
         self.flame_log("\tConnecting to ResultService...", end='', halt_submission=True)
         try:
             self._storage_api = StorageAPI(self.config, self._flame_logger)
-            self.flame_log("success", suppress_head=True)
+            self.flame_log("success", append=True)
         except Exception as e:
             self._storage_api = None
-            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', suppress_head=True)
+            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value, append=True)
 
         if (self.config.node_role == 'default') or aggregator_requires_data:
             ## Connection to DataService
             self.flame_log("\tConnecting to DataApi...", end='', halt_submission=True)
             try:
                 self._data_api = DataAPI(self.config, self._flame_logger)
-                self.flame_log("success", suppress_head=True)
+                self.flame_log("success", append=True)
             except Exception as e:
                 self._data_api = None
-                self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', suppress_head=True)
+                self.flame_log(f"failed (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value, append=True)
         else:
             self._data_api = True
 
@@ -89,16 +92,16 @@ class FlameCoreSDK:
             self._flame_api_thread = Thread(target=self._start_flame_api)
             self._suggestible = suggestible
             self._flame_api_thread.start()
-            self.flame_log("success", suppress_head=True)
+            self.flame_log("success", append=True)
         except Exception as e:
             self._flame_api_thread = None
-            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type='error', suppress_head=True)
+            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value, append=True)
 
         if all([self._message_broker_api, self._po_api, self._storage_api, self._data_api, self._flame_api_thread]):
-            self._flame_logger.set_runstatus('running')
+            self._flame_logger.set_runstatus(AnalysisStatus.EXECUTING.value)
             self.flame_log("FlameCoreSDK ready")
         else:
-            self.flame_log("FlameCoreSDK startup failed", log_type='error')
+            self.flame_log("FlameCoreSDK startup failed", log_type=LogTypeLiteral.ERROR.value)
 
 
     ########################################General##################################################
@@ -157,7 +160,7 @@ class FlameCoreSDK:
 
     def analysis_finished(self) -> bool:
         """
-        Sends a signal to all nodes to set their node_finished to True, then sets the node to finished
+        Sends a signal to all nodes to set their node_finished to True, then sets the node to executed
         :return:
         """
         if self.get_participant_ids():
@@ -226,43 +229,31 @@ class FlameCoreSDK:
         return received
 
     def flame_log(self,
-                  msg: Union[str, bytes],
-                  sep: str = ' ',
-                  end: str = '\n',
-                  file: object = None,
-                  log_type: str = 'normal',
-                  suppress_head: bool = False,
+                  msg: Union[str, bytes, Iterable],
+                  sep: str = '',
+                  end: str = '',
+                  log_type: str = LogTypeLiteral.INFO.value,
+                  append: bool = False,
                   halt_submission: bool = False) -> None:
         """
         Prints logs to console and submits them to the hub (as soon as a connection is established, until then they will be queued).
         :param msg:
         :param sep:
         :param end:
-        :param file:
         :param log_type:
-        :param suppress_head:
+        :param append:
         :param halt_submission:
         :return:
         """
-        if log_type != 'error':
+        if log_type != LogTypeLiteral.ERROR.value:
             self._flame_logger.new_log(msg=msg,
                                        sep=sep,
                                        end=end,
-                                       file=file,
                                        log_type=log_type,
-                                       suppress_head=suppress_head,
+                                       append=append,
                                        halt_submission=halt_submission)
         else:
             self._flame_logger.raise_error(msg)
-
-    def declare_log_types(self, new_log_types: dict[str, str]) -> None:
-        """
-        Declare new log_types to be added to log_type literals, and how/as what they should be interpreted by Flame
-        (the latter have to be known values from HUB_LOG_LITERALS for existing log status fields).
-        :param new_log_types:
-        :return:
-        """
-        self._flame_logger.declare_log_types(new_log_types)
 
     def get_progress(self) -> int:
         """
@@ -325,7 +316,7 @@ class FlameCoreSDK:
                                data_client=self._data_api)
         else:
             self.flame_log("Data API is not available, cannot convert FHIR to CSV",
-                           log_type='warning')
+                           log_type=LogTypeLiteral.WARNING.value)
             return None
 
     ########################################Message Broker Client####################################
@@ -450,8 +441,11 @@ class FlameCoreSDK:
         :param location: the location to save the result, local saves in the node, global saves in central instance of MinIO
         :param remote_node_ids: optional remote node ids (used for accessing remote node's public key for encryption)
         :param tag: optional storage tag
-        :return: the request status code{"status": ,"url":, "id": }, or dict of said dicts if encrypted mode is used, i.e. remote_node_ids are set
+        :return: the request status code{"status":, "url":, "id": }, or dict of said dicts if encrypted mode is used, i.e. remote_node_ids are set
         """
+        if (location == "global") and (remote_node_ids is None):
+            raise ValueError("remote_node_ids must be provided when saving global intermediate data")
+
         return self._storage_api.save_intermediate_data(data,
                                                         location=location,
                                                         remote_node_ids=remote_node_ids,
@@ -484,8 +478,7 @@ class FlameCoreSDK:
                                message_category: str = "intermediate_data",
                                max_attempts: int = 1,
                                timeout: Optional[int] = None,
-                               attempt_timeout: int = 10,
-                               encrypted: bool = False) -> tuple[list[str], list[str]]:
+                               attempt_timeout: int = 10) -> tuple[list[str], list[str]]:
         """
         Sends intermediate data to specified receivers using the Result Service and Message Broker.
 
@@ -501,14 +494,13 @@ class FlameCoreSDK:
             max_attempts (int): the maximum number of attempts to send the message
             timeout (int, optional): time in seconds to wait for the message acknowledgement, if None waits indefinitely
             attempt_timeout (int): timeout of each attempt, if timeout is None (the last attempt will be indefinite though)
-            encrypted (bool): bool whether data should be encrypted or not
 
         Returns:
             tuple[list[str], list[str]]:
                 - A list of node IDs that successfully received the message.
                 - A list of node IDs that failed to receive the message.
 
-       Example:
+        Example:
             ```python
             receivers = ["node1", "node2", "node3"]
             data = {"key": "value"}
@@ -519,13 +511,11 @@ class FlameCoreSDK:
             print("Failed nodes:", failed)  # e.g., ["node3"]
             ```
         """
-        if encrypted:
-            result_id_body = {k: v['id']
-                              for k, v in self.save_intermediate_data(data,
-                                                                      "global",
-                                                                      remote_node_ids=receivers).items()}
-        else:
-            result_id_body = self.save_intermediate_data(data, "global")['id']
+
+        result_id_body = {k: v['id']
+                          for k, v in self.save_intermediate_data(data,
+                                                                  "global",
+                                                                  remote_node_ids=receivers).items()}
 
         return self.send_message(receivers,
                                  message_category,
@@ -601,7 +591,7 @@ class FlameCoreSDK:
             return self._data_api.get_data_sources()
         else:
             self.flame_log("Data API is not available, cannot retrieve data sources",
-                           log_type='warning')
+                           log_type=LogTypeLiteral.WARNING.value)
             return None
 
     def get_data_client(self, data_id: str) -> Optional[AsyncClient]:
@@ -614,7 +604,7 @@ class FlameCoreSDK:
             return self._data_api.get_data_client(data_id)
         else:
             self.flame_log("Data API is not available, cannot retrieve data client",
-                           log_type='warning')
+                           log_type=LogTypeLiteral.WARNING.value)
             return None
 
     def get_fhir_data(self, fhir_queries: Optional[list[str]] = []) -> Optional[list[dict[str, Union[str, dict]]]]:
@@ -627,7 +617,7 @@ class FlameCoreSDK:
             return self._data_api.get_fhir_data(fhir_queries)
         else:
             self.flame_log("Data API is not available, cannot retrieve FHIR data",
-                           log_type='warning')
+                           log_type=LogTypeLiteral.WARNING.value)
             return None
 
     def get_s3_data(self, s3_keys: Optional[list[str]] = []) -> Optional[list[dict[str, bytes]]]:
@@ -640,7 +630,7 @@ class FlameCoreSDK:
             return self._data_api.get_s3_data(s3_keys)
         else:
             self.flame_log("Data API is not available, cannot retrieve S3 data",
-                           log_type='warning')
+                           log_type=LogTypeLiteral.WARNING.value)
             return None
 
 
@@ -667,7 +657,7 @@ class FlameCoreSDK:
         :return:
         """
         self.set_progress(100)
-        self._flame_logger.set_runstatus("finished")
+        self._flame_logger.set_runstatus(AnalysisStatus.EXECUTED.value)
         self.flame_log("Node finished successfully")
         self.config.finish_analysis()
         return self.config.finished

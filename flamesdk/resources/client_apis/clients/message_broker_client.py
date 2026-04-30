@@ -7,6 +7,7 @@ from httpx import AsyncClient, HTTPStatusError
 
 from flamesdk.resources.node_config import NodeConfig
 from flamesdk.resources.utils.logging import FlameLogger
+from flamesdk.resources.utils.constants import LogTypeLiteral
 
 
 class Message:
@@ -102,6 +103,7 @@ class MessageBrokerClient:
             follow_redirects=True
         )
         asyncio.run(self._connect())
+        self.list_of_known_message_ids: set[str] = set()
         self.list_of_incoming_messages: list[Message] = []
         self.list_of_outgoing_messages: list[Message] = []
         self.message_number = 0
@@ -177,7 +179,7 @@ class MessageBrokerClient:
         if msg_meta_dict["sender"] == self.nodeConfig.node_id:
             self.flame_logger.new_log(
                 f"send message with category={msg_meta_dict['category']} to recipients={message.recipients}",
-                log_type='info'
+                log_type=LogTypeLiteral.INFO.value
             )
 
         self.list_of_outgoing_messages.append(message)
@@ -185,15 +187,19 @@ class MessageBrokerClient:
     def receive_message(self, body: dict) -> None:
         needs_acknowledgment = body["meta"]["akn_id"] is None
         message = Message(message=body, config=self.nodeConfig, flame_logger=self.flame_logger, outgoing=False)
-        self.list_of_incoming_messages.append(message)
+        is_new_message = message.body["meta"]["id"] not in self.list_of_known_message_ids
+        if is_new_message:
+            self.list_of_incoming_messages.append(message)
+            self.list_of_known_message_ids.add(message.body["meta"]["id"])
 
         if needs_acknowledgment:
-            self.flame_logger.new_log(
-                f"acknowledging ready check by sender={message.body['meta']['sender']}"
-                if body["meta"]["category"] == "ready_check" else
-                f"incoming message with category={body['meta']['category']} from sender={body['meta']['sender']}",
-                log_type='info'
-            )
+            if is_new_message:
+                self.flame_logger.new_log(
+                    f"acknowledging ready check by sender={message.body['meta']['sender']}"
+                    if body["meta"]["category"] == "ready_check" else
+                    f"incoming message with category={body['meta']['category']} from sender={body['meta']['sender']}",
+                    log_type=LogTypeLiteral.INFO.value
+                )
             asyncio.run(self.acknowledge_message(message))
 
     def delete_message_by_id(self, message_id: str, type: Literal["outgoing", "incoming"]) -> int:
@@ -212,7 +218,7 @@ class MessageBrokerClient:
                     number_of_deleted_messages += 1
         if number_of_deleted_messages == 0:
             self.flame_logger.new_log(f"Could not find message with id={message_id} in {type} messages.",
-                                      log_type='warning')
+                                      log_type=LogTypeLiteral.WARNING.value)
             return 0
         return number_of_deleted_messages
 

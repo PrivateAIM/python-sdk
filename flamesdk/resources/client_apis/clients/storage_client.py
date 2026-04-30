@@ -9,6 +9,7 @@ from typing import Any, Literal, Optional
 from typing_extensions import TypedDict
 
 from flamesdk.resources.utils.logging import FlameLogger
+from flamesdk.resources.utils.constants import LogTypeLiteral
 
 
 class LocalDifferentialPrivacyParams(TypedDict, total=True):
@@ -49,8 +50,9 @@ class StorageClient:
         """
         if tag and (type != "local"):
             self.flame_logger.raise_error("Tag can only be used with local type, in current implementation")
-        elif remote_node_id and (type != "global"):
-            self.flame_logger.raise_error("Remote_node_id can only be used with global type, in current implementation")
+        elif (type == "global") and (remote_node_id is None):
+            self.flame_logger.raise_error("Remote_node_id has to be specified for global type, "
+                                          "i.e. in order to send data")
         type = "intermediate" if type == "global" else type
 
         if tag and not re.match(r'^[a-z0-9]+(-[a-z0-9]+)*$', tag):
@@ -80,7 +82,7 @@ class StorageClient:
                     self.flame_logger.new_log(
                     f"Result submission with local differential privacy requested but output type is set to `{output_type}`."
                         "`str` is enforced but this may change in a future version.",
-                        log_type='warning')
+                        log_type=LogTypeLiteral.WARNING.value)
 
                 # write as string to request body
                 file_body = str(result).encode("utf-8")
@@ -93,8 +95,8 @@ class StorageClient:
         except (TypeError, ValueError, UnicodeEncodeError, pickle.PicklingError) as e:
             if output_type != 'pickle':
                 self.flame_logger.new_log(f"Failed to translate result data to type={output_type}: {repr(e)}",
-                                          log_type='warning')
-                self.flame_logger.new_log("Attempting 'pickle' instead...", log_type='warning')
+                                          log_type=LogTypeLiteral.WARNING.value)
+                self.flame_logger.new_log("Attempting 'pickle' instead...", log_type=LogTypeLiteral.WARNING.value)
                 try:
                     file_body = pickle.dumps(result)
                 except pickle.PicklingError as e:
@@ -104,18 +106,18 @@ class StorageClient:
                 self.flame_logger.raise_error(f"Failed to pickle result data: {repr(e)}")
                 file_body = None
 
-        if remote_node_id:
+        if remote_node_id is not None:
             data = {"remote_node_id": remote_node_id}
         elif tag:
             data = {"tag": tag}
         else:
             data = {}
 
-        request_path = f"/{type}/"
+        request_path = f"/{type}"
 
         if use_local_dp:
             # append to request path
-            request_path += "localdp"
+            request_path += "/localdp"
             # local_dp is guaranteed to not be None, so remap values to string and update request data mapping
             data.update({k: str(v) for k, v in local_dp.items()})
 
@@ -130,7 +132,8 @@ class StorageClient:
         except HTTPStatusError as e:
             self.flame_logger.raise_error(f"Failed to push results: {repr(e)}")
         if type != "final":
-            self.flame_logger.new_log(f"response push_results: {response.json()}", log_type='info')
+            self.flame_logger.new_log(f"response push_results: {response.json()}",
+                                      log_type=LogTypeLiteral.INFO.value)
         else:
             return {"status": "success"}
         return {"status": "success",
@@ -152,15 +155,24 @@ class StorageClient:
         :param sender_node_id:
         :return:
         """
-        if (tag is not None) and (type != "local"):
-            self.flame_logger.raise_error("Tag can only be used with local type")
-        if (id is None) and (tag is None):
-            self.flame_logger.raise_error("Tag can only be used with local type")
-        if tag and not re.match(r'^[a-z0-9]{1,2}|[a-z0-9][a-z0-9-]{,30}[a-z0-9]+$', tag):
-            self.flame_logger.raise_error(f"Tag must consist only of lowercase letters, numbers, and hyphens")
+        if (type != "local") and (tag is not None):
+            self.flame_logger.new_log("Tag can only be used with local type (will be ignored)",
+                                      log_type=LogTypeLiteral.WARNING.value)
+        if (type == "global") and (id is None):
+            self.flame_logger.raise_error("Global intermediate data retrieval requires storage id specification")
+        if (type == "global") and (sender_node_id is None):
+            self.flame_logger.raise_error("Global intermediate data retrieval requires sender_node_id specification")
+        if (type == "local") and (id is None) and (tag is None):
+            self.flame_logger.raise_error("For local data a tag or storage id has to be specified")
+        if (tag is not None) and (not re.match(r'^[a-z0-9]{1,2}|[a-z0-9][a-z0-9-]{,30}[a-z0-9]+$', tag)):
+            if type == "local":
+                self.flame_logger.raise_error(f"Tag must consist only of lowercase letters, numbers, and hyphens")
+            else:
+                self.flame_logger.new_log(f"Tag must consist only of lowercase letters, numbers, and hyphens",
+                                          log_type=LogTypeLiteral.WARNING.value)
         type = "intermediate" if type == "global" else type
 
-        if tag:
+        if tag is not None:
             urls = self._get_location_urls_for_tag(tag)
             if tag_option == "last":
                 urls = urls[-1:]
@@ -171,10 +183,7 @@ class StorageClient:
                 data.append(self._get_file(url))
             return data
         else:
-            if sender_node_id is None:
-                return self._get_file(f"/{type}/{id}")
-            else:
-                return self._get_file(f"/{type}/{id}?node_id={sender_node_id}")
+            return self._get_file(f"/{type}/{id}?remote_node_id={sender_node_id}")
 
     def _get_location_urls_for_tag(self, tag: str) -> list[str]:
         """
