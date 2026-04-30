@@ -563,14 +563,17 @@ class FlameCoreSDK:
            """
         data_dict = {sender: None for sender in senders}
         message_dict = self.await_messages(senders, message_category, timeout=timeout)
+        self.flame_log('message_dict' + str(data_dict))
         for sender, message_list in message_dict.items():
             if message_list:
                 result_id_body = message_list[-1].body['result_id']
                 result_sent_is_encrypted = type(result_id_body) == dict
+                self.flame_log('result_sent_is_encrypted' + str(result_sent_is_encrypted))
                 result_id_sent = result_id_body[self.config.node_id] if result_sent_is_encrypted else result_id_body
                 data_dict[sender] = self.get_intermediate_data("global",
                                                                result_id_sent,
                                                                sender_node_id=sender if result_sent_is_encrypted else None)
+                self.flame_log('data_dict' + str(data_dict))
         return data_dict
 
     def get_local_tags(self, filter: Optional[str] = None) -> list[str]:
