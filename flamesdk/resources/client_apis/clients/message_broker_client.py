@@ -78,7 +78,7 @@ class Message:
         if outgoing:
             meta_data = {"type": "outgoing",
                          "category": category,
-                         "id": f"{config.node_id}-{message_number}-{uuid.uuid4()}",
+                         "id": f"{config.node_id[:4]}-{message_number}-{str(uuid.uuid4())[:4]}",
                          "akn_id": None,
                          "status": "unread",
                          "sender": config.node_id,
