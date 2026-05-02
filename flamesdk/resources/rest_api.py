@@ -142,6 +142,8 @@ class FlameAPI:
         main_alive = threading.main_thread().is_alive()
         if init_failed:
             return AnalysisStatus.STUCK.value
+        elif self.flame_logger.runstatus == AnalysisStatus.STOPPED.value:
+            return AnalysisStatus.STOPPED.value
         elif (not main_alive) and (not self.finished_check()):
             return AnalysisStatus.FAILED.value
         elif self.flame_logger.runstatus == AnalysisStatus.FAILED.value:
