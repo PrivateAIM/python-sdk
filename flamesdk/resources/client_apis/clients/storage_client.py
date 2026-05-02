@@ -141,18 +141,16 @@ class StorageClient:
                 "id":  response.json()["url"].split("/")[-1]}
 
     def get_intermediate_data(self,
-                              id: Optional[str] = None,
+                              query: Optional[str] = None,
                               tag: Optional[str] = None,
                               type: Literal["local", "global"] = "global",
-                              tag_option: Optional[Literal["all", "last", "first"]] = "all",
-                              sender_node_id: Optional[str] = None) -> Any:
+                              tag_option: Optional[Literal["all", "last", "first"]] = "all") -> Any:
         """
-        Returns the intermediate data with the specified id
-        :param id: ID of the intermediate data
+        Returns the intermediate data with the specified query
+        :param query: query of the intermediate data
         :param tag: optional storage tag of targeted local result
         :param type: location to get the result, local gets in the node, global gets in central instance of MinIO
         :param tag_option: return mode if multiple tagged data are found
-        :param sender_node_id:
         :return:
         """
         if (type != "local") and (tag is not None):
@@ -160,8 +158,6 @@ class StorageClient:
                                       log_type=LogTypeLiteral.WARNING.value)
         if (type == "global") and (id is None):
             self.flame_logger.raise_error("Global intermediate data retrieval requires storage id specification")
-        if (type == "global") and (sender_node_id is None):
-            self.flame_logger.raise_error("Global intermediate data retrieval requires sender_node_id specification")
         if (type == "local") and (id is None) and (tag is None):
             self.flame_logger.raise_error("For local data a tag or storage id has to be specified")
         if (tag is not None) and (not re.match(r'^[a-z0-9]{1,2}|[a-z0-9][a-z0-9-]{,30}[a-z0-9]+$', tag)):
@@ -183,7 +179,7 @@ class StorageClient:
                 data.append(self._get_file(url))
             return data
         else:
-            return self._get_file(f"/{type}/{id}?remote_node_id={sender_node_id}")
+            return self._get_file(f"/{type}/{query}")
 
     def _get_location_urls_for_tag(self, tag: str) -> list[str]:
         """

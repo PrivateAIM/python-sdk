@@ -457,24 +457,21 @@ class FlameCoreSDK:
 
     def get_intermediate_data(self,
                               location: Literal["local", "global"],
-                              id: Optional[str] = None,
+                              query: Optional[str] = None,
                               tag: Optional[str] = None,
-                              tag_option: Optional[Literal["all", "last","first"]] = "all",
-                              sender_node_id: Optional[str] = None) -> Any:
+                              tag_option: Optional[Literal["all", "last","first"]] = "all") -> Any:
         """
         returns the intermediate data with the specified id
         :param location: the location to get the result, local gets in the node, global gets in central instance of MinIO
-        :param id: the id of the result to get
+        :param query: the query of the result to get
         :param tag: optional storage tag of targeted local result
         :param tag_option: return mode if multiple tagged data are found
-        :param sender_node_id:
         :return: the result
         """
         return self._storage_api.get_intermediate_data(location=location,
-                                                       id=id,
+                                                       query=query,
                                                        tag=tag,
-                                                       tag_option=tag_option,
-                                                       sender_node_id=sender_node_id)
+                                                       tag_option=tag_option)
 
     def send_intermediate_data(self,
                                receivers: list[str],
@@ -520,7 +517,6 @@ class FlameCoreSDK:
                           for k, v in self.save_intermediate_data(data,
                                                                   "global",
                                                                   remote_node_ids=receivers).items()}
-
         return self.send_message(receivers,
                                  message_category,
                                  {"result_id": result_id_body},
@@ -571,12 +567,9 @@ class FlameCoreSDK:
         for sender, message_list in message_dict.items():
             if message_list:
                 result_id_body = message_list[-1].body['result_id']
-                result_sent_is_encrypted = type(result_id_body) == dict
-                self.flame_log('result_sent_is_encrypted' + str(result_sent_is_encrypted))
-                result_id_sent = result_id_body[self.config.node_id] if result_sent_is_encrypted else result_id_body
-                data_dict[sender] = self.get_intermediate_data("global",
-                                                               result_id_sent,
-                                                               sender_node_id=sender if result_sent_is_encrypted else None)
+                result_query = result_id_body[self.config.node_id]
+                data_dict[sender] = self.get_intermediate_data(location="global",
+                                                               query=result_query)
                 self.flame_log('data_dict' + str(data_dict))
         return data_dict
 

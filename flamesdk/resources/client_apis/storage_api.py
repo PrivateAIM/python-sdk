@@ -67,24 +67,21 @@ class StorageAPI:
 
     def get_intermediate_data(self,
                               location: Literal["local", "global"],
-                              id: Optional[str] = None,
+                              query: Optional[str] = None,
                               tag: Optional[str] = None,
-                              tag_option: Optional[Literal["all", "last","first"]] = "all",
-                              sender_node_id: Optional[str] = None) -> Any:
+                              tag_option: Optional[Literal["all", "last","first"]] = "all") -> Any:
         """
-        returns the intermediate data with the specified id
+        returns the intermediate data with the specified query
         :param location: the location to get the result, local gets in the node, global gets in central instance of MinIO
-        :param id: the id of the result to get
+        :param query: the query of the result to get
         :param tag: optional storage tag of targeted local result
         :param tag_option: return mode if multiple tagged data are found
-        :param sender_node_id:
         :return: the result
         """
-        return self.storage_client.get_intermediate_data(id,
-                                                         tag,
+        return self.storage_client.get_intermediate_data(query=query,
+                                                         tag=tag,
                                                          type=location,
-                                                         tag_option=tag_option,
-                                                         sender_node_id=sender_node_id)
+                                                         tag_option=tag_option)
 
     def get_local_tags(self, filter: Optional[str] = None) -> list[str]:
         """
