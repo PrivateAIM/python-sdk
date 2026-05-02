@@ -174,14 +174,6 @@ class MessageBrokerClient:
                                             json=body,
                                             headers=[('Connection', 'close'),
                                                      ("Content-Type", "application/json")])
-
-        msg_meta_dict = message.body["meta"]
-        if msg_meta_dict["sender"] == self.nodeConfig.node_id:
-            self.flame_logger.new_log(
-                f"send message with category={msg_meta_dict['category']} to recipients={message.recipients}",
-                log_type=LogTypeLiteral.INFO.value
-            )
-
         self.list_of_outgoing_messages.append(message)
 
     def receive_message(self, body: dict) -> None:
@@ -189,8 +181,11 @@ class MessageBrokerClient:
         message = Message(message=body, config=self.nodeConfig, flame_logger=self.flame_logger, outgoing=False)
         is_new_message = message.body["meta"]["id"] not in self.list_of_known_message_ids
         if is_new_message:
+            if message.body['meta']['sender'] != self.nodeConfig.node_id:
+                self.flame_logger.new_log(f"received message webhook: {message.body}",
+                                          log_type=LogTypeLiteral.INFO.value)
+                self.list_of_known_message_ids.add(message.body["meta"]["id"])
             self.list_of_incoming_messages.append(message)
-            self.list_of_known_message_ids.add(message.body["meta"]["id"])
 
         if needs_acknowledgment:
             if is_new_message:
@@ -263,12 +258,14 @@ class MessageBrokerClient:
         for incoming_message in self.list_of_incoming_messages:
             if (incoming_message.body["meta"]["id"] == message.body["meta"]["id"]) and \
                     (incoming_message.body["meta"]["akn_id"] == receiver):
+                self.list_of_incoming_messages.remove(incoming_message)
                 return receiver
         while True:
             if len(self.list_of_incoming_messages) > number_of_incoming_messages:
                 for incoming_message in self.list_of_incoming_messages:
                     if (incoming_message.body["meta"]["id"] == message.body["meta"]["id"]) and \
                             (incoming_message.body["meta"]["akn_id"] == receiver):
+                        self.list_of_incoming_messages.remove(incoming_message)
                         return receiver
             await asyncio.sleep(1)
 

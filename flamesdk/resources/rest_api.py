@@ -104,9 +104,6 @@ class FlameAPI:
 
         @router.post("/webhook", response_class=JSONResponse)
         def get_message(msg: dict = Depends(get_body)) -> None:
-            if msg['meta']['sender'] != message_broker.nodeConfig.node_id:
-                self.flame_logger.new_log(f"received message webhook: {msg}", log_type=LogTypeLiteral.INFO.value)
-
             message_broker.receive_message(msg)
 
             # check message category for finished
