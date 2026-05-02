@@ -141,9 +141,10 @@ class FlameLogger:
                     self.log_ph = ""
                 self._submit_logs(log, log_type, self.runstatus)
         
-    def raise_error(self, message: str, seconds: int = 100) -> None:
-        self.set_runstatus(AnalysisStatus.FAILED.value)
-        self.new_log(message, log_type=LogTypeLiteral.ERROR.value)
+    def raise_error(self, message: str, seconds: int = 1000) -> None:
+        if self.runstatus != AnalysisStatus.STOPPED.value:
+            self.set_runstatus(AnalysisStatus.FAILED.value)
+            self.new_log(message, log_type=LogTypeLiteral.ERROR.value)
         time.sleep(seconds)
 
     def _submit_logs(self, log: str, log_type: str, status: str) -> None:

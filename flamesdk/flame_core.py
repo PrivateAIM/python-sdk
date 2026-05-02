@@ -22,10 +22,14 @@ from flamesdk.resources.utils.constants import AnalysisStatus, LogTypeLiteral
 
 class FlameCoreSDK:
 
-    def __init__(self,
-                 aggregator_requires_data: bool = False,
-                 silent: bool = False,
-                 suggestible: Optional[tuple[Literal['executed', 'stopped', 'failed']]] = (AnalysisStatus.EXECUTED.value, AnalysisStatus.STOPPED.value, AnalysisStatus.FAILED.value)) -> None:
+    def __init__(
+            self,
+            aggregator_requires_data: bool = False,
+            silent: bool = False,
+            suggestible: Optional[tuple[Literal['executed', 'stopped', 'failed']]] = (AnalysisStatus.EXECUTED.value,
+                                                                                      AnalysisStatus.STOPPED.value,
+                                                                                      AnalysisStatus.FAILED.value)
+    ) -> None:
         self._flame_logger = FlameLogger(silent=silent)
         self.flame_log("Starting FlameCoreSDK")
 
