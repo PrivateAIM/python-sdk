@@ -132,8 +132,10 @@ class StorageClient:
         except HTTPStatusError as e:
             self.flame_logger.raise_error(f"Failed to push results: {repr(e)}")
         if type != "final":
-            self.flame_logger.new_log(f"response push_results: {response.json()}",
+            self.flame_logger.new_log(f"sending intermediate result",
                                       log_type=LogTypeLiteral.INFO.value)
+            self.flame_logger.new_log(f"push response body: {response.json()}",
+                                      log_type=LogTypeLiteral.DEBUG.value)
         else:
             return {"status": "success"}
         return {"status": "success",

@@ -182,8 +182,10 @@ class MessageBrokerClient:
         is_new_message = message.body["meta"]["id"] not in self.list_of_known_message_ids
         if is_new_message:
             if message.body['meta']['sender'] != self.nodeConfig.node_id:
-                self.flame_logger.new_log(f"received message webhook: {message.body}",
+                self.flame_logger.new_log(f"received message from {message.body['meta']['sender']}",
                                           log_type=LogTypeLiteral.INFO.value)
+                self.flame_logger.new_log(f"message body: {message.body}",
+                                          log_type=LogTypeLiteral.DEBUG.value)
                 self.list_of_known_message_ids.add(message.body["meta"]["id"])
             self.list_of_incoming_messages.append(message)
 
@@ -193,7 +195,7 @@ class MessageBrokerClient:
                     f"acknowledging ready check by sender={message.body['meta']['sender']}"
                     if body["meta"]["category"] == "ready_check" else
                     f"incoming message with category={body['meta']['category']} from sender={body['meta']['sender']}",
-                    log_type=LogTypeLiteral.INFO.value
+                    log_type=LogTypeLiteral.DEBUG.value
                 )
             asyncio.run(self.acknowledge_message(message))
 

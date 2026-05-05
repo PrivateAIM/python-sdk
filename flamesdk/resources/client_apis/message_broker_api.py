@@ -61,7 +61,7 @@ class MessageBrokerAPI:
             self.message_broker_client.flame_logger.new_log(
                 f"send message with category={message.body['meta']['category']} to {len(message.recipients)} "
                 f"recipients...",
-                log_type=LogTypeLiteral.INFO.value,
+                log_type=LogTypeLiteral.DEBUG.value,
                 halt_submission=True
             )
             await self.message_broker_client.send_message(message)
@@ -91,9 +91,8 @@ class MessageBrokerAPI:
             time_passed = (datetime.now() - start_time).seconds
             self.message_broker_client.flame_logger.new_log(
                 f"{len(acknowledged)} acknowledged (time={time_passed}s)",
-                log_type=LogTypeLiteral.INFO.value
+                log_type=LogTypeLiteral.DEBUG.value
             )
-            self.message_broker_client.flame_logger.new_log('debug', log_type=LogTypeLiteral.DEBUG.value)
             if (len(acknowledged) == len(receivers)) or ((timeout is not None) and (time_passed > timeout)):
                 break
 

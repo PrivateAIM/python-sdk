@@ -563,14 +563,14 @@ class FlameCoreSDK:
            """
         data_dict = {sender: None for sender in senders}
         message_dict = self.await_messages(senders, message_category, timeout=timeout)
-        self.flame_log('message_dict' + str(data_dict))
+        self.flame_log('message_dict' + str(data_dict), log_type=LogTypeLiteral.DEBUG.value)
         for sender, message_list in message_dict.items():
             if message_list:
                 result_id_body = message_list[-1].body['result_id']
                 result_query = result_id_body[self.config.node_id]
                 data_dict[sender] = self.get_intermediate_data(location="global",
                                                                query=result_query)
-                self.flame_log('data_dict' + str(data_dict))
+                self.flame_log('data_dict' + str(data_dict), log_type=LogTypeLiteral.DEBUG.value)
         return data_dict
 
     def get_local_tags(self, filter: Optional[str] = None) -> list[str]:
