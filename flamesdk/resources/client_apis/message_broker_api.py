@@ -89,12 +89,13 @@ class MessageBrokerAPI:
             not_acknowledged = [receiver for receiver in receivers if receiver not in acknowledged]
 
             time_passed = (datetime.now() - start_time).seconds
-            if (len(acknowledged) == len(receivers)) or ((timeout is not None) and (time_passed > timeout)):
-                break
             self.message_broker_client.flame_logger.new_log(
                 f"{len(acknowledged)} acknowledged (time={time_passed}s)",
                 log_type=LogTypeLiteral.INFO.value
             )
+            self.message_broker_client.flame_logger.new_log('debug', log_type=LogTypeLiteral.DEBUG.value)
+            if (len(acknowledged) == len(receivers)) or ((timeout is not None) and (time_passed > timeout)):
+                break
 
         return acknowledged, not_acknowledged
 
