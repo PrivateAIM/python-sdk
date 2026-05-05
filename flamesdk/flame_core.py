@@ -656,10 +656,11 @@ class FlameCoreSDK:
         Needs to be called when all processing is done.
         :return:
         """
-        self.set_progress(100)
-        self._flame_logger.set_runstatus(AnalysisStatus.EXECUTED.value)
-        self.flame_log("Node finished successfully")
-        self.config.finish_analysis()
+        if self._flame_logger.runstatus != AnalysisStatus.EXECUTED.value:
+            self.set_progress(100)
+            self._flame_logger.set_runstatus(AnalysisStatus.EXECUTED.value)
+            self.flame_log("Node finished successfully")
+            self.config.finish_analysis()
         return self.config.finished
 
     def _has_finished(self) -> bool:
