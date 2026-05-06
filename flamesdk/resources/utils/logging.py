@@ -41,7 +41,10 @@ class FlameLogger:
             status = AnalysisStatus.FAILED.value
         if status == AnalysisStatus.STOPPED.value:
             self.new_log(msg='Analysis execution was stopped on another node.', log_type=LogTypeLiteral.INFO.value)
-        self.runstatus = status
+        if self.runstatus not in [AnalysisStatus.EXECUTED.value,
+                                  AnalysisStatus.STOPPED.value,
+                                  AnalysisStatus.FAILED.value]:
+            self.runstatus = status
 
     def set_progress(self, progress: Union[int, float]) -> None:
         """
@@ -142,7 +145,9 @@ class FlameLogger:
                 self._submit_logs(log, log_type, self.runstatus)
         
     def raise_error(self, message: str, seconds: int = 1000) -> None:
-        if self.runstatus != AnalysisStatus.STOPPED.value:
+        if self.runstatus not in [AnalysisStatus.EXECUTED.value,
+                                  AnalysisStatus.STOPPED.value,
+                                  AnalysisStatus.FAILED.value]:
             self.set_runstatus(AnalysisStatus.FAILED.value)
             self.new_log(message, log_type=LogTypeLiteral.ERROR.value)
         time.sleep(seconds)
