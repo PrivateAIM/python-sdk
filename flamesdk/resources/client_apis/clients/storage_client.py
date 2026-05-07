@@ -1,6 +1,6 @@
 import math
 import uuid
-from httpx import Client, HTTPStatusError, Timeout
+from httpx import Client, HTTPStatusError, ConnectError, TimeoutException, Timeout
 import pickle
 import re
 from datetime import datetime
@@ -121,15 +121,15 @@ class StorageClient:
             # local_dp is guaranteed to not be None, so remap values to string and update request data mapping
             data.update({k: str(v) for k, v in local_dp.items()})
 
-        response = self.client.put(request_path,
-                                   files={"file": (f"result_{str(uuid.uuid4())[-4:]}_{datetime.now().strftime('%y%m%d%H%M%S')}",
-                                                   BytesIO(file_body))},
-                                   data=data,
-                                   headers=[('Connection', 'close')],
-                                   timeout=Timeout(5, read=None, write=None))
         try:
+            response = self.client.put(request_path,
+                                       files={"file": (f"result_{str(uuid.uuid4())[-4:]}_{datetime.now().strftime('%y%m%d%H%M%S')}",
+                                                       BytesIO(file_body))},
+                                       data=data,
+                                       headers=[('Connection', 'close')],
+                                       timeout=Timeout(5, read=None, write=None))
             response.raise_for_status()
-        except HTTPStatusError as e:
+        except (HTTPStatusError, ConnectError, TimeoutException) as e:
             self.flame_logger.raise_error(f"Failed to push results: {repr(e)}")
         if type != "final":
             self.flame_logger.new_log(f"sending intermediate result",
@@ -189,10 +189,10 @@ class StorageClient:
         :param tag:
         :return:
         """
-        response = self.client.get(f"/local/tags/{tag}")
         try:
+            response = self.client.get(f"/local/tags/{tag}")
             response.raise_for_status()
-        except HTTPStatusError as e:
+        except (HTTPStatusError, ConnectError, TimeoutException) as e:
             self.flame_logger.raise_error(f"Failed to  Retrieves the URL associated with the specified tag.: {repr(e)}")
         urls = []
         for item in response.json()["results"]:
@@ -206,10 +206,10 @@ class StorageClient:
         :param url:
         :return:
         """
-        response = self.client.get(url, timeout=Timeout(5, read=None, write=None))
         try:
+            response = self.client.get(url, timeout=Timeout(5, read=None, write=None))
             response.raise_for_status()
-        except HTTPStatusError as e:
+        except (HTTPStatusError, ConnectError, TimeoutException) as e:
             self.flame_logger.raise_error(f"Failed to retrieve file from URL: {repr(e)}")
         return pickle.loads(BytesIO(response.content).read())
 
@@ -245,10 +245,10 @@ class StorageClient:
         Raises:
             HTTPError: If the request to fetch tags fails.
         """
-        response = self.client.get("/local/tags")
         try:
+            response = self.client.get("/local/tags")
             response.raise_for_status()
-        except HTTPStatusError as e:
+        except (HTTPStatusError, ConnectError, TimeoutException) as e:
             self.flame_logger.raise_error(f"Failed to retrieve local tags: {repr(e)}")
 
         tag_name_list = [tag["name"] for tag in response.json()["tags"]]

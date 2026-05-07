@@ -1,6 +1,6 @@
 from typing import Optional, Any
 import asyncio
-from httpx import AsyncClient, HTTPStatusError, Timeout
+from httpx import AsyncClient, HTTPStatusError, ConnectError, TimeoutException, Timeout
 import re
 
 
@@ -44,12 +44,12 @@ class DataApiClient:
             # get fhir data
             if fhir_queries is not None:
                 for fhir_query in fhir_queries:  # premise: retrieves data for each fhir_query from each data source
-                    response = asyncio.run(self.client.get(f"{source['name']}/fhir/{fhir_query}",
-                                                           headers=[('Connection', 'close')],
-                                                           timeout=Timeout(5, write=None, read=None)))
                     try:
+                        response = asyncio.run(self.client.get(f"{source['name']}/fhir/{fhir_query}",
+                                                               headers=[('Connection', 'close')],
+                                                               timeout=Timeout(5, write=None, read=None)))
                         response.raise_for_status()
-                    except HTTPStatusError as e:
+                    except (HTTPStatusError, ConnectError, TimeoutException) as e:
                         self.flame_logger.new_log(f"Failed to retrieve fhir data for query {fhir_query} "
                                                   f"from source {source['name']}: {repr(e)}",
                                                   log_type=LogTypeLiteral.WARNING.value)
@@ -65,7 +65,7 @@ class DataApiClient:
                                                                timeout=Timeout(5, write=None, read=None)))
                         try:
                             response.raise_for_status()
-                        except HTTPStatusError as e:
+                        except (HTTPStatusError, ConnectError, TimeoutException) as e:
                             self.flame_logger.raise_error(f"Failed to retrieve s3 data for key {res_name} "
                                                           f"from source {source['name']}: {repr(e)}")
                         datasets[res_name] = response.content
@@ -73,10 +73,10 @@ class DataApiClient:
         return dataset_sources
 
     async def _get_s3_dataset_names(self, source_name: str) -> list[str]:
-        response = await self.client.get(f"{source_name}/s3", headers=[('Connection', 'close')])
         try:
+            response = await self.client.get(f"{source_name}/s3", headers=[('Connection', 'close')])
             response.raise_for_status()
-        except HTTPStatusError as e:
+        except (HTTPStatusError, ConnectError, TimeoutException) as e:
             self.flame_logger.raise_error(f"Failed to retrieve S3 dataset names from source {source_name}: {repr(e)}")
         responses = re.findall(r'<Key>(.*?)</Key>', str(response.text))
         return responses
@@ -97,10 +97,10 @@ class DataApiClient:
         return client
 
     async def _retrieve_available_sources(self) -> list[dict[str, Any]]:
-        response = await self.hub_client.get(f"/kong/datastore/{self.project_id}")
         try:
+            response = await self.hub_client.get(f"/kong/datastore/{self.project_id}")
             response.raise_for_status()
-        except HTTPStatusError as e:
+        except (HTTPStatusError, ConnectError, TimeoutException) as e:
             self.flame_logger.raise_error(f"Failed to retrieve available data sources for project {self.project_id}:"
                                           f" {repr(e)}")
 
