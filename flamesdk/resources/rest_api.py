@@ -59,8 +59,8 @@ class FlameAPI:
             return await request.json()
 
         def apply_partner_status_to_self(partner_status: dict[str, Literal["starting", "started",
-                                                                           "executing", "executed",
-                                                                           "stopping", "stopped", "failed"]]) -> None:
+        "executing", "executed",
+        "stopping", "stopped", "failed"]]) -> None:
             if (AnalysisStatus.EXECUTED.value in self.suggestible) and (AnalysisStatus.EXECUTED.value in partner_status.values()):
                 changed_statuses = AnalysisStatus.EXECUTED.value
             elif (AnalysisStatus.STOPPED.value in self.suggestible) and (AnalysisStatus.STOPPED.value in partner_status.values()):
@@ -124,8 +124,12 @@ class FlameAPI:
 
         @router.get("/healthz", response_class=JSONResponse)
         def health() -> dict[str, Union[str, int]]:
-            return {"status": self._finished([self.message_broker, self.data_client, self.storage_client]),
-                    "token_remaining_time": extract_remaining_time_from_token(self.keycloak_token, self.flame_logger)}
+            response_json = {"status": self._finished([self.message_broker, self.data_client, self.storage_client]),
+                             "token_remaining_time": extract_remaining_time_from_token(self.keycloak_token,
+                                                                                       self.flame_logger)}
+            self.flame_logger.new_log(f"Forwarding status={response_json['status']} via health endpoint",
+                                      log_type=LogTypeLiteral.DEBUG.value)
+            return response_json
 
         app.include_router(
             router,
@@ -137,6 +141,9 @@ class FlameAPI:
     def _finished(self, clients: list[Any]) -> str:
         init_failed = None in clients
         main_alive = threading.main_thread().is_alive()
+        self.flame_logger.new_log(f"Finished check: runstatus={self.flame_logger.runstatus}, "
+                                  f"init_failed={init_failed}, main_alive={main_alive}",
+                                  log_type=LogTypeLiteral.DEBUG.value)
         if init_failed:
             return AnalysisStatus.STUCK.value
         elif self.flame_logger.runstatus == AnalysisStatus.STOPPED.value:
