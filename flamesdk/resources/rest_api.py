@@ -1,5 +1,7 @@
 import sys
 import threading
+import time
+
 import uvicorn
 from typing import Any, Callable, Union, Optional, Literal
 
@@ -54,7 +56,7 @@ class FlameAPI:
         self.suggestible = suggestible
         self.finished_check = finished_check
         self.finishing_call = finishing_call
-
+        self.start_time = time.time()
         async def get_body(request: Request) -> dict[str, dict]:
             return await request.json()
 
@@ -114,10 +116,13 @@ class FlameAPI:
         @router.post("/partner_status", response_class=JSONResponse)
         async def get_partner_status(request: Request) -> JSONResponse:
             try:
-                body = await request.json()
-                partner_status = body.get("partner_status")
-                apply_partner_status_to_self(partner_status)
-                return JSONResponse(content={"status": self.flame_logger.runstatus})
+                if time.time() - self.start_time > 300:
+                    body = await request.json()
+                    partner_status = body.get("partner_status")
+                    apply_partner_status_to_self(partner_status)
+                    return JSONResponse(content={"status": self.flame_logger.runstatus})
+                else:
+                    return JSONResponse(content={"status": self.flame_logger.runstatus})
             except Exception as e:
                 self.flame_logger.raise_error(f"stack trace {repr(e)}")
                 raise HTTPException(status_code=500, detail=str(e))
