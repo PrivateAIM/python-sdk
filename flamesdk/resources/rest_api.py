@@ -60,9 +60,11 @@ class FlameAPI:
         async def get_body(request: Request) -> dict[str, dict]:
             return await request.json()
 
-        def apply_partner_status_to_self(partner_status: dict[str, Literal["starting", "started",
-        "executing", "executed",
-        "stopping", "stopped", "failed"]]) -> None:
+        def apply_partner_status_to_self(
+                partner_status: dict[str,
+                    Literal["starting", "started", "executing", "executed", "stopping", "stopped", "failed"]
+                ]
+        ) -> None:
             if (AnalysisStatus.EXECUTED.value in self.suggestible) and (AnalysisStatus.EXECUTED.value in partner_status.values()):
                 changed_statuses = AnalysisStatus.EXECUTED.value
             elif (AnalysisStatus.STOPPED.value in self.suggestible) and (AnalysisStatus.STOPPED.value in partner_status.values()):
