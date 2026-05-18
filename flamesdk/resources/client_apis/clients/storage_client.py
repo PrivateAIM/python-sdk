@@ -36,7 +36,8 @@ class StorageClient:
                     remote_node_id: Optional[str] = None,
                     type: Literal["final", "global", "local"] = "final",
                     output_type: Literal['str', 'bytes', 'pickle'] = 'pickle',
-                    local_dp: Optional[LocalDifferentialPrivacyParams] = None) -> dict[str, str]:
+                    local_dp: Optional[LocalDifferentialPrivacyParams] = None,
+                    filename: Optional[str] = None) -> dict[str, str]:
         """
         Pushes the result to the hub. Making it available for analysts to download.
 
@@ -122,8 +123,9 @@ class StorageClient:
             data.update({k: str(v) for k, v in local_dp.items()})
 
         try:
+            resolved_name = filename if filename else f"result_{str(uuid.uuid4())[-4:]}_{datetime.now().strftime('%y%m%d%H%M%S')}"
             response = self.client.put(request_path,
-                                       files={"file": (f"result_{str(uuid.uuid4())[-4:]}_{datetime.now().strftime('%y%m%d%H%M%S')}",
+                                       files={"file": (resolved_name,
                                                        BytesIO(file_body))},
                                        data=data,
                                        headers=[('Connection', 'close')],

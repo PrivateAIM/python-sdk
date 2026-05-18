@@ -1,19 +1,46 @@
+from pathlib import PurePath
 from typing import Any, Literal, Optional, Union
 
 from flamesdk.resources.client_apis.clients.storage_client import StorageClient, LocalDifferentialPrivacyParams
 from flamesdk.resources.node_config import NodeConfig
+from flamesdk.resources.utils.constants import LogTypeLiteral
 from flamesdk.resources.utils.logging import FlameLogger
+
+_EXT_TO_OUTPUT_TYPE: dict[str, str] = {
+    ".pkl": "pickle",
+    ".pickle": "pickle",
+    ".bin": "bytes",
+    ".txt": "str",
+    ".csv": "str",
+    ".json": "str",
+    ".xml": "str",
+    ".tsv": "str",
+    ".yaml": "str",
+    ".yml": "str",
+}
 
 
 class StorageAPI:
     def __init__(self, config: NodeConfig,  flame_logger: FlameLogger) -> None:
+        self.flame_logger = flame_logger
         self.storage_client = StorageClient(config.nginx_name, config.keycloak_token, flame_logger)
+
+    def _warn_filename_extension(self, filename: str, output_type: str) -> None:
+        ext = PurePath(filename).suffix.lower()
+        expected_type = _EXT_TO_OUTPUT_TYPE.get(ext)
+        if expected_type is not None and expected_type != output_type:
+            self.flame_logger.new_log(
+                f"Filename extension '{ext}' suggests output_type='{expected_type}' "
+                f"but output_type='{output_type}' was specified — the file may be unreadable after download.",
+                log_type=LogTypeLiteral.WARNING.value,
+            )
 
     def submit_final_result(self,
                             result: Any,
                             output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                             multiple_results: bool = False,
-                            local_dp: Optional[LocalDifferentialPrivacyParams] = None) -> Union[dict[str, str], list[dict[str, str]]]:
+                            local_dp: Optional[LocalDifferentialPrivacyParams] = None,
+                            filename: Optional[Union[str, list[str]]] = None) -> Union[dict[str, str], list[dict[str, str]]]:
         """
         sends the final result to the hub. Making it available for analysts to download.
         This method is only available for nodes for which the method `get_role(self)` returns "aggregator".
@@ -21,26 +48,52 @@ class StorageAPI:
         :param output_type: output type of final results (default: string)
         :param multiple_results: whether the result is to be split into separate results (per element in tuple) or a single result
         :param local_dp: tba
+        :param filename: optional filename for the result file on the hub. For multiple_results, pass a list of names
+                         (one per element) or a single string (auto-indexed as name_0, name_1, …). Defaults to an
+                         auto-generated name when None.
         :return: the request status code (single dict if result is not a list, list of dicts if result is a list)
         """
         # Check if result is a tuple or list and multiple_results is true
         if multiple_results and (isinstance(result, list) or isinstance(result, tuple)):
+            if isinstance(filename, list) and len(filename) != len(result):
+                self.flame_logger.raise_error(
+                    f"filename list length ({len(filename)}) does not match result list length ({len(result)})")
             # Submit each element in the list separately
             responses = []
             has_multiple_types = isinstance(output_type, list) and (len(output_type) == len(result))
             for i, item in enumerate(result):
+                if isinstance(filename, list):
+                    resolved_filename = filename[i]
+                elif isinstance(filename, str):
+                    p = PurePath(filename)
+                    resolved_filename = f"{p.stem}_{i}{p.suffix}"
+                else:
+                    resolved_filename = None
+                effective_type = output_type[i] if has_multiple_types else output_type
+                if resolved_filename and isinstance(effective_type, str):
+                    self._warn_filename_extension(resolved_filename, effective_type)
                 response = self.storage_client.push_result(item,
                                                            type="final",
-                                                           output_type=output_type[i] if has_multiple_types else output_type,
-                                                           local_dp=local_dp)
+                                                           output_type=effective_type,
+                                                           local_dp=local_dp,
+                                                           filename=resolved_filename)
                 responses.append(response)
             return responses
         else:
-            # Submit single result as before
+            if isinstance(filename, list):
+                self.flame_logger.new_log(
+                    "filename list provided for a single result submission — using auto-generated name instead",
+                    log_type=LogTypeLiteral.WARNING.value)
+                resolved_filename = None
+            else:
+                resolved_filename = filename
+            if resolved_filename and isinstance(output_type, str):
+                self._warn_filename_extension(resolved_filename, output_type)
             return self.storage_client.push_result(result,
                                                    type="final",
                                                    output_type=output_type,
-                                                   local_dp=local_dp)
+                                                   local_dp=local_dp,
+                                                   filename=resolved_filename)
 
     def save_intermediate_data(self,
                                data: Any,

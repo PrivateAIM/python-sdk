@@ -26,7 +26,7 @@ class FlameCoreSDK:
             self,
             aggregator_requires_data: bool = False,
             silent: bool = False,
-            suggestible: Optional[tuple[Literal['executed', 'stopped', 'failed']]] = (AnalysisStatus.EXECUTED.value,
+            status_sync: Optional[tuple[Literal['executed', 'stopped', 'failed']]] = (AnalysisStatus.EXECUTED.value,
                                                                                       AnalysisStatus.STOPPED.value,
                                                                                       AnalysisStatus.FAILED.value)
     ) -> None:
@@ -94,7 +94,7 @@ class FlameCoreSDK:
         self.flame_log("\tStarting FlameApi thread...", end='', halt_submission=True)
         try:
             self._flame_api_thread = Thread(target=self._start_flame_api)
-            self._suggestible = suggestible
+            self._status_sync = status_sync
             self._flame_api_thread.start()
             self.flame_log("success", append=True)
         except Exception as e:
@@ -421,7 +421,8 @@ class FlameCoreSDK:
                             result: Any,
                             output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                             multiple_results: bool = False,
-                            local_dp: Optional[LocalDifferentialPrivacyParams] = None) -> Union[dict[str, str], list[dict[str, str]]]:
+                            local_dp: Optional[LocalDifferentialPrivacyParams] = None,
+                            filename: Optional[Union[str, list[str]]] = None) -> Union[dict[str, str], list[dict[str, str]]]:
         """
         sends the final result to the hub. Making it available for analysts to download.
         This method is only available for nodes for which the method `get_role(self)` returns "aggregator".
@@ -430,9 +431,12 @@ class FlameCoreSDK:
         :param output_type: output type of final results (can be list of type literals if multiple_results=True, default: string)
         :param multiple_results: whether the result is to be split into separate results (per element in tuple) or a single result
         :param local_dp:
+        :param filename: optional filename for the result file on the hub. For multiple_results, pass a list of names
+                         (one per element) or a single string (auto-indexed as name_0, name_1, …). Defaults to an
+                         auto-generated name when None.
         :return: the request status code (single dict if result is not a list, list of dicts if result is a list)
         """
-        return self._storage_api.submit_final_result(result, output_type, multiple_results, local_dp)
+        return self._storage_api.submit_final_result(result, output_type, multiple_results, local_dp, filename)
 
     def save_intermediate_data(self,
                                data: Any,
@@ -648,7 +652,7 @@ class FlameCoreSDK:
                                   self.config.keycloak_token,
                                   finished_check=self._has_finished,
                                   finishing_call=self._node_finished,
-                                  suggestible=self._suggestible)
+                                  status_sync=self._status_sync)
 
     def _node_finished(self) -> bool:
         """
