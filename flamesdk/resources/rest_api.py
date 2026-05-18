@@ -29,7 +29,7 @@ class FlameAPI:
                  keycloak_token: str,
                  finished_check: Callable,
                  finishing_call: Callable,
-                 suggestible: Optional[tuple[Literal['executed', 'stopped', 'failed']]] = None) -> None:
+                 status_sync: Optional[tuple[Literal['executed', 'stopped', 'failed']]] = None) -> None:
         app = FastAPI(title=f"FLAME node",
                       docs_url="/api/docs",
                       redoc_url="/api/redoc",
@@ -53,7 +53,7 @@ class FlameAPI:
         self.po_client = po_client
         self.flame_logger = flame_logger
         self.keycloak_token = keycloak_token
-        self.suggestible = suggestible
+        self.status_sync = status_sync
         self.finished_check = finished_check
         self.finishing_call = finishing_call
         self.start_time = time.time()
@@ -65,11 +65,11 @@ class FlameAPI:
                     Literal["starting", "started", "executing", "executed", "stopping", "stopped", "failed"]
                 ]
         ) -> None:
-            if (AnalysisStatus.EXECUTED.value in self.suggestible) and (AnalysisStatus.EXECUTED.value in partner_status.values()):
+            if (AnalysisStatus.EXECUTED.value in self.status_sync) and (AnalysisStatus.EXECUTED.value in partner_status.values()):
                 changed_statuses = AnalysisStatus.EXECUTED.value
-            elif (AnalysisStatus.STOPPED.value in self.suggestible) and (AnalysisStatus.STOPPED.value in partner_status.values()):
+            elif (AnalysisStatus.STOPPED.value in self.status_sync) and (AnalysisStatus.STOPPED.value in partner_status.values()):
                 changed_statuses = AnalysisStatus.STOPPED.value
-            elif (AnalysisStatus.FAILED.value in self.suggestible) and (AnalysisStatus.FAILED.value in partner_status.values()):
+            elif (AnalysisStatus.FAILED.value in self.status_sync) and (AnalysisStatus.FAILED.value in partner_status.values()):
                 changed_statuses = AnalysisStatus.FAILED.value
             else:
                 changed_statuses = None
