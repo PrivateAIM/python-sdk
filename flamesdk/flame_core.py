@@ -421,8 +421,8 @@ class FlameCoreSDK:
                             result: Any,
                             output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                             multiple_results: bool = False,
-                            local_dp: Optional[LocalDifferentialPrivacyParams] = None,
-                            filename: Optional[Union[str, list[str]]] = None) -> Union[dict[str, str], list[dict[str, str]]]:
+                            filename: Optional[Union[str, list[str]]] = None,
+                            local_dp: Optional[LocalDifferentialPrivacyParams] = None) -> Union[dict[str, str], list[dict[str, str]]]:
         """
         sends the final result to the hub. Making it available for analysts to download.
         This method is only available for nodes for which the method `get_role(self)` returns "aggregator".
@@ -430,13 +430,13 @@ class FlameCoreSDK:
                        each element will be submitted separately by calling the endpoint multiple times.
         :param output_type: output type of final results (can be list of type literals if multiple_results=True, default: string)
         :param multiple_results: whether the result is to be split into separate results (per element in tuple) or a single result
-        :param local_dp:
         :param filename: optional filename for the result file on the hub. For multiple_results, pass a list of names
-                         (one per element) or a single string (auto-indexed as name_0, name_1, …). Defaults to an
-                         auto-generated name when None.
+                         (one per element) or a single string (auto-indexed as name_1, name_2, …). Defaults to
+                         auto-generated name(s) when None.
+        :param local_dp: parameters for local differential privacy, only for final floating-point type results
         :return: the request status code (single dict if result is not a list, list of dicts if result is a list)
         """
-        return self._storage_api.submit_final_result(result, output_type, multiple_results, local_dp, filename)
+        return self._storage_api.submit_final_result(result, output_type, multiple_results, filename, local_dp)
 
     def save_intermediate_data(self,
                                data: Any,

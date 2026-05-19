@@ -12,6 +12,13 @@ from flamesdk.resources.utils.logging import FlameLogger
 from flamesdk.resources.utils.constants import LogTypeLiteral
 
 
+EXT_TO_OUTPUT_TYPE: dict[str, list[str]] = {
+    'str': ['.txt', '.csv', '.tsv', '.json', '.xml', '.yaml', '.yml'],
+    'pickle': ['.pkl', '.pickle'],
+    'bytes': ['.bin', '.gz', '.zip', '.png']
+}
+
+
 class LocalDifferentialPrivacyParams(TypedDict, total=True):
     epsilon: float
     sensitivity: float
@@ -36,8 +43,8 @@ class StorageClient:
                     remote_node_id: Optional[str] = None,
                     type: Literal["final", "global", "local"] = "final",
                     output_type: Literal['str', 'bytes', 'pickle'] = 'pickle',
-                    local_dp: Optional[LocalDifferentialPrivacyParams] = None,
-                    filename: Optional[str] = None) -> dict[str, str]:
+                    filename: Optional[str] = None,
+                    local_dp: Optional[LocalDifferentialPrivacyParams] = None) -> dict[str, str]:
         """
         Pushes the result to the hub. Making it available for analysts to download.
 
@@ -46,6 +53,7 @@ class StorageClient:
         :param remote_node_id: optional remote node id (used for accessing remote node's public key for encryption)
         :param type: location to save the result, final saves in the hub to be downloaded, global saves in central instance of MinIO, local saves in the node
         :param output_type: the type of the result, str, bytes or pickle only for final results
+        :param filename: optional filename given to result
         :param local_dp: parameters for local differential privacy, only for final floating-point type results
         :return:
         """
@@ -123,7 +131,11 @@ class StorageClient:
             data.update({k: str(v) for k, v in local_dp.items()})
 
         try:
-            resolved_name = filename if filename else f"result_{str(uuid.uuid4())[-4:]}_{datetime.now().strftime('%y%m%d%H%M%S')}"
+            if filename:
+                resolved_name = filename
+            else:
+                resolved_name = (f"result_{str(uuid.uuid4())[-4:]}_{datetime.now().strftime('%y%m%d%H%M%S')}"
+                                 f"{EXT_TO_OUTPUT_TYPE[output_type][0]}")
             response = self.client.put(request_path,
                                        files={"file": (resolved_name,
                                                        BytesIO(file_body))},
