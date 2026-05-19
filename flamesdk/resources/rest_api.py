@@ -19,6 +19,9 @@ from flamesdk.resources.utils.logging import FlameLogger
 from flamesdk.resources.utils.constants import AnalysisStatus, LogTypeLiteral
 
 
+_SYNC_TIMER_IN_SECONDS = 100
+
+
 class FlameAPI:
     def __init__(self,
                  message_broker: MessageBrokerClient,
@@ -62,7 +65,7 @@ class FlameAPI:
 
         def apply_partner_status_to_self(
                 partner_status: dict[str,
-                    Literal["starting", "started", "executing", "executed", "stopping", "stopped", "failed"]
+                Literal["starting", "started", "executing", "executed", "stopping", "stopped", "failed"]
                 ]
         ) -> None:
             if (AnalysisStatus.EXECUTED.value in self.status_sync) and (AnalysisStatus.EXECUTED.value in partner_status.values()):
@@ -118,7 +121,7 @@ class FlameAPI:
         @router.post("/partner_status", response_class=JSONResponse)
         async def get_partner_status(request: Request) -> JSONResponse:
             try:
-                if time.time() - self.start_time > 300:
+                if time.time() - self.start_time > _SYNC_TIMER_IN_SECONDS:
                     body = await request.json()
                     partner_status = body.get("partner_status")
                     apply_partner_status_to_self(partner_status)
