@@ -32,13 +32,14 @@ class StorageAPI:
         :param local_dp: parameters for local differential privacy, only for final floating-point type results
         :return: the request status code (single dict if result is not a list, list of dicts if result is a list)
         """
-        self._check_output_type_validity(output_type, len(result))
+        result_len = len(result) if multiple_results and isinstance(result, (list, tuple)) else 1
+        multiple_results = result_len != 1
+        output_type, filename = self._check_multi_result_validity(multiple_result=multiple_results,
+                                                                  output_type=output_type,
+                                                                  filename=filename,
+                                                                  result_length=result_len)
         # Check if result is a tuple or list and multiple_results is true
-        if multiple_results and (isinstance(result, list) or isinstance(result, tuple)):
-            if isinstance(filename, list) and (len(filename) != len(result)):
-                self.flame_logger.raise_error(
-                    f"Filename list length={len(filename)} has to match result list length={len(result)}."
-                )
+        if multiple_results and isinstance(result, (list, tuple)):
             # Submit each element in the list separately
             responses = []
             for i, item in enumerate(result):
@@ -46,10 +47,9 @@ class StorageAPI:
                     resolved_filename = filename[i]
                 elif isinstance(filename, str):
                     p = PurePath(filename)
-                    if not p.suffix:
-                        output_type_i = output_type[i] if isinstance(output_type, list) else output_type
-                        p = PurePath(f"{filename}{EXT_TO_OUTPUT_TYPE[output_type_i][0]}")
-                    resolved_filename = f"{p.stem}_{i + 1}{p.suffix}"
+                    output_type_i = output_type[i] if isinstance(output_type, list) else output_type
+                    ext = p.suffix if p.suffix in EXT_TO_OUTPUT_TYPE[output_type_i] else EXT_TO_OUTPUT_TYPE[output_type_i][0]
+                    resolved_filename = f"{p.stem}_{i + 1}{ext}"
                 else:
                     resolved_filename = None
                 effective_type = output_type[i] if isinstance(output_type, list) else output_type
@@ -63,6 +63,11 @@ class StorageAPI:
                 responses.append(response)
             return responses
         else:
+            if multiple_results:
+                self.flame_logger.new_log(f"Warning! Given multiple_results={multiple_results}, "
+                                          f"but result is neither of type 'list' nor 'tuple' "
+                                          f"(found {type(result)} instead) -> multiple_results will be ignored.",
+                                          log_type=LogTypeLiteral.WARNING.value)
             if isinstance(filename, list):
                 self.flame_logger.new_log(
                     "filename list provided for a single result submission — using auto-generated name instead",
@@ -127,7 +132,14 @@ class StorageAPI:
         """
         return self.storage_client.get_local_tags(filter)
 
-    def _check_output_type_validity(self, output_type: str, supposed_length: int) -> None:
+    def _check_multi_result_validity(
+            self,
+            multiple_result: bool,
+            output_type: Union[str, list[str]],
+            filename: Optional[Union[str, list[str]]],
+            result_length: int
+    ) -> tuple[Union[str, list[str]], Optional[Union[str, list[str]]]]:
+        # General output type check
         if isinstance(output_type, str) and (output_type not in EXT_TO_OUTPUT_TYPE.keys()):
             self.flame_logger.raise_error(
                 f"Invalid output_type={output_type} given (allowed output_types={EXT_TO_OUTPUT_TYPE.keys()})"
@@ -137,11 +149,59 @@ class StorageAPI:
                 f"Found at least one invalid output_type in given list of output_types={output_type} "
                 f"(allowed output_types={EXT_TO_OUTPUT_TYPE.keys()})"
             )
-        elif isinstance(output_type, list) and (len(output_type) != supposed_length):
-            self.flame_logger.raise_error(
-                f"Length of given list of output_types does not match number of given results "
-                f"(len_output_types={len(output_type)}, len_of_results={supposed_length})"
-            )
+
+        # Reduce lists if they only contain one element
+        if isinstance(output_type, list) and (len(set(output_type)) == 1):
+            output_type = output_type[0]
+        if isinstance(filename, list) and (len(set(filename)) == 1):
+            filename = filename[0]
+
+        # Check output_type to filename relation
+        if multiple_result:
+            if isinstance(output_type, list) and (len(output_type) < result_length):
+                self.flame_logger.raise_error(
+                    f"Output_type list length={len(output_type)} has to be at least as large as result "
+                    f"list length={result_length}."
+                )
+            if isinstance(filename, list) and (len(filename) < result_length):
+                self.flame_logger.raise_error(
+                    f"Filename list length={len(filename)} has to be at least as large as result "
+                    f"list length={result_length}."
+                )
+            if isinstance(output_type, list) and (len(output_type) > result_length):
+                self.flame_logger.new_log(
+                    f"Output_type list length={len(output_type)} is larger than result list length={result_length} - "
+                    f"using first {result_length} elements of output_type list as output_types",
+                    log_type=LogTypeLiteral.WARNING.value,
+                )
+                output_type = output_type[:result_length]
+            if isinstance(filename, list) and (len(filename) > result_length):
+                self.flame_logger.new_log(
+                    f"Filename list length={len(filename)} is larger than result list length={result_length} - "
+                    f"using first {result_length} elements of filename list as filenames",
+                    log_type=LogTypeLiteral.WARNING.value,
+                )
+                filename = filename[:result_length]
+            if (result_length == 1) and isinstance(output_type, list):
+                output_type = output_type[0]
+            if (result_length == 1) and isinstance(filename, list):
+                filename = filename[0]
+        else:
+            if isinstance(output_type, list):
+                self.flame_logger.new_log(
+                    f"Output_type list provided for a single result submission -"
+                    f" using first element of list as output_type instead",
+                    log_type=LogTypeLiteral.WARNING.value,
+                )
+                output_type = output_type[0]
+            if isinstance(filename, list):
+                self.flame_logger.new_log(
+                    f"Filename list provided for a single result submission -"
+                    f" using first element of list as filename instead",
+                    log_type=LogTypeLiteral.WARNING.value,
+                )
+                filename = filename[0]
+        return output_type, filename
 
     def _warn_filename_extension(self, filename: str, output_type: str) -> None:
         ext = PurePath(filename).suffix.lower()
