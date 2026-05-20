@@ -215,16 +215,23 @@ def _get_logger() -> logging.Logger:
     Returns:
         A :class:`logging.Logger` ready for use.
     """
+    # Standard Log Levels
+    ## logging.NOTSET: 0
+    ## logging.DEBUG: 10
+    ## logging.INFO: 20
     _set_custom_log_level(25, LogTypeLiteral.NOTICE.value.upper())
+    ## logging.WARNING: 30
     _set_custom_log_level(33, LogTypeLiteral.ALERT.value.upper())
     _set_custom_log_level(36, LogTypeLiteral.EMERGENCY.value.upper())
+    ## logging.ERROR: 40
+    ## logging.CRITICAL: 50
 
     root = logging.getLogger()
     if not any(isinstance(h.formatter, JsonFormatter) for h in root.handlers):
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(JsonFormatter())
         root.addHandler(handler)
-        root.setLevel(logging.INFO)
+        root.setLevel(logging.DEBUG)
 
     sys.excepthook = _log_uncaught
     threading.excepthook = lambda a: _log_uncaught(

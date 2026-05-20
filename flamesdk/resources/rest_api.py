@@ -60,6 +60,7 @@ class FlameAPI:
         self.finished_check = finished_check
         self.finishing_call = finishing_call
         self.start_time = time.time()
+
         async def get_body(request: Request) -> dict[str, dict]:
             return await request.json()
 

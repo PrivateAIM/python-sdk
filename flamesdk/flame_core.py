@@ -25,6 +25,7 @@ class FlameCoreSDK:
     def __init__(
             self,
             aggregator_requires_data: bool = False,
+            stream_log_level: int = 20,
             silent: bool = False,
             status_sync: Optional[tuple[Literal['executed', 'stopped', 'failed']]] = (AnalysisStatus.EXECUTED.value,
                                                                                       AnalysisStatus.STOPPED.value,
@@ -62,7 +63,7 @@ class FlameCoreSDK:
         ## Connect to POService
         self.flame_log("\tConnecting to PO service...", end='', halt_submission=True)
         try:
-            self._po_api = POAPI(self.config, self._flame_logger)
+            self._po_api = POAPI(self.config, self._flame_logger, stream_log_level)
             self._flame_logger.add_po_api(self._po_api)
             self.flame_log("success", append=True)
         except Exception as e:
