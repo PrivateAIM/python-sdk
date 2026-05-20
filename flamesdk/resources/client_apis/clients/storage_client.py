@@ -1,6 +1,6 @@
 import math
 import uuid
-from httpx import Client, HTTPStatusError, Timeout
+from httpx import Client, HTTPStatusError, ConnectError, TimeoutException, Timeout
 import pickle
 import re
 from datetime import datetime
@@ -10,6 +10,13 @@ from typing_extensions import TypedDict
 
 from flamesdk.resources.utils.logging import FlameLogger
 from flamesdk.resources.utils.constants import LogTypeLiteral
+
+
+EXT_TO_OUTPUT_TYPE: dict[str, list[str]] = {
+    'str': ['.txt', '.csv', '.tsv', '.json', '.xml', '.yaml', '.yml'],
+    'pickle': ['.pkl', '.pickle'],
+    'bytes': ['.bin', '.gz', '.zip', '.png']
+}
 
 
 class LocalDifferentialPrivacyParams(TypedDict, total=True):
@@ -36,6 +43,7 @@ class StorageClient:
                     remote_node_id: Optional[str] = None,
                     type: Literal["final", "global", "local"] = "final",
                     output_type: Literal['str', 'bytes', 'pickle'] = 'pickle',
+                    filename: Optional[str] = None,
                     local_dp: Optional[LocalDifferentialPrivacyParams] = None) -> dict[str, str]:
         """
         Pushes the result to the hub. Making it available for analysts to download.
@@ -45,6 +53,7 @@ class StorageClient:
         :param remote_node_id: optional remote node id (used for accessing remote node's public key for encryption)
         :param type: location to save the result, final saves in the hub to be downloaded, global saves in central instance of MinIO, local saves in the node
         :param output_type: the type of the result, str, bytes or pickle only for final results
+        :param filename: optional filename given to result
         :param local_dp: parameters for local differential privacy, only for final floating-point type results
         :return:
         """
@@ -121,19 +130,27 @@ class StorageClient:
             # local_dp is guaranteed to not be None, so remap values to string and update request data mapping
             data.update({k: str(v) for k, v in local_dp.items()})
 
-        response = self.client.put(request_path,
-                                   files={"file": (f"result_{str(uuid.uuid4())[:4]}_{datetime.now().strftime('%y%m%d%H%M%S')}",
-                                                   BytesIO(file_body))},
-                                   data=data,
-                                   headers=[('Connection', 'close')],
-                                   timeout=Timeout(5, read=None, write=None))
         try:
+            effective_output_type = "str" if use_local_dp else output_type
+            if filename:
+                resolved_name = filename
+            else:
+                resolved_name = (f"result_{str(uuid.uuid4())[-4:]}_{datetime.now().strftime('%y%m%d%H%M%S')}"
+                                 f"{EXT_TO_OUTPUT_TYPE[effective_output_type][0]}")
+            response = self.client.put(request_path,
+                                       files={"file": (resolved_name,
+                                                       BytesIO(file_body))},
+                                       data=data,
+                                       headers=[('Connection', 'close')],
+                                       timeout=Timeout(5, read=None, write=None))
             response.raise_for_status()
-        except HTTPStatusError as e:
+        except (HTTPStatusError, ConnectError, TimeoutException) as e:
             self.flame_logger.raise_error(f"Failed to push results: {repr(e)}")
         if type != "final":
-            self.flame_logger.new_log(f"response push_results: {response.json()}",
+            self.flame_logger.new_log(f"sending intermediate result",
                                       log_type=LogTypeLiteral.INFO.value)
+            self.flame_logger.new_log(f"push response body: {response.json()}",
+                                      log_type=LogTypeLiteral.DEBUG.value)
         else:
             return {"status": "success"}
         return {"status": "success",
@@ -141,18 +158,16 @@ class StorageClient:
                 "id":  response.json()["url"].split("/")[-1]}
 
     def get_intermediate_data(self,
-                              id: Optional[str] = None,
+                              query: Optional[str] = None,
                               tag: Optional[str] = None,
                               type: Literal["local", "global"] = "global",
-                              tag_option: Optional[Literal["all", "last", "first"]] = "all",
-                              sender_node_id: Optional[str] = None) -> Any:
+                              tag_option: Optional[Literal["all", "last", "first"]] = "all") -> Any:
         """
-        Returns the intermediate data with the specified id
-        :param id: ID of the intermediate data
+        Returns the intermediate data with the specified query
+        :param query: query of the intermediate data
         :param tag: optional storage tag of targeted local result
         :param type: location to get the result, local gets in the node, global gets in central instance of MinIO
         :param tag_option: return mode if multiple tagged data are found
-        :param sender_node_id:
         :return:
         """
         if (type != "local") and (tag is not None):
@@ -160,8 +175,6 @@ class StorageClient:
                                       log_type=LogTypeLiteral.WARNING.value)
         if (type == "global") and (id is None):
             self.flame_logger.raise_error("Global intermediate data retrieval requires storage id specification")
-        if (type == "global") and (sender_node_id is None):
-            self.flame_logger.raise_error("Global intermediate data retrieval requires sender_node_id specification")
         if (type == "local") and (id is None) and (tag is None):
             self.flame_logger.raise_error("For local data a tag or storage id has to be specified")
         if (tag is not None) and (not re.match(r'^[a-z0-9]{1,2}|[a-z0-9][a-z0-9-]{,30}[a-z0-9]+$', tag)):
@@ -183,7 +196,7 @@ class StorageClient:
                 data.append(self._get_file(url))
             return data
         else:
-            return self._get_file(f"/{type}/{id}?remote_node_id={sender_node_id}")
+            return self._get_file(f"/{type}/{query}")
 
     def _get_location_urls_for_tag(self, tag: str) -> list[str]:
         """
@@ -191,10 +204,10 @@ class StorageClient:
         :param tag:
         :return:
         """
-        response = self.client.get(f"/local/tags/{tag}")
         try:
+            response = self.client.get(f"/local/tags/{tag}")
             response.raise_for_status()
-        except HTTPStatusError as e:
+        except (HTTPStatusError, ConnectError, TimeoutException) as e:
             self.flame_logger.raise_error(f"Failed to  Retrieves the URL associated with the specified tag.: {repr(e)}")
         urls = []
         for item in response.json()["results"]:
@@ -208,10 +221,10 @@ class StorageClient:
         :param url:
         :return:
         """
-        response = self.client.get(url, timeout=Timeout(5, read=None, write=None))
         try:
+            response = self.client.get(url, timeout=Timeout(5, read=None, write=None))
             response.raise_for_status()
-        except HTTPStatusError as e:
+        except (HTTPStatusError, ConnectError, TimeoutException) as e:
             self.flame_logger.raise_error(f"Failed to retrieve file from URL: {repr(e)}")
         return pickle.loads(BytesIO(response.content).read())
 
@@ -247,10 +260,10 @@ class StorageClient:
         Raises:
             HTTPError: If the request to fetch tags fails.
         """
-        response = self.client.get("/local/tags")
         try:
+            response = self.client.get("/local/tags")
             response.raise_for_status()
-        except HTTPStatusError as e:
+        except (HTTPStatusError, ConnectError, TimeoutException) as e:
             self.flame_logger.raise_error(f"Failed to retrieve local tags: {repr(e)}")
 
         tag_name_list = [tag["name"] for tag in response.json()["tags"]]

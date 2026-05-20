@@ -41,7 +41,10 @@ class FlameLogger:
             status = AnalysisStatus.FAILED.value
         if status == AnalysisStatus.STOPPED.value:
             self.new_log(msg='Analysis execution was stopped on another node.', log_type=LogTypeLiteral.INFO.value)
-        self.runstatus = status
+        if self.runstatus not in [AnalysisStatus.EXECUTED.value,
+                                  AnalysisStatus.STOPPED.value,
+                                  AnalysisStatus.FAILED.value]:
+            self.runstatus = status
 
     def set_progress(self, progress: Union[int, float]) -> None:
         """
@@ -141,9 +144,12 @@ class FlameLogger:
                     self.log_ph = ""
                 self._submit_logs(log, log_type, self.runstatus)
         
-    def raise_error(self, message: str, seconds: int = 100) -> None:
-        self.set_runstatus(AnalysisStatus.FAILED.value)
-        self.new_log(message, log_type=LogTypeLiteral.ERROR.value)
+    def raise_error(self, message: str, seconds: int = 1000) -> None:
+        if self.runstatus not in [AnalysisStatus.EXECUTED.value,
+                                  AnalysisStatus.STOPPED.value,
+                                  AnalysisStatus.FAILED.value]:
+            self.set_runstatus(AnalysisStatus.FAILED.value)
+            self.new_log(message, log_type=LogTypeLiteral.ERROR.value)
         time.sleep(seconds)
 
     def _submit_logs(self, log: str, log_type: str, status: str) -> None:
@@ -209,16 +215,23 @@ def _get_logger() -> logging.Logger:
     Returns:
         A :class:`logging.Logger` ready for use.
     """
+    # Standard Log Levels
+    ## logging.NOTSET: 0
+    ## logging.DEBUG: 10
+    ## logging.INFO: 20
     _set_custom_log_level(25, LogTypeLiteral.NOTICE.value.upper())
+    ## logging.WARNING: 30
     _set_custom_log_level(33, LogTypeLiteral.ALERT.value.upper())
     _set_custom_log_level(36, LogTypeLiteral.EMERGENCY.value.upper())
+    ## logging.ERROR: 40
+    ## logging.CRITICAL: 50
 
     root = logging.getLogger()
     if not any(isinstance(h.formatter, JsonFormatter) for h in root.handlers):
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(JsonFormatter())
         root.addHandler(handler)
-        root.setLevel(logging.INFO)
+        root.setLevel(logging.DEBUG)
 
     sys.excepthook = _log_uncaught
     threading.excepthook = lambda a: _log_uncaught(

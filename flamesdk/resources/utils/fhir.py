@@ -90,7 +90,8 @@ def fhir_to_csv(fhir_data: dict[str, Any],
                 link_relation, link_url = str(e['relation']), str(e['url'])
                 if link_relation == 'next':
                     next_query = link_url.split('/fhir/')[-1]
-                    flame_logger.new_log(f"Parsing next batch query={next_query}")
+                    flame_logger.new_log(f"Parsing next batch query={next_query}",
+                                         log_type=LogTypeLiteral.DEBUG.value)
             if next_query:
                 fhir_data = [r for r in data_client.get_fhir_data([next_query]) if r][0][next_query]
             else:
@@ -110,7 +111,7 @@ def _dict_to_csv(data: dict[Any, dict[Any, Any]],
                  row_col_name: str,
                  separator: str,
                  flame_logger: FlameLogger) -> StringIO:
-    flame_logger.new_log("Writing fhir data dict to csv...")
+    flame_logger.new_log("Writing fhir data dict to csv...", halt_submission=True)
     columns = list(data.keys())
     row_ids = dict.fromkeys(row_id for col in data.values() for row_id in col)
     lines = [separator.join([row_col_name] + [str(c) for c in columns])]
@@ -123,7 +124,7 @@ def _dict_to_csv(data: dict[Any, dict[Any, Any]],
     io = StringIO()
     io.write('\n'.join(lines))
     io.seek(0)
-    flame_logger.new_log("Fhir data converted to csv")
+    flame_logger.new_log("success")
     return io
 
 

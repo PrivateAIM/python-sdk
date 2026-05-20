@@ -22,10 +22,15 @@ from flamesdk.resources.utils.constants import AnalysisStatus, LogTypeLiteral
 
 class FlameCoreSDK:
 
-    def __init__(self,
-                 aggregator_requires_data: bool = False,
-                 silent: bool = False,
-                 suggestible: Optional[tuple[Literal['executed', 'stopped', 'failed']]] = (AnalysisStatus.EXECUTED.value, AnalysisStatus.STOPPED.value, AnalysisStatus.FAILED.value)) -> None:
+    def __init__(
+            self,
+            aggregator_requires_data: bool = False,
+            stream_log_level: int = 20,
+            silent: bool = False,
+            status_sync: Optional[tuple[Literal['executed', 'stopped', 'failed']]] = (AnalysisStatus.EXECUTED.value,
+                                                                                      AnalysisStatus.STOPPED.value,
+                                                                                      AnalysisStatus.FAILED.value)
+    ) -> None:
         self._flame_logger = FlameLogger(silent=silent)
         self.flame_log("Starting FlameCoreSDK")
 
@@ -58,7 +63,7 @@ class FlameCoreSDK:
         ## Connect to POService
         self.flame_log("\tConnecting to PO service...", end='', halt_submission=True)
         try:
-            self._po_api = POAPI(self.config, self._flame_logger)
+            self._po_api = POAPI(self.config, self._flame_logger, stream_log_level)
             self._flame_logger.add_po_api(self._po_api)
             self.flame_log("success", append=True)
         except Exception as e:
@@ -90,7 +95,7 @@ class FlameCoreSDK:
         self.flame_log("\tStarting FlameApi thread...", end='', halt_submission=True)
         try:
             self._flame_api_thread = Thread(target=self._start_flame_api)
-            self._suggestible = suggestible
+            self._status_sync = status_sync
             self._flame_api_thread.start()
             self.flame_log("success", append=True)
         except Exception as e:
@@ -417,6 +422,7 @@ class FlameCoreSDK:
                             result: Any,
                             output_type: Union[Literal['str', 'bytes', 'pickle'], list] = 'str',
                             multiple_results: bool = False,
+                            filename: Optional[Union[str, list[str]]] = None,
                             local_dp: Optional[LocalDifferentialPrivacyParams] = None) -> Union[dict[str, str], list[dict[str, str]]]:
         """
         sends the final result to the hub. Making it available for analysts to download.
@@ -425,10 +431,13 @@ class FlameCoreSDK:
                        each element will be submitted separately by calling the endpoint multiple times.
         :param output_type: output type of final results (can be list of type literals if multiple_results=True, default: string)
         :param multiple_results: whether the result is to be split into separate results (per element in tuple) or a single result
-        :param local_dp:
+        :param filename: optional filename for the result file on the hub. For multiple_results, pass a list of names
+                         (one per element) or a single string (auto-indexed as name_1, name_2, …). Defaults to
+                         auto-generated name(s) when None.
+        :param local_dp: parameters for local differential privacy, only for final floating-point type results
         :return: the request status code (single dict if result is not a list, list of dicts if result is a list)
         """
-        return self._storage_api.submit_final_result(result, output_type, multiple_results, local_dp)
+        return self._storage_api.submit_final_result(result, output_type, multiple_results, filename, local_dp)
 
     def save_intermediate_data(self,
                                data: Any,
@@ -453,24 +462,21 @@ class FlameCoreSDK:
 
     def get_intermediate_data(self,
                               location: Literal["local", "global"],
-                              id: Optional[str] = None,
+                              query: Optional[str] = None,
                               tag: Optional[str] = None,
-                              tag_option: Optional[Literal["all", "last","first"]] = "all",
-                              sender_node_id: Optional[str] = None) -> Any:
+                              tag_option: Optional[Literal["all", "last","first"]] = "all") -> Any:
         """
         returns the intermediate data with the specified id
         :param location: the location to get the result, local gets in the node, global gets in central instance of MinIO
-        :param id: the id of the result to get
+        :param query: the query of the result to get
         :param tag: optional storage tag of targeted local result
         :param tag_option: return mode if multiple tagged data are found
-        :param sender_node_id:
         :return: the result
         """
         return self._storage_api.get_intermediate_data(location=location,
-                                                       id=id,
+                                                       query=query,
                                                        tag=tag,
-                                                       tag_option=tag_option,
-                                                       sender_node_id=sender_node_id)
+                                                       tag_option=tag_option)
 
     def send_intermediate_data(self,
                                receivers: list[str],
@@ -516,7 +522,6 @@ class FlameCoreSDK:
                           for k, v in self.save_intermediate_data(data,
                                                                   "global",
                                                                   remote_node_ids=receivers).items()}
-
         return self.send_message(receivers,
                                  message_category,
                                  {"result_id": result_id_body},
@@ -563,14 +568,14 @@ class FlameCoreSDK:
            """
         data_dict = {sender: None for sender in senders}
         message_dict = self.await_messages(senders, message_category, timeout=timeout)
+        self.flame_log('message_dict' + str(data_dict), log_type=LogTypeLiteral.DEBUG.value)
         for sender, message_list in message_dict.items():
             if message_list:
                 result_id_body = message_list[-1].body['result_id']
-                result_sent_is_encrypted = type(result_id_body) == dict
-                result_id_sent = result_id_body[self.config.node_id] if result_sent_is_encrypted else result_id_body
-                data_dict[sender] = self.get_intermediate_data("global",
-                                                               result_id_sent,
-                                                               sender_node_id=sender if result_sent_is_encrypted else None)
+                result_query = result_id_body[self.config.node_id]
+                data_dict[sender] = self.get_intermediate_data(location="global",
+                                                               query=result_query)
+                self.flame_log('data_dict' + str(data_dict), log_type=LogTypeLiteral.DEBUG.value)
         return data_dict
 
     def get_local_tags(self, filter: Optional[str] = None) -> list[str]:
@@ -648,7 +653,7 @@ class FlameCoreSDK:
                                   self.config.keycloak_token,
                                   finished_check=self._has_finished,
                                   finishing_call=self._node_finished,
-                                  suggestible=self._suggestible)
+                                  status_sync=self._status_sync)
 
     def _node_finished(self) -> bool:
         """
@@ -656,10 +661,11 @@ class FlameCoreSDK:
         Needs to be called when all processing is done.
         :return:
         """
-        self.set_progress(100)
-        self._flame_logger.set_runstatus(AnalysisStatus.EXECUTED.value)
-        self.flame_log("Node finished successfully")
-        self.config.finish_analysis()
+        if self._flame_logger.runstatus != AnalysisStatus.EXECUTED.value:
+            self.set_progress(100)
+            self._flame_logger.set_runstatus(AnalysisStatus.EXECUTED.value)
+            self.flame_log("Node finished successfully")
+            self.config.finish_analysis()
         return self.config.finished
 
     def _has_finished(self) -> bool:

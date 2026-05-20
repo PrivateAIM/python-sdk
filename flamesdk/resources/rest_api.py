@@ -1,5 +1,7 @@
 import sys
 import threading
+import time
+
 import uvicorn
 from typing import Any, Callable, Union, Optional, Literal
 
@@ -17,6 +19,9 @@ from flamesdk.resources.utils.logging import FlameLogger
 from flamesdk.resources.utils.constants import AnalysisStatus, LogTypeLiteral
 
 
+_SYNC_TIMER_IN_SECONDS = 100
+
+
 class FlameAPI:
     def __init__(self,
                  message_broker: MessageBrokerClient,
@@ -27,7 +32,7 @@ class FlameAPI:
                  keycloak_token: str,
                  finished_check: Callable,
                  finishing_call: Callable,
-                 suggestible: Optional[tuple[Literal['executed', 'stopped', 'failed']]] = None) -> None:
+                 status_sync: tuple[Literal['executed', 'stopped', 'failed']] = ()) -> None:
         app = FastAPI(title=f"FLAME node",
                       docs_url="/api/docs",
                       redoc_url="/api/redoc",
@@ -51,21 +56,24 @@ class FlameAPI:
         self.po_client = po_client
         self.flame_logger = flame_logger
         self.keycloak_token = keycloak_token
-        self.suggestible = suggestible
+        self.status_sync = status_sync
         self.finished_check = finished_check
         self.finishing_call = finishing_call
+        self.start_time = time.time()
 
         async def get_body(request: Request) -> dict[str, dict]:
             return await request.json()
 
-        def apply_partner_status_to_self(partner_status: dict[str, Literal["starting", "started",
-                                                                           "executing", "executed",
-                                                                           "stopping", "stopped", "failed"]]) -> None:
-            if (AnalysisStatus.EXECUTED.value in self.suggestible) and (AnalysisStatus.EXECUTED.value in partner_status.values()):
+        def apply_partner_status_to_self(
+                partner_status: dict[str,
+                Literal["starting", "started", "executing", "executed", "stopping", "stopped", "failed"]
+                ]
+        ) -> None:
+            if (AnalysisStatus.EXECUTED.value in self.status_sync) and (AnalysisStatus.EXECUTED.value in partner_status.values()):
                 changed_statuses = AnalysisStatus.EXECUTED.value
-            elif (AnalysisStatus.STOPPED.value in self.suggestible) and (AnalysisStatus.STOPPED.value in partner_status.values()):
+            elif (AnalysisStatus.STOPPED.value in self.status_sync) and (AnalysisStatus.STOPPED.value in partner_status.values()):
                 changed_statuses = AnalysisStatus.STOPPED.value
-            elif (AnalysisStatus.FAILED.value in self.suggestible) and (AnalysisStatus.FAILED.value in partner_status.values()):
+            elif (AnalysisStatus.FAILED.value in self.status_sync) and (AnalysisStatus.FAILED.value in partner_status.values()):
                 changed_statuses = AnalysisStatus.FAILED.value
             else:
                 changed_statuses = None
@@ -104,9 +112,6 @@ class FlameAPI:
 
         @router.post("/webhook", response_class=JSONResponse)
         def get_message(msg: dict = Depends(get_body)) -> None:
-            if msg['meta']['sender'] != message_broker.nodeConfig.node_id:
-                self.flame_logger.new_log(f"received message webhook: {msg}", log_type=LogTypeLiteral.INFO.value)
-
             message_broker.receive_message(msg)
 
             # check message category for finished
@@ -117,18 +122,25 @@ class FlameAPI:
         @router.post("/partner_status", response_class=JSONResponse)
         async def get_partner_status(request: Request) -> JSONResponse:
             try:
-                body = await request.json()
-                partner_status = body.get("partner_status")
-                apply_partner_status_to_self(partner_status)
-                return JSONResponse(content={"status": self.flame_logger.runstatus})
+                if time.time() - self.start_time > _SYNC_TIMER_IN_SECONDS:
+                    body = await request.json()
+                    partner_status = body.get("partner_status")
+                    apply_partner_status_to_self(partner_status)
+                    return JSONResponse(content={"status": self.flame_logger.runstatus})
+                else:
+                    return JSONResponse(content={"status": self.flame_logger.runstatus})
             except Exception as e:
                 self.flame_logger.raise_error(f"stack trace {repr(e)}")
                 raise HTTPException(status_code=500, detail=str(e))
 
         @router.get("/healthz", response_class=JSONResponse)
         def health() -> dict[str, Union[str, int]]:
-            return {"status": self._finished([self.message_broker, self.data_client, self.storage_client]),
-                    "token_remaining_time": extract_remaining_time_from_token(self.keycloak_token, self.flame_logger)}
+            response_json = {"status": self._finished([self.message_broker, self.data_client, self.storage_client]),
+                             "token_remaining_time": extract_remaining_time_from_token(self.keycloak_token,
+                                                                                       self.flame_logger)}
+            self.flame_logger.new_log(f"Forwarding status={response_json['status']} via health endpoint",
+                                      log_type=LogTypeLiteral.DEBUG.value)
+            return response_json
 
         app.include_router(
             router,
@@ -140,8 +152,13 @@ class FlameAPI:
     def _finished(self, clients: list[Any]) -> str:
         init_failed = None in clients
         main_alive = threading.main_thread().is_alive()
+        self.flame_logger.new_log(f"Finished check: runstatus={self.flame_logger.runstatus}, "
+                                  f"init_failed={init_failed}, main_alive={main_alive}",
+                                  log_type=LogTypeLiteral.DEBUG.value)
         if init_failed:
             return AnalysisStatus.STUCK.value
+        elif self.flame_logger.runstatus == AnalysisStatus.STOPPED.value:
+            return AnalysisStatus.STOPPED.value
         elif (not main_alive) and (not self.finished_check()):
             return AnalysisStatus.FAILED.value
         elif self.flame_logger.runstatus == AnalysisStatus.FAILED.value:

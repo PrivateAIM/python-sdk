@@ -3,7 +3,7 @@ import uuid
 import asyncio
 import datetime
 from typing import Optional, Literal
-from httpx import AsyncClient, HTTPStatusError
+from httpx import AsyncClient, HTTPStatusError, ConnectError, TimeoutException
 
 from flamesdk.resources.node_config import NodeConfig
 from flamesdk.resources.utils.logging import FlameLogger
@@ -78,7 +78,7 @@ class Message:
         if outgoing:
             meta_data = {"type": "outgoing",
                          "category": category,
-                         "id": f"{config.node_id}-{message_number}-{uuid.uuid4()}",
+                         "id": f"{config.node_id[:4]}-{message_number}-{str(uuid.uuid4())[-4:]}",
                          "akn_id": None,
                          "status": "unread",
                          "sender": config.node_id,
@@ -119,48 +119,48 @@ class MessageBrokerClient:
         )
 
     async def get_self_config(self, analysis_id: str) -> dict[str, str]:
-        response = await self._message_broker.get(f'/analyses/{analysis_id}/participants/self',
-                                                  headers=[('Connection', 'close')])
         try:
+            response = await self._message_broker.get(f'/analyses/{analysis_id}/participants/self',
+                                                      headers=[('Connection', 'close')])
             response.raise_for_status()
-        except HTTPStatusError as e:
+        except (HTTPStatusError, ConnectError, TimeoutException) as e:
             self.flame_logger.raise_error(f"Failed to retrieve self configuration for analysis {analysis_id}: "
-                                      f"{repr(e)}")
+                                          f"{repr(e)}")
         return response.json()
 
     async def get_partner_nodes(self, self_node_id: str, analysis_id: str) -> list[dict[str, str]]:
-        response = await self._message_broker.get(f'/analyses/{analysis_id}/participants',
-                                                  headers=[('Connection', 'close')])
         try:
+            response = await self._message_broker.get(f'/analyses/{analysis_id}/participants',
+                                                      headers=[('Connection', 'close')])
             response.raise_for_status()
-        except HTTPStatusError as e:
+        except (HTTPStatusError, ConnectError, TimeoutException) as e:
             self.flame_logger.raise_error(f"Failed to retrieve partner nodes for analysis {analysis_id} : {repr(e)}")
         response = [node_conf for node_conf in response.json() if node_conf['nodeId'] != self_node_id]
         return response
 
     async def test_connection(self) -> bool:
-        response = await self._message_broker.get("/healthz", headers=[('Connection', 'close')])
         try:
+            response = await self._message_broker.get("/healthz", headers=[('Connection', 'close')])
             response.raise_for_status()
             return True
-        except HTTPStatusError as e:
+        except (HTTPStatusError, ConnectError, TimeoutException) as e:
             self.flame_logger.raise_error(f"Failed to connect to message broker: {repr(e)}")
             return False
 
     async def _connect(self) -> None:
-        response = await self._message_broker.post(
-            f'/analyses/{os.getenv("ANALYSIS_ID")}/messages/subscriptions',
-            json={'webhookUrl': f'http://{self.nodeConfig.nginx_name}/analysis/webhook'}
-        )
         try:
+            response = await self._message_broker.post(
+                f'/analyses/{os.getenv("ANALYSIS_ID")}/messages/subscriptions',
+                json={'webhookUrl': f'http://{self.nodeConfig.nginx_name}/analysis/webhook'}
+            )
             response.raise_for_status()
-        except HTTPStatusError as e:
+        except (HTTPStatusError, ConnectError, TimeoutException) as e:
             self.flame_logger.raise_error(f"Failed to subscribe to message broker: {repr(e)}")
-        response = await self._message_broker.get(f'/analyses/{os.getenv("ANALYSIS_ID")}/participants/self',
-                                                  headers=[('Connection', 'close')])
         try:
+            response = await self._message_broker.get(f'/analyses/{os.getenv("ANALYSIS_ID")}/participants/self',
+                                                      headers=[('Connection', 'close')])
             response.raise_for_status()
-        except HTTPStatusError as e:
+        except (HTTPStatusError, ConnectError, TimeoutException) as e:
             self.flame_logger.raise_error(f"Successfully subscribed to message broker, "
                                           f"but failed to retrieve participants: {repr(e)}")
 
@@ -170,27 +170,41 @@ class MessageBrokerClient:
             "recipients": message.recipients,
             "message": message.body
         }
-        _ = await self._message_broker.post(f'/analyses/{os.getenv("ANALYSIS_ID")}/messages',
-                                            json=body,
-                                            headers=[('Connection', 'close'),
-                                                     ("Content-Type", "application/json")])
+        attempt_count = 0
+        while True:
+            attempt_count += 1
+            try:
+                response = await self._message_broker.post(f'/analyses/{os.getenv("ANALYSIS_ID")}/messages',
+                                                           json=body,
+                                                           headers=[('Connection', 'close'),
+                                                                    ("Content-Type", "application/json")])
+                response.raise_for_status()
+                self.list_of_outgoing_messages.append(message)
+                break
+            except (HTTPStatusError, ConnectError, TimeoutException) as e:
+                if attempt_count < 10:
+                    self.flame_logger.new_log(
+                        f"Attempt failed to send message to message broker (attempt={attempt_count})",
+                        log_type=LogTypeLiteral.WARNING.value
+                    )
+                else:
+                    self.flame_logger.raise_error(f"Failed to send message to message broker after repeated attempts: "
+                                                  f"{repr(e)}")
 
-        msg_meta_dict = message.body["meta"]
-        if msg_meta_dict["sender"] == self.nodeConfig.node_id:
-            self.flame_logger.new_log(
-                f"send message with category={msg_meta_dict['category']} to recipients={message.recipients}",
-                log_type=LogTypeLiteral.INFO.value
-            )
 
-        self.list_of_outgoing_messages.append(message)
 
     def receive_message(self, body: dict) -> None:
         needs_acknowledgment = body["meta"]["akn_id"] is None
         message = Message(message=body, config=self.nodeConfig, flame_logger=self.flame_logger, outgoing=False)
         is_new_message = message.body["meta"]["id"] not in self.list_of_known_message_ids
         if is_new_message:
+            if message.body['meta']['sender'] != self.nodeConfig.node_id:
+                self.flame_logger.new_log(f"received message from {message.body['meta']['sender']}",
+                                          log_type=LogTypeLiteral.INFO.value)
+                self.flame_logger.new_log(f"message body: {message.body}",
+                                          log_type=LogTypeLiteral.DEBUG.value)
+                self.list_of_known_message_ids.add(message.body["meta"]["id"])
             self.list_of_incoming_messages.append(message)
-            self.list_of_known_message_ids.add(message.body["meta"]["id"])
 
         if needs_acknowledgment:
             if is_new_message:
@@ -198,7 +212,7 @@ class MessageBrokerClient:
                     f"acknowledging ready check by sender={message.body['meta']['sender']}"
                     if body["meta"]["category"] == "ready_check" else
                     f"incoming message with category={body['meta']['category']} from sender={body['meta']['sender']}",
-                    log_type=LogTypeLiteral.INFO.value
+                    log_type=LogTypeLiteral.DEBUG.value
                 )
             asyncio.run(self.acknowledge_message(message))
 
@@ -263,12 +277,14 @@ class MessageBrokerClient:
         for incoming_message in self.list_of_incoming_messages:
             if (incoming_message.body["meta"]["id"] == message.body["meta"]["id"]) and \
                     (incoming_message.body["meta"]["akn_id"] == receiver):
+                self.list_of_incoming_messages.remove(incoming_message)
                 return receiver
         while True:
             if len(self.list_of_incoming_messages) > number_of_incoming_messages:
                 for incoming_message in self.list_of_incoming_messages:
                     if (incoming_message.body["meta"]["id"] == message.body["meta"]["id"]) and \
                             (incoming_message.body["meta"]["akn_id"] == receiver):
+                        self.list_of_incoming_messages.remove(incoming_message)
                         return receiver
             await asyncio.sleep(1)
 
