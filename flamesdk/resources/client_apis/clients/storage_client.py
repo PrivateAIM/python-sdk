@@ -131,11 +131,12 @@ class StorageClient:
             data.update({k: str(v) for k, v in local_dp.items()})
 
         try:
+            effective_output_type = "str" if use_local_dp else output_type
             if filename:
                 resolved_name = filename
             else:
                 resolved_name = (f"result_{str(uuid.uuid4())[-4:]}_{datetime.now().strftime('%y%m%d%H%M%S')}"
-                                 f"{EXT_TO_OUTPUT_TYPE[output_type][0]}")
+                                 f"{EXT_TO_OUTPUT_TYPE[effective_output_type][0]}")
             response = self.client.put(request_path,
                                        files={"file": (resolved_name,
                                                        BytesIO(file_body))},

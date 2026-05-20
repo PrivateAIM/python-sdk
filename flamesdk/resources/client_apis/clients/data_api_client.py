@@ -60,10 +60,10 @@ class DataApiClient:
                 response_names = asyncio.run(self._get_s3_dataset_names(source['name']))
                 for res_name in response_names:  # premise: only retrieves data corresponding to s3_keys from each data source
                     if (len(s3_keys) == 0) or (res_name in s3_keys):
-                        response = asyncio.run(self.client.get(f"{source['name']}/s3/{res_name}",
-                                                               headers=[('Connection', 'close')],
-                                                               timeout=Timeout(5, write=None, read=None)))
                         try:
+                            response = asyncio.run(self.client.get(f"{source['name']}/s3/{res_name}",
+                                                                   headers=[('Connection', 'close')],
+                                                                   timeout=Timeout(5, write=None, read=None)))
                             response.raise_for_status()
                         except (HTTPStatusError, ConnectError, TimeoutException) as e:
                             self.flame_logger.raise_error(f"Failed to retrieve s3 data for key {res_name} "

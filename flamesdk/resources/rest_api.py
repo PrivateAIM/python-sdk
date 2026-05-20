@@ -32,7 +32,7 @@ class FlameAPI:
                  keycloak_token: str,
                  finished_check: Callable,
                  finishing_call: Callable,
-                 status_sync: Optional[tuple[Literal['executed', 'stopped', 'failed']]] = None) -> None:
+                 status_sync: tuple[Literal['executed', 'stopped', 'failed']] = ()) -> None:
         app = FastAPI(title=f"FLAME node",
                       docs_url="/api/docs",
                       redoc_url="/api/redoc",
