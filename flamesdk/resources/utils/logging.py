@@ -1,30 +1,14 @@
 import string
 import time
-from enum import Enum
 from typing import Union
 import queue
+import logging
+import json
+import sys
+import threading
+from collections.abc import Iterable
 
-
-class HUB_LOG_LITERALS(Enum):
-    info_log = 'info'
-    notice_message = 'notice'
-    debug_log = 'debug'
-    warning_log = 'warn'
-    alert_log = 'alert'
-    emergency_log = 'emerg'
-    error_code = 'error'
-    critical_error_code = 'crit'
-
-
-_LOG_TYPE_LITERALS = {'info': HUB_LOG_LITERALS.info_log.value,
-                      'normal': HUB_LOG_LITERALS.info_log.value,
-                      'notice': HUB_LOG_LITERALS.notice_message.value,
-                      'debug': HUB_LOG_LITERALS.debug_log.value,
-                      'warning': HUB_LOG_LITERALS.warning_log.value,
-                      'alert': HUB_LOG_LITERALS.alert_log.value,
-                      'emergency': HUB_LOG_LITERALS.emergency_log.value,
-                      'error': HUB_LOG_LITERALS.error_code.value,
-                      'critical-error': HUB_LOG_LITERALS.critical_error_code.value}
+from flamesdk.resources.utils.constants import AnalysisStatus, LogTypeLiteral
 
 
 class FlameLogger:
@@ -36,9 +20,10 @@ class FlameLogger:
         self.queue = queue.Queue()
         self.po_api = None  # Placeholder for PO_API instance
         self.silent = silent
-        self.runstatus = 'starting'  # Default status for logs
+        self.runstatus = AnalysisStatus.STARTING.value  # Default status for logs
         self.log_ph = ""
         self.progress = 0
+        self.logger = _get_logger()
 
     def add_po_api(self, po_api) -> None:
         """
@@ -50,11 +35,16 @@ class FlameLogger:
     def set_runstatus(self, status: str) -> None:
         """
         Set the run status for the logger.
-        :param status: The status to set (e.g., 'running', 'completed', 'failed').
+        :param status: The status to set (e.g., 'starting', 'executing', 'stopped', 'executed', 'failed').
         """
-        if status not in ['starting', 'running', 'finished', 'failed']:
-            status = 'failed'  # Default to 'running' if an invalid status is provided
-        self.runstatus = status
+        if status not in [s.value for s in AnalysisStatus]:
+            status = AnalysisStatus.FAILED.value
+        if status == AnalysisStatus.STOPPED.value:
+            self.new_log(msg='Analysis execution was stopped on another node.', log_type=LogTypeLiteral.INFO.value)
+        if self.runstatus not in [AnalysisStatus.EXECUTED.value,
+                                  AnalysisStatus.STOPPED.value,
+                                  AnalysisStatus.FAILED.value]:
+            self.runstatus = status
 
     def set_progress(self, progress: Union[int, float]) -> None:
         """
@@ -65,11 +55,11 @@ class FlameLogger:
             progress = int(progress)
         if not (0 <= progress <= 100):
             self.new_log(msg=f"Invalid progress: {progress} (should be a numeric value between 0 and 100).",
-                         log_type='warning')
+                         log_type=LogTypeLiteral.WARNING.value)
         elif self.progress > progress:
             self.new_log(msg=f"Progress value needs to be higher to current progress (i.e. only register progress, "
                              f"if actual progress has been made).",
-                         log_type='warning')
+                         log_type=LogTypeLiteral.WARNING.value)
         else:
             self.progress = progress
 
@@ -89,79 +79,78 @@ class FlameLogger:
                 self.queue.task_done()
 
     def new_log(self,
-                msg: Union[str, bytes],
-                sep: str = ' ',
-                end: str = '\n',
-                file = None,
-                log_type: str = 'normal',
-                suppress_head: bool = False,
+                msg: Union[str, bytes, Iterable],
+                sep: str = '',
+                end: str = '',
+                log_type: str = LogTypeLiteral.INFO.value,
+                append: bool = False,
                 halt_submission: bool = False) -> None:
         """
-        Print logs to console, if silent is set to False. May raise IOError, if suppress_head=False and log_type receives
+        Print logs to console, if silent is set to False. May raise IOError, if append=False and log_type receives
         an invalid value.
         :param msg:
         :param sep:
         :param end:
-        :param file:
         :param log_type:
-        :param suppress_head:
+        :param append:
         :param halt_submission:
         :return:
         """
-        if log_type not in _LOG_TYPE_LITERALS.keys():
+        log_type_literals = [lt.value for lt in LogTypeLiteral]
+        if log_type not in log_type_literals:
             try:
                 raise IOError(f"Invalid log type given to logging function "
-                              f"(known log_types={_LOG_TYPE_LITERALS.keys()}, received log_type={log_type}).")
+                              f"(known log_types={log_type_literals}, received log_type={log_type}).")
             except IOError as e:
                 self.raise_error(f"When attempting to use logging function, this error occurred: {repr(e)}")
 
         if not self.silent:
             if isinstance(msg, bytes):
                 msg = msg.decode('utf-8', errors='replace')
-            msg_cleaned = ''.join(filter(lambda x: x in string.printable, msg))
-
-            if suppress_head:
-                head = ''
+                log = ''.join(filter(lambda x: x in string.printable, msg)) + end
+            elif isinstance(msg, str):
+                log = msg + end
+            elif isinstance(msg, Iterable):
+                log = sep.join(msg) + end
             else:
-                log_type_fill = "" if log_type == 'normal' else f"-- {log_type.upper()} -- "
-                head = f"[flame {log_type_fill}{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}] "
+                self.raise_error(f"Attempted to log msg of neither type str, bytes, or joinable iterable "
+                                 f"(type(msg)={type(msg)}).")
+                return
 
-            log = f"{head}{msg_cleaned}"
-            print(log, sep=sep, end=end, file=file) #TODO: Address sep, end, and file
+            if log_type == LogTypeLiteral.DEBUG.value:
+                self.logger.debug(log)
+            elif log_type == LogTypeLiteral.INFO.value:
+                self.logger.info(log)
+            elif log_type == LogTypeLiteral.NOTICE.value:
+                self.logger.notice(log)
+            elif log_type == LogTypeLiteral.WARNING.value:
+                self.logger.warning(log)
+            elif log_type == LogTypeLiteral.ALERT.value:
+                self.logger.alert(log)
+            elif log_type == LogTypeLiteral.EMERGENCY.value:
+                self.logger.emerg(log)
+            elif log_type == LogTypeLiteral.ERROR.value:
+                self.logger.error(log)
+            elif log_type == LogTypeLiteral.CRITICAL.value:
+                self.logger.critical(log)
+            else:
+                pass # Impossible to reach
 
             if halt_submission:
                 self.log_ph = log
             else:
-                if suppress_head:
+                if append:
                     log = self.log_ph + log
                     self.log_ph = ""
-                self._submit_logs(log, _LOG_TYPE_LITERALS[log_type], self.runstatus)
+                self._submit_logs(log, log_type, self.runstatus)
         
-    def raise_error(self, message: str, seconds: int = 100) -> None:
-        self.set_runstatus("failed")
-        self.new_log(message, log_type="error")
+    def raise_error(self, message: str, seconds: int = 1000) -> None:
+        if self.runstatus not in [AnalysisStatus.EXECUTED.value,
+                                  AnalysisStatus.STOPPED.value,
+                                  AnalysisStatus.FAILED.value]:
+            self.set_runstatus(AnalysisStatus.FAILED.value)
+            self.new_log(message, log_type=LogTypeLiteral.ERROR.value)
         time.sleep(seconds)
-
-    def declare_log_types(self, new_log_types: dict[str, str]) -> None:
-        """
-        Declare new log_types to be added to log_type literals, and how/as what they should be interpreted by Flame
-        (the latter have to be known values from HUB_LOG_LITERALS for existing log status fields).
-        :param new_log_types:
-        :return:
-        """
-        for k, v in new_log_types.items():
-            if v in [e.value for e in HUB_LOG_LITERALS]:
-                if k not in _LOG_TYPE_LITERALS.keys():
-                    _LOG_TYPE_LITERALS[k] = v
-                    self.new_log(f"Successfully declared new log_type={k} with Hub literal '{v}'.",
-                                 log_type='info')
-                else:
-                    self.new_log(f"Attempting to declare new log_type failed since log_type={k} "
-                              f"already exists and cannot be overwritten.", log_type='warning')
-            else:
-                self.raise_error(f"Attempting to declare new log_type failed. Attempted to declare new log_type for "
-                                 f"invalid Hub log field = {v} (known field values: "
-                                 f"{[e.value for e in HUB_LOG_LITERALS]}).")
 
     def _submit_logs(self, log: str, log_type: str, status: str) -> None:
         if self.po_api is None:
@@ -189,8 +178,98 @@ class FlameLogger:
                 # But also create new error log for queue
                 error_log_dict = {
                     "msg": f"Failed to send log to POAPI: {repr(e)}",
-                    "log_type": 'warning',
+                    "log_type": LogTypeLiteral.WARNING.value,
                     "status": status,
                     "progress": self.progress
                 }
                 self.queue.put(error_log_dict)
+
+
+class JsonFormatter(logging.Formatter):
+    """Emit each log record as a single JSON line for structured log ingestion."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Serialize the log record as a single JSON object on one line.
+
+        Always includes ``timestamp``, ``level``, ``logger``, ``module``, and
+        ``msg`` fields. When the record carries exception info, a formatted
+        traceback is added under ``error``.
+        """
+        log = {
+            "timestamp": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
+            "level": record.levelname,
+            "logger": record.name,
+            "module": record.module,
+            "msg": record.getMessage(),
+        }
+
+        if record.exc_info:
+            log["error"] = self.formatException(record.exc_info)
+
+        return json.dumps(log, default=str)  # for non-serializable msgs
+
+
+def _get_logger() -> logging.Logger:
+    """Return a process-wide logger configured for JSON output.
+
+    Returns:
+        A :class:`logging.Logger` ready for use.
+    """
+    # Standard Log Levels
+    ## logging.NOTSET: 0
+    ## logging.DEBUG: 10
+    ## logging.INFO: 20
+    _set_custom_log_level(25, LogTypeLiteral.NOTICE.value.upper())
+    ## logging.WARNING: 30
+    _set_custom_log_level(33, LogTypeLiteral.ALERT.value.upper())
+    _set_custom_log_level(36, LogTypeLiteral.EMERGENCY.value.upper())
+    ## logging.ERROR: 40
+    ## logging.CRITICAL: 50
+
+    root = logging.getLogger()
+    if not any(isinstance(h.formatter, JsonFormatter) for h in root.handlers):
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(JsonFormatter())
+        root.addHandler(handler)
+        root.setLevel(logging.DEBUG)
+
+    sys.excepthook = _log_uncaught
+    threading.excepthook = lambda a: _log_uncaught(
+        a.exc_type, a.exc_value, a.exc_traceback
+    )
+
+    logger = logging.getLogger(__name__)
+    return logger
+
+
+def _set_custom_log_level(level, level_name):
+    """Register a new log level and expose it as a method on ``Logger`` and module function.
+
+    After calling ``_set_custom_log_level(21, 'ACTION')`` you can write
+    ``logger.action("...")`` and ``logging.action("...")``.
+
+    Args:
+        level: Integer log level (between existing stdlib levels).
+        level_name: Human-readable name; used uppercase as the level name and
+            lowercase as the method/function name.
+    """
+    def logForLevel(self, message, *args, **kws):
+        if self.isEnabledFor(level):
+            self._log(level, message, args, **kws)
+
+    def logToRoot(message, *args, **kwargs):
+        logging.log(level, message, *args, **kwargs)
+
+    logging.addLevelName(level, level_name.upper())
+    setattr(logging, level_name.upper(), level)
+    setattr(logging.getLoggerClass(), level_name.lower(), logForLevel)
+    setattr(logging, level_name.lower(), logToRoot)
+
+
+def _log_uncaught(exc_type, exc, tb):
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc, tb)
+        return
+    logging.getLogger("uncaught").critical(
+        "Unhandled exception", exc_info=(exc_type, exc, tb)
+    )

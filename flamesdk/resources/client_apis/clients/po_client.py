@@ -1,4 +1,4 @@
-from httpx import Client, HTTPError
+from httpx import Client, HTTPStatusError, ConnectError, TimeoutException
 
 from flamesdk.resources.utils.logging import FlameLogger
 
@@ -24,14 +24,14 @@ class POClient:
             "log_type": log_type,
             "analysis_id": analysis_id,
             "status": status,
-            #"progress": progress   #TODO: Uncomment this!
+            "progress": progress
         }
-        response = self.client.post("/stream_logs",
-                                    json=log_dict,
-                                    headers={"Content-Type": "application/json"})
         try:
+            response = self.client.post("/stream_logs",
+                                        json=log_dict,
+                                        headers={"Content-Type": "application/json"})
             response.raise_for_status()
-        except HTTPError as e:
+        except (HTTPStatusError, ConnectError, TimeoutException) as e:
             print("HTTP Error in po api:", repr(e))
         except Exception as e:
             print("Unforeseen Error in po api:", repr(e))

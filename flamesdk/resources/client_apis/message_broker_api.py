@@ -4,7 +4,7 @@ from typing import Literal, Optional
 
 from flamesdk.resources.node_config import NodeConfig
 from flamesdk.resources.client_apis.clients.message_broker_client import MessageBrokerClient, Message
-from flamesdk.resources.utils.logging import FlameLogger
+from flamesdk.resources.utils.logging import FlameLogger, LogTypeLiteral
 
 
 class MessageBrokerAPI:
@@ -58,6 +58,12 @@ class MessageBrokerAPI:
             message.recipients = not_acknowledged
 
             # Send the message
+            self.message_broker_client.flame_logger.new_log(
+                f"send message with category={message.body['meta']['category']} to {len(message.recipients)} "
+                f"recipients...",
+                log_type=LogTypeLiteral.DEBUG.value,
+                halt_submission=True
+            )
             await self.message_broker_client.send_message(message)
 
             # await the message acknowledgement
@@ -79,12 +85,15 @@ class MessageBrokerAPI:
                 if task.result():
                     acknowledged.append(task.result())
 
-            # If the message was not acknowledged raise an error
             # not_acknowledged = receivers - acknowledged
             not_acknowledged = [receiver for receiver in receivers if receiver not in acknowledged]
 
-            time_passed = (datetime.now() - start_time).seconds
-            if (len(acknowledged) == len(receivers)) or ((timeout is not None) and (time_passed > timeout)):
+            time_passed = datetime.now() - start_time
+            self.message_broker_client.flame_logger.new_log(
+                f"{len(acknowledged)} acknowledged (time={time_passed.microseconds}{chr(956)}s)",
+                log_type=LogTypeLiteral.DEBUG.value
+            )
+            if (len(acknowledged) == len(receivers)) or ((timeout is not None) and (time_passed.seconds > timeout)):
                 break
 
         return acknowledged, not_acknowledged
