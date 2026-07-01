@@ -225,7 +225,8 @@ class MessageBrokerClient:
         """
         number_of_deleted_messages = 0
         if type in ["outgoing", "incoming"]:
-            for message in self.list_of_outgoing_messages if type == "outgoing" else self.list_of_incoming_messages:
+            message_list = self.list_of_outgoing_messages.copy() if type == "outgoing" else self.list_of_incoming_messages.copy()
+            for message in message_list:
                 if message.body["meta"]["id"] == message_id:
                     self.list_of_outgoing_messages.remove(message) \
                         if type == "outgoing" else self.list_of_incoming_messages.remove(message)
@@ -300,22 +301,19 @@ class MessageBrokerClient:
         :return:
         """
         number_of_deleted_messages = 0
-        message_list = self.list_of_outgoing_messages if type == 'outgoing' else self.list_of_incoming_messages
+        message_list = self.list_of_outgoing_messages.copy() if type == 'outgoing' else self.list_of_incoming_messages.copy()
         for message in message_list:
             if message.body["meta"]["status"] == status:
                 if min_age is not None:
                     created_at = datetime.datetime.strptime(message.body["meta"]["created_at"],
                                                             "%Y-%m-%d %H:%M:%S.%f")
                     if (datetime.datetime.now() - created_at).seconds > min_age:
-                        message_list.remove(message)
+                        self.list_of_outgoing_messages.remove(message) \
+                            if type == 'outgoing' else self.list_of_incoming_messages.remove(message)
                         number_of_deleted_messages += 1
                 else:
-                    message_list.remove(message)
+                    self.list_of_outgoing_messages.remove(message) \
+                        if type == 'outgoing' else self.list_of_incoming_messages.remove(message)
                     number_of_deleted_messages += 1
-
-        if type == 'outgoing':
-            self.list_of_outgoing_messages = message_list
-        else:
-            self.list_of_incoming_messages = message_list
 
         return number_of_deleted_messages

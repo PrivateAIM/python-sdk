@@ -25,6 +25,7 @@ class FlameCoreSDK:
     def __init__(
             self,
             aggregator_requires_data: bool = False,
+            default_requires_data: bool = True, #TODO: Apply different method to determine Proxy Node
             stream_log_level: int = 20,
             silent: bool = False,
             status_sync: Optional[tuple[Literal['executed', 'stopped', 'failed']]] = (AnalysisStatus.EXECUTED.value,
@@ -86,8 +87,13 @@ class FlameCoreSDK:
                 self._data_api = DataAPI(self.config, self._flame_logger)
                 self.flame_log("success", append=True)
             except Exception as e:
-                self._data_api = None
-                self.flame_log(f"failed (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value, append=True)
+                if isinstance(e, ValueError) and (not default_requires_data): #TODO: Apply different method to determine Proxy Node
+                    self._data_api = True
+                    self.config.set_role("proxy")  # set role to proxy if data api connection fails
+                    self.flame_log("success (as proxy)", append=True)
+                else:
+                    self._data_api = None
+                    self.flame_log(f"failed (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value, append=True)
         else:
             self._data_api = True
 
@@ -177,6 +183,13 @@ class FlameCoreSDK:
 
         return self._node_finished()
 
+    def node_has_data(self) -> bool:
+        """
+        Returns whether the node has access to data via DataAPI
+        :return: bool
+        """
+        return isinstance(self._data_api, DataAPI)
+
     def ready_check(self,
                     nodes: list[str] = 'all',
                     attempt_interval: int = 30,
@@ -219,6 +232,7 @@ class FlameCoreSDK:
         start_time = datetime.now()
 
         time_passed = (datetime.now() - start_time).seconds
+        nodes = nodes.copy()
         while (not all(received.values())) and ((timeout is None) or (time_passed < timeout)):
             acknowledged_list, _ = self.send_message(receivers=nodes,
                                                      message_category='ready_check',
@@ -592,7 +606,7 @@ class FlameCoreSDK:
         Returns a list of all data sources available for this project.
         :return: the list of data sources
         """
-        if isinstance(self._data_api, DataAPI):
+        if self.node_has_data():
             return self._data_api.get_data_sources()
         else:
             self.flame_log("Data API is not available, cannot retrieve data sources",
@@ -605,7 +619,7 @@ class FlameCoreSDK:
         :param data_id: the id of the data source
         :return: the data client
         """
-        if isinstance(self._data_api, DataAPI):
+        if self.node_has_data():
             return self._data_api.get_data_client(data_id)
         else:
             self.flame_log("Data API is not available, cannot retrieve data client",
@@ -618,7 +632,7 @@ class FlameCoreSDK:
         :param fhir_queries: list of queries to get the data
         :return:
         """
-        if isinstance(self._data_api, DataAPI):
+        if self.node_has_data():
             return self._data_api.get_fhir_data(fhir_queries)
         else:
             self.flame_log("Data API is not available, cannot retrieve FHIR data",
@@ -631,7 +645,7 @@ class FlameCoreSDK:
         :param s3_keys:f
         :return:
         """
-        if isinstance(self._data_api, DataAPI):
+        if self.node_has_data():
             return self._data_api.get_s3_data(s3_keys)
         else:
             self.flame_log("Data API is not available, cannot retrieve S3 data",
@@ -646,7 +660,7 @@ class FlameCoreSDK:
         :return:
         """
         self.flame_api = FlameAPI(self._message_broker_api.message_broker_client,
-                                  self._data_api.data_client if isinstance(self._data_api, DataAPI) else self._data_api,
+                                  self._data_api.data_client if self.node_has_data() else self._data_api,
                                   self._storage_api.storage_client,
                                   self._po_api.po_client,
                                   self._flame_logger,
