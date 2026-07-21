@@ -191,8 +191,6 @@ class MessageBrokerClient:
                     self.flame_logger.raise_error(f"Failed to send message to message broker after repeated attempts: "
                                                   f"{repr(e)}")
 
-
-
     def receive_message(self, body: dict) -> None:
         needs_acknowledgment = body["meta"]["akn_id"] is None
         message = Message(message=body, config=self.nodeConfig, flame_logger=self.flame_logger, outgoing=False)

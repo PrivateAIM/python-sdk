@@ -169,6 +169,28 @@ class FlameCoreSDK:
         """
         return self.config.node_role
 
+    def get_self_node_index(self) -> int:
+        """
+        Returns the index of the executing node id from list containing all analysis node ids sorted alphanumerically.
+        :return: the node id index
+        """
+        return self.get_node_index(self.get_id())
+
+    def get_node_index(self, node_id: str) -> Optional[int]:
+        """
+        Returns the index of the given node id from list containing all analysis node ids sorted alphanumerically.
+        If the given id cannot be found returns None.
+        :return: the node id index or None
+        """
+        id_list = self.get_participant_ids()
+        id_list.append(self.get_id())
+        if node_id in id_list:
+            return sorted(id_list).index(node_id)
+        else:
+            self.flame_log(f"\tSearched node id '{node_id}' not found during indexing attempt",
+                           log_type= LogTypeLiteral.WARNING.value)
+            return None
+
     def analysis_finished(self) -> bool:
         """
         Sends a signal to all nodes to set their node_finished to True, then sets the node to executed
