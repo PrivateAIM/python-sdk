@@ -534,7 +534,7 @@ class FlameCoreSDK:
         if (location == "global") and (remote_node_ids is None):
             self.flame_log(msg="remote_node_ids must be provided when saving global intermediate data",
                            log_type=LogTypeLiteral.ERROR.value)
-        elif CHECKPOINT_TAG_PREFIX in tag:
+        elif (tag is not None) and (CHECKPOINT_TAG_PREFIX in tag):
             self.flame_log(msg=f"Provided the tag='{tag}' containing '{CHECKPOINT_TAG_PREFIX}' which is a protected flag for "
                                f"checkpoint saves. Data was not saved.",
                            log_type=LogTypeLiteral.WARNING.value)
