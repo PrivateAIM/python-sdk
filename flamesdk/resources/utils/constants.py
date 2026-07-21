@@ -1,6 +1,9 @@
 from enum import Enum
 
 
+CHECKPOINT_TAG_PREFIX = 'checkpoint-'
+
+
 class AnalysisStatus(Enum):
     STARTING = 'starting'
     STARTED = 'started'

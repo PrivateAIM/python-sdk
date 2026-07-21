@@ -17,7 +17,7 @@ from flamesdk.resources.rest_api import FlameAPI
 from flamesdk.resources.utils.fhir import fhir_to_csv
 from flamesdk.resources.utils.utils import wait_until_nginx_online
 from flamesdk.resources.utils.logging import FlameLogger
-from flamesdk.resources.utils.constants import AnalysisStatus, LogTypeLiteral
+from flamesdk.resources.utils.constants import AnalysisStatus, LogTypeLiteral, CHECKPOINT_TAG_PREFIX
 
 
 class FlameCoreSDK:
@@ -328,11 +328,11 @@ class FlameCoreSDK:
                                f'{[type(k) for k in kwargs.keys()]}. Could not save checkpoint',
                            log_type=LogTypeLiteral.WARNING.value)
         else:
-            i = len(self.get_local_tags("checkpoint-")) + 1
+            i = len(self.get_local_tags(CHECKPOINT_TAG_PREFIX)) + 1
             self.flame_log(msg=f'Saved checkpoint no.{i}', log_type=LogTypeLiteral.INFO.value)
             self._storage_api.save_intermediate_data(data= kwargs,
                                                      location='local',
-                                                     tag=f"checkpoint-{i}")
+                                                     tag=f"{CHECKPOINT_TAG_PREFIX}{i}")
 
     def load_checkpoint(self, index: int) -> Optional[dict[str, Any]]:
         """
@@ -341,10 +341,10 @@ class FlameCoreSDK:
         :param index:
         :return kwargs:
         """
-        locally_tagged_saves = self.get_local_tags(f"checkpoint-{index}")
+        locally_tagged_saves = self.get_local_tags(f"{CHECKPOINT_TAG_PREFIX}{index}")
         if len(locally_tagged_saves) == 1:
             self.flame_log(msg=f'Loading checkpoint no.{index}', log_type=LogTypeLiteral.INFO.value)
-            return self.get_intermediate_data(location='local', tag=f"checkpoint-{index}")
+            return self.get_intermediate_data(location='local', tag=f"{CHECKPOINT_TAG_PREFIX}{index}")
         elif len(locally_tagged_saves) > 1:
             self.flame_log(msg=f'Error: Loading checkpoint no.{index} failed. Multiple saves under same tag found',
                            log_type=LogTypeLiteral.ERROR.value)
@@ -534,8 +534,8 @@ class FlameCoreSDK:
         if (location == "global") and (remote_node_ids is None):
             self.flame_log(msg="remote_node_ids must be provided when saving global intermediate data",
                            log_type=LogTypeLiteral.ERROR.value)
-        elif 'checkpoint-' in tag:
-            self.flame_log(msg=f"Provided the tag='{tag}' containing 'checkpoint-' which is a protected flag for "
+        elif CHECKPOINT_TAG_PREFIX in tag:
+            self.flame_log(msg=f"Provided the tag='{tag}' containing '{CHECKPOINT_TAG_PREFIX}' which is a protected flag for "
                                f"checkpoint saves. Data was not saved.",
                            log_type=LogTypeLiteral.WARNING.value)
         else:
