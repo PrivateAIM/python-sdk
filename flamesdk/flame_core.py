@@ -328,11 +328,11 @@ class FlameCoreSDK:
                                f'{[type(k) for k in kwargs.keys()]}. Could not save checkpoint',
                            log_type=LogTypeLiteral.WARNING.value)
         else:
-            i = len(self.get_local_tags("checkpoint_")) + 1
+            i = len(self.get_local_tags("checkpoint-")) + 1
             self.flame_log(msg=f'Saved checkpoint no.{i}', log_type=LogTypeLiteral.INFO.value)
             self._storage_api.save_intermediate_data(data= kwargs,
                                                      location='local',
-                                                     tag=f"checkpoint_{i}")
+                                                     tag=f"checkpoint-{i}")
 
     def load_checkpoint(self, index: int) -> Optional[dict[str, Any]]:
         """
@@ -341,10 +341,10 @@ class FlameCoreSDK:
         :param index:
         :return kwargs:
         """
-        locally_tagged_saves = self.get_local_tags(f"checkpoint_{index}")
+        locally_tagged_saves = self.get_local_tags(f"checkpoint-{index}")
         if len(locally_tagged_saves) == 1:
             self.flame_log(msg=f'Loading checkpoint no.{index}', log_type=LogTypeLiteral.INFO.value)
-            return self.get_intermediate_data(location='local', tag=f"checkpoint_{index}")
+            return self.get_intermediate_data(location='local', tag=f"checkpoint-{index}")
         elif len(locally_tagged_saves) > 1:
             self.flame_log(msg=f'Error: Loading checkpoint no.{index} failed. Multiple saves under same tag found',
                            log_type=LogTypeLiteral.ERROR.value)
@@ -534,8 +534,8 @@ class FlameCoreSDK:
         if (location == "global") and (remote_node_ids is None):
             self.flame_log(msg="remote_node_ids must be provided when saving global intermediate data",
                            log_type=LogTypeLiteral.ERROR.value)
-        elif 'checkpoint_' in tag:
-            self.flame_log(msg=f"Provided the tag='{tag}' containing 'checkpoint_' which is a protected flag for "
+        elif 'checkpoint-' in tag:
+            self.flame_log(msg=f"Provided the tag='{tag}' containing 'checkpoint-' which is a protected flag for "
                                f"checkpoint saves. Data was not saved.",
                            log_type=LogTypeLiteral.WARNING.value)
         else:
