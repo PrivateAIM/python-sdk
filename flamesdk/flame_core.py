@@ -311,6 +311,49 @@ class FlameCoreSDK:
         """
         self._flame_logger.set_progress(progress)
 
+    def set_checkpoint(self, kwargs: dict[str, Any]) -> None:
+        """
+        Saves given kwargs into local node storage for future analysis retrieval. raise Warning for incorrect format
+        of kwargs
+
+        :param kwargs:
+        :return:
+        """
+        if not isinstance(kwargs, dict):
+            self.flame_log(msg=f'Expected dictionary object for kwargs in checkpoint save but received {type(kwargs)}.'
+                               f' Could not save checkpoint',
+                           log_type=LogTypeLiteral.WARNING.value)
+        elif not any(isinstance(key, str) for key in kwargs.keys()):
+            self.flame_log(msg=f'Expected string object for kwargs keys in checkpoint save but received '
+                               f'{[type(k) for k in kwargs.keys()]}. Could not save checkpoint',
+                           log_type=LogTypeLiteral.WARNING.value)
+        else:
+            i = len(self.get_local_tags("checkpoint_")) + 1
+            self.flame_log(msg=f'Saved checkpoint no.{i}', log_type=LogTypeLiteral.INFO.value)
+            self._storage_api.save_intermediate_data(data= kwargs,
+                                                     location='local',
+                                                     tag=f"checkpoint_{i}")
+
+    def load_checkpoint(self, index: int) -> Optional[dict[str, Any]]:
+        """
+        Load saved kwargs from previous checkpoint with given index. return None if not found
+
+        :param index:
+        :return kwargs:
+        """
+        locally_tagged_saves = self.get_local_tags(f"checkpoint_{index}")
+        if len(locally_tagged_saves) == 1:
+            self.flame_log(msg=f'Loading checkpoint no.{index}', log_type=LogTypeLiteral.INFO.value)
+            return self.get_intermediate_data(location='local', tag=f"checkpoint_{index}")
+        elif len(locally_tagged_saves) > 1:
+            self.flame_log(msg=f'Error: Loading checkpoint no.{index} failed. Multiple saves under same tag found',
+                           log_type=LogTypeLiteral.ERROR.value)
+            return None
+        else:
+            self.flame_log(msg=f'No checkpoint {index} was found. Returning None',
+                           log_type=LogTypeLiteral.WARNING.value)
+            return None
+
     def fhir_to_csv(self,
                     fhir_data: dict[str, Any],
                     col_key_seq: str,
@@ -479,7 +522,7 @@ class FlameCoreSDK:
                                data: Any,
                                location: Literal["local", "global"],
                                remote_node_ids: Optional[list[str]] = None,
-                               tag: Optional[str] = None) -> Union[dict[str, dict[str, str]], dict[str, str]]:
+                               tag: Optional[str] = None) -> Optional[Union[dict[str, dict[str, str]], dict[str, str]]]:
         """
         Saves intermediate results/data either on the hub (location="global"), or locally (location="local")
         :param data: the result to save
@@ -489,12 +532,18 @@ class FlameCoreSDK:
         :return: the request status code{"status":, "url":, "id": }, or dict of said dicts if encrypted mode is used, i.e. remote_node_ids are set
         """
         if (location == "global") and (remote_node_ids is None):
-            raise ValueError("remote_node_ids must be provided when saving global intermediate data")
-
-        return self._storage_api.save_intermediate_data(data,
-                                                        location=location,
-                                                        remote_node_ids=remote_node_ids,
-                                                        tag=tag)
+            self.flame_log(msg="remote_node_ids must be provided when saving global intermediate data",
+                           log_type=LogTypeLiteral.ERROR.value)
+        elif 'checkpoint_' in tag:
+            self.flame_log(msg=f"Provided the tag='{tag}' containing 'checkpoint_' which is a protected flag for "
+                               f"checkpoint saves. Data was not saved.",
+                           log_type=LogTypeLiteral.WARNING.value)
+        else:
+            return self._storage_api.save_intermediate_data(data,
+                                                            location=location,
+                                                            remote_node_ids=remote_node_ids,
+                                                            tag=tag)
+        return None
 
     def get_intermediate_data(self,
                               location: Literal["local", "global"],
