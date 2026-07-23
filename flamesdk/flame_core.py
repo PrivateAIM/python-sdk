@@ -275,7 +275,8 @@ class FlameCoreSDK:
                   end: str = '',
                   log_type: str = LogTypeLiteral.INFO.value,
                   append: bool = False,
-                  halt_submission: bool = False) -> None:
+                  halt_submission: bool = False,
+                  hidden_error_msg: Optional[str] = None) -> None:
         """
         Prints logs to console and submits them to the hub (as soon as a connection is established, until then they will be queued).
         :param msg:
@@ -284,6 +285,7 @@ class FlameCoreSDK:
         :param log_type:
         :param append:
         :param halt_submission:
+        :param hidden_error_msg:
         :return:
         """
         if log_type != LogTypeLiteral.ERROR.value:
@@ -294,7 +296,7 @@ class FlameCoreSDK:
                                        append=append,
                                        halt_submission=halt_submission)
         else:
-            self._flame_logger.raise_error(msg)
+            self._flame_logger.raise_error(message=msg, hidden_error_msg=hidden_error_msg)
 
     def get_progress(self) -> int:
         """

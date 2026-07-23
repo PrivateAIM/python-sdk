@@ -1,6 +1,6 @@
 import string
 import time
-from typing import Union
+from typing import Union, Optional
 import queue
 import logging
 import json
@@ -144,12 +144,16 @@ class FlameLogger:
                     self.log_ph = ""
                 self._submit_logs(log, log_type, self.runstatus)
         
-    def raise_error(self, message: str, seconds: int = 1000) -> None:
+    def raise_error(self, message: str, hidden_error_msg: Optional[str] = None, seconds: int = 1000) -> None:
         if self.runstatus not in [AnalysisStatus.EXECUTED.value,
                                   AnalysisStatus.STOPPED.value,
                                   AnalysisStatus.FAILED.value]:
             self.set_runstatus(AnalysisStatus.FAILED.value)
             self.new_log(message, log_type=LogTypeLiteral.ERROR.value)
+
+            if hidden_error_msg is not None:
+                self.logger.error(hidden_error_msg)
+
         time.sleep(seconds)
 
     def _submit_logs(self, log: str, log_type: str, status: str) -> None:
