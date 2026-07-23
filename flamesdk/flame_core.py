@@ -344,7 +344,7 @@ class FlameCoreSDK:
         locally_tagged_saves = self.get_local_tags(f"{CHECKPOINT_TAG_PREFIX}{index}")
         if len(locally_tagged_saves) == 1:
             self.flame_log(msg=f'Loading checkpoint no.{index}', log_type=LogTypeLiteral.INFO.value)
-            return self.get_intermediate_data(location='local', tag=f"{CHECKPOINT_TAG_PREFIX}{index}")
+            return self.get_intermediate_data(location='local', tag=f"{CHECKPOINT_TAG_PREFIX}{index}")[0]
         elif len(locally_tagged_saves) > 1:
             self.flame_log(msg=f'Error: Loading checkpoint no.{index} failed. Multiple saves under same tag found',
                            log_type=LogTypeLiteral.ERROR.value)
