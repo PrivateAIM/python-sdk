@@ -208,7 +208,7 @@ class StorageClient:
             response = self.client.get(f"/local/tags/{tag}")
             response.raise_for_status()
         except (HTTPStatusError, ConnectError, TimeoutException) as e:
-            self.flame_logger.raise_error(f"Failed to  Retrieves the URL associated with the specified tag.: {repr(e)}")
+            self.flame_logger.raise_error(f"Failed to Retrieves the URL associated with the specified tag.: {repr(e)}")
         urls = []
         for item in response.json()["results"]:
             item["url"] = item["url"].split("/local/")[1]
@@ -261,7 +261,7 @@ class StorageClient:
             HTTPError: If the request to fetch tags fails.
         """
         try:
-            response = self.client.get("/local/tags")
+            response = self.client.get("/local/tags", timeout=Timeout(5, read=None, write=None))
             response.raise_for_status()
         except (HTTPStatusError, ConnectError, TimeoutException) as e:
             self.flame_logger.raise_error(f"Failed to retrieve local tags: {repr(e)}")
