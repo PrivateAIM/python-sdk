@@ -376,6 +376,10 @@ class FlameCoreSDK:
                 is_file = bool(v)
                 for i in range(len(k.split('/'))):
                     current_path = os.path.join(os.getcwd(), *k.split('/')[:i])
+                    self.flame_log(f'current_path: {current_path}, '
+                                   f'is_file: {is_file}, '
+                                   f'exists: {os.path.exists(current_path)}, '
+                                   f'last element: {i == len(k.split('/')) - 1}')
                     if is_file:
                         if (not os.path.exists(current_path)) and (i < len(k.split('/')) - 1):
                             os.mkdir(current_path)
