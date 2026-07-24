@@ -339,8 +339,11 @@ class FlameCoreSDK:
             list_dir = os.listdir(os.getcwd())
             if file_paths is not None:
                 list_dir.extend(file_paths)
+            self.flame_log(f'to be added: {list_dir}')
+            self.flame_log(f'locked: {self._file_system_lock}')
             for e in list_dir:
                 if e not in self._file_system_lock:
+                    self.flame_log(f'found to differ: {e}')
                     e_path = os.path.join(os.getcwd(), e)
                     for path, subdirs, files in os.walk(e_path):
                         if files:
@@ -348,12 +351,14 @@ class FlameCoreSDK:
                                 file_path = os.path.join(path, name)
                                 with open(file_path, 'rb') as f:
                                     file_system_diff[file_path] = f.read()
+                                self.flame_log(f'save file: {file_path}')
                         elif (not subdirs) and (not files):
                             file_system_diff[path] = []
+                            self.flame_log(f'save empty dir: {path}')
 
             self._storage_api.save_intermediate_data(data=(kwargs, file_system_diff),
                                                      location='local',
-                                                     tag=f"{CHECKPOINT_TAG_PREFIX}{i}")
+                                                     tag=f"{CHECKPOINT_TAG_PREFIX}{i}-")
 
     def load_checkpoint(self, index: int) -> Optional[dict[str, Any]]:
         """
@@ -362,10 +367,11 @@ class FlameCoreSDK:
         :param index:
         :return kwargs:
         """
-        locally_tagged_saves = self.get_local_tags(f"{CHECKPOINT_TAG_PREFIX}{index}")
+        checkpoint_name = f"{CHECKPOINT_TAG_PREFIX}{index}-"
+        locally_tagged_saves = self.get_local_tags(checkpoint_name)
         if len(locally_tagged_saves) == 1:
             self.flame_log(msg=f'Loading checkpoint no.{index}', log_type=LogTypeLiteral.INFO.value)
-            kwargs, file_system_diff = self.get_intermediate_data(location='local', tag=f"{CHECKPOINT_TAG_PREFIX}{index}")[0]
+            kwargs, file_system_diff = self.get_intermediate_data(location='local', tag=checkpoint_name)[0]
             for k, v in file_system_diff.items():
                 is_file = bool(v)
                 for i in range(len(k.split('/'))):
@@ -373,12 +379,15 @@ class FlameCoreSDK:
                     if is_file:
                         if (not os.path.exists(current_path)) and (i < len(k.split('/')) - 1):
                             os.mkdir(current_path)
+                            self.flame_log(f'create dir: {current_path}')
                         elif i == len(k.split('/')) - 1:
                             with open(k, 'wb') as f:
                                 f.write(v)
+                            self.flame_log(f'write file: {k}')
                     else:
                         if not os.path.exists(current_path):
                             os.mkdir(current_path)
+                            self.flame_log(f'create dir: {current_path}')
             return kwargs
         elif len(locally_tagged_saves) > 1:
             self.flame_log(msg=f'Error: Loading checkpoint no.{index} failed. Multiple saves under same tag found',

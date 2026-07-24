@@ -268,6 +268,7 @@ class StorageClient:
 
         tag_name_list = [tag["name"] for tag in response.json()["tags"]]
 
+        # checkpoint-1 in checkpoint-10 = True
         if filter is not None:
             tag_name_list = [tag for tag in tag_name_list if filter in tag]
 
