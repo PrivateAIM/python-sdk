@@ -375,7 +375,7 @@ class FlameCoreSDK:
             for k, v in file_system_diff.items():
                 is_file = bool(v)
                 for i in range(len(k.split('/'))):
-                    current_path = os.path.join(os.getcwd(), *k.split('/')[:i])
+                    current_path = os.path.join(os.getcwd(), *k.split('/')[:i+1])
                     self.flame_log(f'current_path: {current_path}, '
                                    f'is_file: {is_file}, '
                                    f'exists: {os.path.exists(current_path)}, '
