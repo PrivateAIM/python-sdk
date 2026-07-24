@@ -358,7 +358,7 @@ class FlameCoreSDK:
 
             self._storage_api.save_intermediate_data(data=(kwargs, file_system_diff),
                                                      location='local',
-                                                     tag=f"{CHECKPOINT_TAG_PREFIX}{i}-")
+                                                     tag=f"{CHECKPOINT_TAG_PREFIX}{i}-end")
 
     def load_checkpoint(self, index: int) -> Optional[dict[str, Any]]:
         """
@@ -367,7 +367,7 @@ class FlameCoreSDK:
         :param index:
         :return kwargs:
         """
-        checkpoint_name = f"{CHECKPOINT_TAG_PREFIX}{index}-"
+        checkpoint_name = f"{CHECKPOINT_TAG_PREFIX}{index}-end"
         locally_tagged_saves = self.get_local_tags(checkpoint_name)
         if len(locally_tagged_saves) == 1:
             self.flame_log(msg=f'Loading checkpoint no.{index}', log_type=LogTypeLiteral.INFO.value)
