@@ -1,3 +1,4 @@
+import os
 import time
 import asyncio
 from httpx import AsyncClient
@@ -111,6 +112,7 @@ class FlameCoreSDK:
         if all([self._message_broker_api, self._po_api, self._storage_api, self._data_api, self._flame_api_thread]):
             self._flame_logger.set_runstatus(AnalysisStatus.EXECUTING.value)
             self.flame_log("FlameCoreSDK ready")
+            self._file_system_lock = os.listdir(os.getcwd())
         else:
             self.flame_log("FlameCoreSDK startup failed", log_type=LogTypeLiteral.ERROR.value)
 
@@ -313,7 +315,7 @@ class FlameCoreSDK:
         """
         self._flame_logger.set_progress(progress)
 
-    def set_checkpoint(self, kwargs: dict[str, Any]) -> None:
+    def set_checkpoint(self, kwargs: dict[str, Any], file_paths: Optional[list[str]] = None) -> None:
         """
         Saves given kwargs into local node storage for future analysis retrieval. raise Warning for incorrect format
         of kwargs
@@ -332,7 +334,24 @@ class FlameCoreSDK:
         else:
             i = len(self.get_local_tags(CHECKPOINT_TAG_PREFIX)) + 1
             self.flame_log(msg=f'Saved checkpoint no.{i}', log_type=LogTypeLiteral.INFO.value)
-            self._storage_api.save_intermediate_data(data= kwargs,
+
+            file_system_diff = {}
+            list_dir = os.listdir(os.getcwd())
+            if file_paths is not None:
+                list_dir.extend(file_paths)
+            for e in list_dir:
+                if e not in self._file_system_lock:
+                    e_path = os.path.join(os.getcwd(), e)
+                    for path, subdirs, files in os.walk(e_path):
+                        if files:
+                            for name in files:
+                                file_path = os.path.join(path, name)
+                                with open(file_path, 'rb') as f:
+                                    file_system_diff[file_path] = f.read()
+                        elif (not subdirs) and (not files):
+                            file_system_diff[path] = []
+
+            self._storage_api.save_intermediate_data(data=(kwargs, file_system_diff),
                                                      location='local',
                                                      tag=f"{CHECKPOINT_TAG_PREFIX}{i}")
 
@@ -346,7 +365,21 @@ class FlameCoreSDK:
         locally_tagged_saves = self.get_local_tags(f"{CHECKPOINT_TAG_PREFIX}{index}")
         if len(locally_tagged_saves) == 1:
             self.flame_log(msg=f'Loading checkpoint no.{index}', log_type=LogTypeLiteral.INFO.value)
-            return self.get_intermediate_data(location='local', tag=f"{CHECKPOINT_TAG_PREFIX}{index}")[0]
+            kwargs, file_system_diff = self.get_intermediate_data(location='local', tag=f"{CHECKPOINT_TAG_PREFIX}{index}")[0]
+            for k, v in file_system_diff.items():
+                is_file = bool(v)
+                for i in range(len(k.split('/'))):
+                    current_path = os.path.join(os.getcwd(), *k.split('/')[:i])
+                    if is_file:
+                        if (not os.path.exists(current_path)) and (i < len(k.split('/')) - 1):
+                            os.mkdir(current_path)
+                        elif i == len(k.split('/')) - 1:
+                            with open(k, 'wb') as f:
+                                f.write(v)
+                    else:
+                        if not os.path.exists(current_path):
+                            os.mkdir(current_path)
+            return kwargs
         elif len(locally_tagged_saves) > 1:
             self.flame_log(msg=f'Error: Loading checkpoint no.{index} failed. Multiple saves under same tag found',
                            log_type=LogTypeLiteral.ERROR.value)
