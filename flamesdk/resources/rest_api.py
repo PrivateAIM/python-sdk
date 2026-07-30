@@ -134,7 +134,7 @@ class FlameAPI:
 
         @router.get("/healthz", response_class=JSONResponse)
         def health() -> dict[str, Union[str, int]]:
-            response_json = {"status": self._finished([self.message_broker, self.data_client, self.storage_client]),
+            response_json = {"status": self._status(),
                              "token_remaining_time": extract_remaining_time_from_token(self.keycloak_token,
                                                                                        self.flame_logger)}
             self.flame_logger.new_log(f"Forwarding status={response_json['status']} via health endpoint",
@@ -148,8 +148,8 @@ class FlameAPI:
 
         uvicorn.run(app, host="0.0.0.0", port=8000)
 
-    def _finished(self, clients: list[Any]) -> str:
-        init_failed = None in clients
+    def _status(self) -> str:
+        init_failed = None in [self.message_broker, self.data_client, self.storage_client]
         main_alive = threading.main_thread().is_alive()
         self.flame_logger.new_log(f"Finished check: runstatus={self.flame_logger.runstatus}, "
                                   f"init_failed={init_failed}, main_alive={main_alive}",
