@@ -181,7 +181,7 @@ class MessageBrokerClient:
                 response.raise_for_status()
                 self.list_of_outgoing_messages.append(message)
                 break
-            except (HTTPStatusError, ConnectError, TimeoutException) as e:
+            except Exception as e:
                 if attempt_count < 10:
                     self.flame_logger.new_log(
                         f"Attempt failed to send message to message broker (attempt={attempt_count})",
@@ -195,9 +195,11 @@ class MessageBrokerClient:
         needs_acknowledgment = body["meta"]["akn_id"] is None
         message = Message(message=body, config=self.nodeConfig, flame_logger=self.flame_logger, outgoing=False)
         is_new_message = message.body["meta"]["id"] not in self.list_of_known_message_ids
+        sender = message.body['meta']['sender']
+        category = message.body["meta"]["category"]
         if is_new_message:
-            if message.body['meta']['sender'] != self.nodeConfig.node_id:
-                self.flame_logger.new_log(f"received message from {message.body['meta']['sender']}",
+            if sender != self.nodeConfig.node_id:
+                self.flame_logger.new_log(f"received message from {sender}",
                                           log_type=LogTypeLiteral.INFO.value)
                 self.flame_logger.new_log(f"message body: {message.body}",
                                           log_type=LogTypeLiteral.DEBUG.value)
@@ -207,12 +209,17 @@ class MessageBrokerClient:
         if needs_acknowledgment:
             if is_new_message:
                 self.flame_logger.new_log(
-                    f"acknowledging ready check by sender={message.body['meta']['sender']}"
-                    if body["meta"]["category"] == "ready_check" else
-                    f"incoming message with category={body['meta']['category']} from sender={body['meta']['sender']}",
+                    (f"acknowledging ready check by sender={sender}"
+                     if category == "ready_check" else
+                     f"received role call by sender={sender}")
+                    if category in ["ready_check", "role_call"] else
+                    f"incoming message with category={category} from sender={sender}",
                     log_type=LogTypeLiteral.DEBUG.value
                 )
             asyncio.run(self.acknowledge_message(message))
+
+            if category == "role_call":
+                self._answer_role_call(sender)
 
     def delete_message_by_id(self, message_id: str, type: Literal["outgoing", "incoming"]) -> int:
         """
@@ -315,3 +322,13 @@ class MessageBrokerClient:
                     number_of_deleted_messages += 1
 
         return number_of_deleted_messages
+
+    def _answer_role_call(self, sender: str) -> None:
+        msg = Message(message={'role': self.nodeConfig.node_role},
+                      config=self.nodeConfig,
+                      outgoing=True,
+                      flame_logger=self.flame_logger,
+                      message_number=self.message_number,
+                      category='role_call_answer',
+                      recipients=[sender])
+        asyncio.run(self.send_message(msg))

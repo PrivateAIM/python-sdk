@@ -130,7 +130,9 @@ class FlameCoreSDK:
 
     def get_participants(self) -> list[dict[str, str]]:
         """
-        Returns a list of all participant configs in the analysis
+        Returns a list of all participant configs in the analysis. Note: This will only return the participating nodes'
+        types, which are not to be confused with the nodes' roles (see ``self.partner_role_call(...)`` or
+        ``self.full_role_call(...)`` instead).
         :return: the list of participants
         """
         return self._message_broker_api.participants
@@ -163,13 +165,74 @@ class FlameCoreSDK:
         """
         return self.config.node_id
 
-    def get_role(self) -> Literal['default', 'aggregator']:
+    def get_type(self) -> Literal['default', 'aggregator']:
         """
-        Returns the role of the node. "aggregator" means that the node can submit final results using
-        "submit_final_result", else "default" (this may change with further permission settings).
-        :return: the role of the node
+        Returns the node type. ``"aggregator"`` means that the node can submit final results using
+        ``"self.submit_final_result(...)"``, else ``"default"``.
+        :return: the type of this node
+        """
+        return self.config.node_type
+
+    def get_role(self) -> str:
+        """
+        Returns the node role. Immediately after node analysis initialization equal to ``self.get_type()``,
+        if not set manually via ``self.set_role(...)``.
+        :return: the role of this node
         """
         return self.config.node_role
+
+    def set_role(self, role: str) -> str:
+        """
+        Sets the role of this node.
+        :return: the role of this node
+        """
+        return self.config.set_role(role)
+
+    def partner_role_call(self,
+                          node_ids: list[str],
+                          max_attempts: int = 1,
+                          timeout: Optional[int] = None,
+                          attempt_timeout: int = 10) -> dict[str, Optional[str]]:
+        """
+        Returns a dict of roles for partner nodes given their node_ids. Will set None as value instead, if respective
+        node_id could not be found in get_participant_ids, or if timeout was reached.
+        :return: the role of partner node
+        """
+        returned_roles = {}
+        verified_partner_node_ids = []
+        for id in node_ids:
+            if id in self.get_participant_ids():
+                verified_partner_node_ids.append(id)
+            else:
+                self.flame_log(f"Found unknown node_id in partner_role_call input id={id} not "
+                               f"contained in participant_ids. Excluding this id for result.",
+                               log_type=LogTypeLiteral.WARNING.value)
+        acknowledged, _ = self.send_message(receivers=verified_partner_node_ids,
+                                            message_category='role_call',
+                                            message={},
+                                            max_attempts=max_attempts,
+                                            timeout=timeout,
+                                            attempt_timeout=attempt_timeout)
+        message_dict = self.await_messages(senders=verified_partner_node_ids,
+                                           message_category='role_call_answer',
+                                           timeout=timeout)
+        for node_id in verified_partner_node_ids:
+            returned_roles[node_id] = message_dict[node_id][-1].body['role'] if message_dict else None
+        return returned_roles
+
+    def full_role_call(self,
+                       max_attempts: int = 1,
+                       timeout: Optional[int] = None,
+                       attempt_timeout: int = 10) -> dict[str, Optional[str]]:
+        """
+        Returns a dictionary containing of all roles of all partner nodes. Will individually return None instead of a
+        role value, if timeout was reached.
+        :return: the role of the node
+        """
+        return self.partner_role_call(node_ids=self.get_participant_ids(),
+                                      max_attempts=max_attempts,
+                                      timeout=timeout,
+                                      attempt_timeout=attempt_timeout)
 
     def get_self_node_index(self) -> int:
         """
