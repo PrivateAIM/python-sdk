@@ -15,10 +15,13 @@ class NodeConfig:
 
         # tbd by MessageBroker
         self.node_role = None
+        self.node_type = None
         self.node_id = None
 
     def set_role(self, role) -> None:
         self.node_role = role
+        if self.node_type is None:
+            self.node_type = role
 
     def set_node_id(self, node_id) -> None:
         self.node_id = node_id
