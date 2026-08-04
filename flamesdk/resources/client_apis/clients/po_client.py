@@ -32,6 +32,6 @@ class POClient:
                                         headers={"Content-Type": "application/json"})
             response.raise_for_status()
         except (HTTPStatusError, ConnectError, TimeoutException) as e:
-            print("HTTP Error in po api:", repr(e))
+            self.flame_logger.logger.error(f"HTTP Error in po api: {repr(e)}")
         except Exception as e:
-            print("Unforeseen Error in po api:", repr(e))
+            self.flame_logger.logger.error(f"Unforeseen Error in po api: {repr(e)}")
