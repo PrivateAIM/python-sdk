@@ -124,8 +124,9 @@ class MessageBrokerClient:
                                                       headers=[('Connection', 'close')])
             response.raise_for_status()
         except (HTTPStatusError, ConnectError, TimeoutException) as e:
-            self.flame_logger.raise_error(f"Failed to retrieve self configuration for analysis {analysis_id}: "
-                                          f"{repr(e)}")
+            self.flame_logger.new_log(f"Failed to retrieve self configuration for analysis {analysis_id}",
+                                      log_type=LogTypeLiteral.CRITICAL.value)
+            raise ValueError(f"Failed to retrieve self configuration for analysis {analysis_id}: {repr(e)}")
         return response.json()
 
     async def get_partner_nodes(self, self_node_id: str, analysis_id: str) -> list[dict[str, str]]:
@@ -155,14 +156,19 @@ class MessageBrokerClient:
             )
             response.raise_for_status()
         except (HTTPStatusError, ConnectError, TimeoutException) as e:
-            self.flame_logger.raise_error(f"Failed to subscribe to message broker: {repr(e)}")
+            self.flame_logger.new_log(f"Failed to subscribe to message broker",
+                                      log_type=LogTypeLiteral.CRITICAL.value)
+            raise ValueError(f"Failed to subscribe to message broker: {repr(e)}")
         try:
             response = await self._message_broker.get(f'/analyses/{os.getenv("ANALYSIS_ID")}/participants/self',
                                                       headers=[('Connection', 'close')])
             response.raise_for_status()
         except (HTTPStatusError, ConnectError, TimeoutException) as e:
-            self.flame_logger.raise_error(f"Successfully subscribed to message broker, "
-                                          f"but failed to retrieve participants: {repr(e)}")
+            self.flame_logger.new_log(f"Successfully subscribed to message broker, but failed to retrieve "
+                                      f"participants", log_type=LogTypeLiteral.CRITICAL.value)
+            raise ValueError(f"Successfully subscribed to message broker, but failed to retrieve "
+                             f"participants: {repr(e)}")
+
 
     async def send_message(self, message: Message) -> None:
         self.message_number += 1

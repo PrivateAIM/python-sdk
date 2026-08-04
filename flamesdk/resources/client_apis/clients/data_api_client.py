@@ -26,11 +26,11 @@ class DataApiClient:
         if not self.available_sources:
             if self.available_sources == []:
                 self.flame_logger.new_log(f"No data sources found for project {project_id}",
-                                          log_type='warning')
+                                          log_type=LogTypeLiteral.CRITICAL.value)
                 raise ValueError(f"No data sources found for project {project_id}")
             else:
                 self.flame_logger.new_log(f"Failed to retrieve available data sources for project {project_id}",
-                                          log_type='warning')
+                                          log_type=LogTypeLiteral.WARNING.value)
                 raise ValueError(f"Failed to retrieve available data sources for project {project_id}")
 
     def refresh_token(self, keycloak_token: str) -> None:
@@ -105,11 +105,13 @@ class DataApiClient:
         client = AsyncClient(base_url=f"{path}")
         return client
 
-    async def _retrieve_available_sources(self) -> Optional[list[dict[str, Any]]]:
+    async def _retrieve_available_sources(self) -> list[dict[str, Any]]:
         try:
             response = await self.hub_client.get(f"/kong/datastore/{self.project_id}")
             response.raise_for_status()
-        except (HTTPStatusError, ConnectError, TimeoutException):
-            response = None
+        except (HTTPStatusError, ConnectError, TimeoutException) as e:
+            self.flame_logger.new_log(f"Failed to retrieve available data sources for project {self.project_id}",
+                                          log_type=LogTypeLiteral.CRITICAL.value)
+            raise ValueError(f"Failed to retrieve available data sources for project {self.project_id}: {repr(e)}")
 
-        return response.json()['data'] if response is not None else None
+        return response.json()['data']
