@@ -411,11 +411,11 @@ class FlameCoreSDK:
             list_dir = os.listdir(os.getcwd())
             if file_paths is not None:
                 list_dir.extend(file_paths)
-            self.flame_log(f'to be added: {list_dir}')
-            self.flame_log(f'locked: {self._file_system_lock}')
+            self.flame_log(f'to be added: {list_dir}', log_type=LogTypeLiteral.DEBUG.value)
+            self.flame_log(f'locked: {self._file_system_lock}', log_type=LogTypeLiteral.DEBUG.value)
             for e in list_dir:
                 if e not in self._file_system_lock:
-                    self.flame_log(f'found to differ: {e}')
+                    self.flame_log(f'found to differ: {e}', log_type=LogTypeLiteral.DEBUG.value)
                     e_path = os.path.join(os.getcwd(), e)
                     for path, subdirs, files in os.walk(e_path):
                         if files:
@@ -423,10 +423,10 @@ class FlameCoreSDK:
                                 file_path = os.path.join(path, name)
                                 with open(file_path, 'rb') as f:
                                     file_system_diff[file_path] = f.read()
-                                self.flame_log(f'save file: {file_path}')
+                                self.flame_log(f'save file: {file_path}', log_type=LogTypeLiteral.DEBUG.value)
                         elif (not subdirs) and (not files):
                             file_system_diff[path] = []
-                            self.flame_log(f'save empty dir: {path}')
+                            self.flame_log(f'save empty dir: {path}', log_type=LogTypeLiteral.DEBUG.value)
 
             self._storage_api.save_intermediate_data(data=(kwargs, file_system_diff),
                                                      location='local',
@@ -451,19 +451,19 @@ class FlameCoreSDK:
                     self.flame_log(f'current_path: {current_path}, '
                                    f'is_file: {is_file}, '
                                    f'exists: {os.path.exists(current_path)}, '
-                                   f'last element: {i == len(k.split("/")) - 1}')
+                                   f'last element: {i == len(k.split("/")) - 1}', log_type=LogTypeLiteral.DEBUG.value)
                     if is_file:
                         if (not os.path.exists(current_path)) and (i < len(k.split('/')) - 1):
                             os.mkdir(current_path)
-                            self.flame_log(f'create dir: {current_path}')
+                            self.flame_log(f'create dir: {current_path}', log_type=LogTypeLiteral.DEBUG.value)
                         elif i == len(k.split('/')) - 1:
                             with open(k, 'wb') as f:
                                 f.write(v)
-                            self.flame_log(f'write file: {k}')
+                            self.flame_log(f'write file: {k}', log_type=LogTypeLiteral.DEBUG.value)
                     else:
                         if not os.path.exists(current_path):
                             os.mkdir(current_path)
-                            self.flame_log(f'create dir: {current_path}')
+                            self.flame_log(f'create dir: {current_path}', log_type=LogTypeLiteral.DEBUG.value)
             return kwargs
         elif len(locally_tagged_saves) > 1:
             self.flame_log(msg=f'Error: Loading checkpoint no.{index} failed. Multiple saves under same tag found',
