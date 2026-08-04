@@ -135,7 +135,8 @@ class MessageBrokerClient:
                                                       headers=[('Connection', 'close')])
             response.raise_for_status()
         except (HTTPStatusError, ConnectError, TimeoutException) as e:
-            self.flame_logger.raise_error(f"Failed to retrieve partner nodes for analysis {analysis_id} : {repr(e)}")
+            self.flame_logger.raise_error(f"Failed to retrieve partner nodes for analysis {analysis_id} : ",
+                                          hidden_error_msg=repr(e))
         response = [node_conf for node_conf in response.json() if node_conf['nodeId'] != self_node_id]
         return response
 
@@ -145,7 +146,7 @@ class MessageBrokerClient:
             response.raise_for_status()
             return True
         except (HTTPStatusError, ConnectError, TimeoutException) as e:
-            self.flame_logger.raise_error(f"Failed to connect to message broker: {repr(e)}")
+            self.flame_logger.raise_error(f"Failed to connect to message broker:", hidden_error_msg=repr(e))
             return False
 
     async def _connect(self) -> None:
@@ -194,8 +195,9 @@ class MessageBrokerClient:
                         log_type=LogTypeLiteral.WARNING.value
                     )
                 else:
-                    self.flame_logger.raise_error(f"Failed to send message to message broker after repeated attempts: "
-                                                  f"{repr(e)}")
+                    self.flame_logger.raise_error(f"Failed to send message to message broker after repeated "
+                                                  f"attempts: ",
+                                                  hidden_error_msg=repr(e))
 
     def receive_message(self, body: dict) -> None:
         needs_acknowledgment = body["meta"]["akn_id"] is None

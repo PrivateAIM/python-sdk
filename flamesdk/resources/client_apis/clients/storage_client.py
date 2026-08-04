@@ -103,16 +103,19 @@ class StorageClient:
                 file_body = pickle.dumps(result)
         except (TypeError, ValueError, UnicodeEncodeError, pickle.PicklingError) as e:
             if output_type != 'pickle':
-                self.flame_logger.new_log(f"Failed to translate result data to type={output_type}: {repr(e)}",
+                self.flame_logger.new_log(f"Failed to translate result data to type={output_type}:",
+                                          hidden_error_msg=repr(e),
                                           log_type=LogTypeLiteral.WARNING.value)
                 self.flame_logger.new_log("Attempting 'pickle' instead...", log_type=LogTypeLiteral.WARNING.value)
                 try:
                     file_body = pickle.dumps(result)
                 except pickle.PicklingError as e:
-                    self.flame_logger.raise_error(f"Failed to pickle result data: {repr(e)}")
+                    self.flame_logger.raise_error(f"Failed to pickle result data: ",
+                                                  hidden_error_msg=repr(e))
                     file_body = None
             else:
-                self.flame_logger.raise_error(f"Failed to pickle result data: {repr(e)}")
+                self.flame_logger.raise_error(f"Failed to pickle result data:",
+                                              hidden_error_msg=repr(e))
                 file_body = None
 
         if remote_node_id is not None:
@@ -145,7 +148,7 @@ class StorageClient:
                                        timeout=Timeout(5, read=None, write=None))
             response.raise_for_status()
         except (HTTPStatusError, ConnectError, TimeoutException) as e:
-            self.flame_logger.raise_error(f"Failed to push results: {repr(e)}")
+            self.flame_logger.raise_error(f"Failed to push results:", hidden_error_msg=repr(e))
         if type != "final":
             self.flame_logger.new_log(f"sending intermediate result",
                                       log_type=LogTypeLiteral.INFO.value)
@@ -208,7 +211,8 @@ class StorageClient:
             response = self.client.get(f"/local/tags/{tag}")
             response.raise_for_status()
         except (HTTPStatusError, ConnectError, TimeoutException) as e:
-            self.flame_logger.raise_error(f"Failed to Retrieves the URL associated with the specified tag.: {repr(e)}")
+            self.flame_logger.raise_error(f"Failed to Retrieves the URL associated with the specified tag.:",
+                                          hidden_error_msg=repr(e))
         urls = []
         for item in response.json()["results"]:
             item["url"] = item["url"].split("/local/")[1]
@@ -225,7 +229,8 @@ class StorageClient:
             response = self.client.get(url, timeout=Timeout(5, read=None, write=None))
             response.raise_for_status()
         except (HTTPStatusError, ConnectError, TimeoutException) as e:
-            self.flame_logger.raise_error(f"Failed to retrieve file from URL: {repr(e)}")
+            self.flame_logger.raise_error(f"Failed to retrieve file from URL:",
+                                          hidden_error_msg=repr(e))
         return pickle.loads(BytesIO(response.content).read())
 
     def get_local_tags(self, filter: Optional[str] = None) -> list[str]:
@@ -264,7 +269,8 @@ class StorageClient:
             response = self.client.get("/local/tags", timeout=Timeout(5, read=None, write=None))
             response.raise_for_status()
         except (HTTPStatusError, ConnectError, TimeoutException) as e:
-            self.flame_logger.raise_error(f"Failed to retrieve local tags: {repr(e)}")
+            self.flame_logger.raise_error(f"Failed to retrieve local tags:",
+                                          hidden_error_msg=repr(e))
 
         tag_name_list = [tag["name"] for tag in response.json()["tags"]]
 

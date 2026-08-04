@@ -60,8 +60,9 @@ class DataApiClient:
                         response.raise_for_status()
                     except (HTTPStatusError, ConnectError, TimeoutException) as e:
                         self.flame_logger.new_log(f"Failed to retrieve fhir data for query {fhir_query} "
-                                                  f"from source {source['name']}: {repr(e)}",
-                                                  log_type=LogTypeLiteral.WARNING.value)
+                                                  f"from source {source['name']}",
+                                                  log_type=LogTypeLiteral.WARNING.value,
+                                                  hidden_error_msg=repr(e))
                         continue
                     datasets[fhir_query] = response.json()
             # get s3 data
@@ -76,7 +77,8 @@ class DataApiClient:
                             response.raise_for_status()
                         except (HTTPStatusError, ConnectError, TimeoutException) as e:
                             self.flame_logger.raise_error(f"Failed to retrieve s3 data for key {res_name} "
-                                                          f"from source {source['name']}: {repr(e)}")
+                                                          f"from source {source['name']}",
+                                                          hidden_error_msg=repr(e))
                         datasets[res_name] = response.content
             dataset_sources.append(datasets)
         return dataset_sources
@@ -86,7 +88,8 @@ class DataApiClient:
             response = await self.client.get(f"{source_name}/s3", headers=[('Connection', 'close')])
             response.raise_for_status()
         except (HTTPStatusError, ConnectError, TimeoutException) as e:
-            self.flame_logger.raise_error(f"Failed to retrieve S3 dataset names from source {source_name}: {repr(e)}")
+            self.flame_logger.raise_error(f"Failed to retrieve S3 dataset names from source {source_name}",
+                                          hidden_error_msg=repr(e))
         responses = re.findall(r'<Key>(.*?)</Key>', str(response.text))
         return responses
 

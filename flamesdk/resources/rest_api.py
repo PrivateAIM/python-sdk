@@ -106,7 +106,7 @@ class FlameAPI:
                 self.keycloak_token = new_token
                 return JSONResponse(content={"message": "Token refreshed successfully"})
             except Exception as e:
-                self.flame_logger.raise_error(f"stack trace {repr(e)}")
+                self.flame_logger.raise_error(f"stack trace see in node", hidden_error_msg=repr(e))
                 raise HTTPException(status_code=500, detail=str(e))
 
         @router.post("/webhook", response_class=JSONResponse)
@@ -129,7 +129,7 @@ class FlameAPI:
                 else:
                     return JSONResponse(content={"status": self.flame_logger.runstatus})
             except Exception as e:
-                self.flame_logger.raise_error(f"stack trace {repr(e)}")
+                self.flame_logger.raise_error(f"stack trace see in node", hidden_error_msg=repr(e))
                 raise HTTPException(status_code=500, detail=str(e))
 
         @router.get("/healthz", response_class=JSONResponse)

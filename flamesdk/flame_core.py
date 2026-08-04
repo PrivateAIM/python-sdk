@@ -44,7 +44,9 @@ class FlameCoreSDK:
         try:
             wait_until_nginx_online(self.config.nginx_name, self._flame_logger)
         except Exception as e:
-            self.flame_log(f"Nginx connection failure (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value)
+            self.flame_log(f"Nginx connection failure",
+                           log_type=LogTypeLiteral.CRITICAL.value,
+                           hidden_error_msg=repr(e))
 
         # Set up the connection to all the services needed
         ## Connect to MessageBroker
@@ -54,13 +56,13 @@ class FlameCoreSDK:
             self.flame_log("success", append=True)
         except Exception as e:
             self._message_broker_api = None
-            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value, append=True)
+            self.flame_log("failed", log_type=LogTypeLiteral.CRITICAL.value, append=True, hidden_error_msg=repr(e))
         try:
             ### Update config with self_config from MessageBroker
             self.config = self._message_broker_api.config
         except Exception as e:
-            self.flame_log(f"Unable to retrieve node config from message broker (error_msg='{repr(e)}')",
-                           log_type=LogTypeLiteral.ERROR.value)
+            self.flame_log(f"Unable to retrieve node config from message broker",
+                           log_type=LogTypeLiteral.CRITICAL.value, hidden_error_msg=repr(e))
 
         ## Connect to POService
         self.flame_log("\tConnecting to PO service...", end='', halt_submission=True)
@@ -70,7 +72,7 @@ class FlameCoreSDK:
             self.flame_log("success", append=True)
         except Exception as e:
             self._po_api = None
-            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value, append=True)
+            self.flame_log("failed", log_type=LogTypeLiteral.CRITICAL.value, append=True, hidden_error_msg=repr(e))
 
         ## Connect to ResultService
         self.flame_log("\tConnecting to ResultService...", end='', halt_submission=True)
@@ -79,7 +81,7 @@ class FlameCoreSDK:
             self.flame_log("success", append=True)
         except Exception as e:
             self._storage_api = None
-            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value, append=True)
+            self.flame_log("failed", log_type=LogTypeLiteral.CRITICAL.value, append=True, hidden_error_msg=repr(e))
 
         if (self.config.node_role == 'default') or aggregator_requires_data:
             ## Connection to DataService
@@ -94,7 +96,10 @@ class FlameCoreSDK:
                     self.flame_log("success (as proxy)", append=True)
                 else:
                     self._data_api = None
-                    self.flame_log(f"failed (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value, append=True)
+                    self.flame_log("failed",
+                                   log_type=LogTypeLiteral.CRITICAL.value,
+                                   append=True,
+                                   hidden_error_msg=repr(e))
         else:
             self._data_api = True
 
@@ -107,14 +112,17 @@ class FlameCoreSDK:
             self.flame_log("success", append=True)
         except Exception as e:
             self._flame_api_thread = None
-            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value, append=True)
+            self.flame_log("failed",
+                           log_type=LogTypeLiteral.CRITICAL.value,
+                           append=True,
+                           hidden_error_msg=repr(e))
 
         if all([self._message_broker_api, self._po_api, self._storage_api, self._data_api, self._flame_api_thread]):
             self._flame_logger.set_runstatus(AnalysisStatus.EXECUTING.value)
             self.flame_log("FlameCoreSDK ready")
             self._file_system_lock = os.listdir(os.getcwd())
         else:
-            self.flame_log("FlameCoreSDK startup failed", log_type=LogTypeLiteral.ERROR.value)
+            self.flame_log("FlameCoreSDK startup failed", log_type=LogTypeLiteral.CRITICAL.value)
 
 
     ########################################General##################################################
@@ -359,7 +367,8 @@ class FlameCoreSDK:
                                        end=end,
                                        log_type=log_type,
                                        append=append,
-                                       halt_submission=halt_submission)
+                                       halt_submission=halt_submission,
+                                       hidden_error_msg=hidden_error_msg)
         else:
             self._flame_logger.raise_error(message=msg, hidden_error_msg=hidden_error_msg)
 

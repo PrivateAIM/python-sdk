@@ -68,10 +68,7 @@ class FlameLogger:
         Send all logs from the queue to the POAPI.
         """
         if self.po_api is None:
-            try:
-                raise ValueError("POAPI instance is not set. Use add_po_api() to set it.")
-            except ValueError as e:
-                self.raise_error(repr(e))
+            self.raise_error("Error: POAPI instance is not set. Use add_po_api() to set it before sending logs.")
         if not self.queue.empty():
             while not self.queue.empty():
                 log_dict = self.queue.get()
@@ -84,7 +81,8 @@ class FlameLogger:
                 end: str = '',
                 log_type: str = LogTypeLiteral.INFO.value,
                 append: bool = False,
-                halt_submission: bool = False) -> None:
+                halt_submission: bool = False,
+                hidden_error_msg: Optional[str] = None) -> None:
         """
         Print logs to console, if silent is set to False. May raise IOError, if append=False and log_type receives
         an invalid value.
@@ -94,15 +92,14 @@ class FlameLogger:
         :param log_type:
         :param append:
         :param halt_submission:
+        :param hidden_error_msg:
         :return:
         """
         log_type_literals = [lt.value for lt in LogTypeLiteral]
         if log_type not in log_type_literals:
-            try:
-                raise IOError(f"Invalid log type given to logging function "
-                              f"(known log_types={log_type_literals}, received log_type={log_type}).")
-            except IOError as e:
-                self.raise_error(f"When attempting to use logging function, this error occurred: {repr(e)}")
+            self.raise_error(f"When attempting to use logging function, this error occurred: Invalid log type given "
+                             f"to logging function (known log_types={log_type_literals}, "
+                             f"received log_type={log_type}).")
 
         if not self.silent:
             if isinstance(msg, bytes):
@@ -117,24 +114,27 @@ class FlameLogger:
                                  f"(type(msg)={type(msg)}).")
                 return
 
-            if log_type == LogTypeLiteral.DEBUG.value:
-                self.logger.debug(log)
-            elif log_type == LogTypeLiteral.INFO.value:
-                self.logger.info(log)
-            elif log_type == LogTypeLiteral.NOTICE.value:
-                self.logger.notice(log)
-            elif log_type == LogTypeLiteral.WARNING.value:
-                self.logger.warning(log)
-            elif log_type == LogTypeLiteral.ALERT.value:
-                self.logger.alert(log)
-            elif log_type == LogTypeLiteral.EMERGENCY.value:
-                self.logger.emerg(log)
-            elif log_type == LogTypeLiteral.ERROR.value:
-                self.logger.error(log)
-            elif log_type == LogTypeLiteral.CRITICAL.value:
-                self.logger.critical(log)
+            if hidden_error_msg is None:
+                if log_type == LogTypeLiteral.DEBUG.value:
+                    self.logger.debug(log)
+                elif log_type == LogTypeLiteral.INFO.value:
+                    self.logger.info(log)
+                elif log_type == LogTypeLiteral.NOTICE.value:
+                    self.logger.notice(log)
+                elif log_type == LogTypeLiteral.WARNING.value:
+                    self.logger.warning(log)
+                elif log_type == LogTypeLiteral.ALERT.value:
+                    self.logger.alert(log)
+                elif log_type == LogTypeLiteral.EMERGENCY.value:
+                    self.logger.emerg(log)
+                elif log_type == LogTypeLiteral.ERROR.value:
+                    self.logger.error(log)
+                elif log_type == LogTypeLiteral.CRITICAL.value:
+                    self.logger.critical(log)
+                else:
+                    pass # Impossible to reach
             else:
-                pass # Impossible to reach
+                self.logger.error(log + hidden_error_msg)
 
             if halt_submission:
                 self.log_ph = log
@@ -181,12 +181,13 @@ class FlameLogger:
 
                 # But also create new error log for queue
                 error_log_dict = {
-                    "msg": f"Failed to send log to POAPI: {repr(e)}",
+                    "msg": "Failed to send log to POAPI",
                     "log_type": LogTypeLiteral.WARNING.value,
                     "status": status,
                     "progress": self.progress
                 }
                 self.queue.put(error_log_dict)
+                self.logger.error(f"Failed to send log to POAPI: {repr(e)}")
 
 
 class JsonFormatter(logging.Formatter):
