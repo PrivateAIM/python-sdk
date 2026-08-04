@@ -24,8 +24,14 @@ class DataApiClient:
         self.project_id = project_id
         self.available_sources = asyncio.run(self._retrieve_available_sources())
         if not self.available_sources:
-            self.flame_logger.new_log(f"No data sources found for project {project_id}", log_type='warning')
-            raise ValueError(f"No data sources found for project {project_id}")
+            if self.available_sources == []:
+                self.flame_logger.new_log(f"No data sources found for project {project_id}",
+                                          log_type='warning')
+                raise ValueError(f"No data sources found for project {project_id}")
+            else:
+                self.flame_logger.new_log(f"Failed to retrieve available data sources for project {project_id}",
+                                          log_type='warning')
+                raise ValueError(f"Failed to retrieve available data sources for project {project_id}")
 
     def refresh_token(self, keycloak_token: str) -> None:
         self.hub_client = AsyncClient(base_url=f"http://{self.nginx_name}/hub-adapter",
@@ -99,12 +105,11 @@ class DataApiClient:
         client = AsyncClient(base_url=f"{path}")
         return client
 
-    async def _retrieve_available_sources(self) -> list[dict[str, Any]]:
+    async def _retrieve_available_sources(self) -> Optional[list[dict[str, Any]]]:
         try:
             response = await self.hub_client.get(f"/kong/datastore/{self.project_id}")
             response.raise_for_status()
-        except (HTTPStatusError, ConnectError, TimeoutException) as e:
-            self.flame_logger.raise_error(f"Failed to retrieve available data sources for project {self.project_id}:"
-                                          f" {repr(e)}")
+        except (HTTPStatusError, ConnectError, TimeoutException):
+            response = None
 
-        return response.json()['data']
+        return response.json()['data'] if response is not None else None
