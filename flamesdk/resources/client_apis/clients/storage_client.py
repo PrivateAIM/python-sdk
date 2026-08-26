@@ -1,5 +1,6 @@
 import math
 import uuid
+import time
 from httpx import Client, HTTPStatusError, ConnectError, TimeoutException, Timeout
 import pickle
 import re
@@ -9,7 +10,7 @@ from typing import Any, Literal, Optional
 from typing_extensions import TypedDict
 
 from flamesdk.resources.utils.logging import FlameLogger
-from flamesdk.resources.utils.constants import LogTypeLiteral
+from flamesdk.resources.utils.constants import LogTypeLiteral, MAX_REQUEST_REPEATS
 
 
 EXT_TO_OUTPUT_TYPE: dict[str, list[str]] = {
@@ -103,18 +104,18 @@ class StorageClient:
                 file_body = pickle.dumps(result)
         except (TypeError, ValueError, UnicodeEncodeError, pickle.PicklingError) as e:
             if output_type != 'pickle':
-                self.flame_logger.new_log(f"Failed to translate result data to type={output_type}:",
+                self.flame_logger.new_log(f"Failed to translate result data to type={output_type}",
                                           hidden_error_msg=repr(e),
                                           log_type=LogTypeLiteral.WARNING.value)
                 self.flame_logger.new_log("Attempting 'pickle' instead...", log_type=LogTypeLiteral.WARNING.value)
                 try:
                     file_body = pickle.dumps(result)
                 except pickle.PicklingError as e:
-                    self.flame_logger.raise_error(f"Failed to pickle result data: ",
+                    self.flame_logger.raise_error(f"Failed to pickle result data",
                                                   hidden_error_msg=repr(e))
                     file_body = None
             else:
-                self.flame_logger.raise_error(f"Failed to pickle result data:",
+                self.flame_logger.raise_error(f"Failed to pickle result data",
                                               hidden_error_msg=repr(e))
                 file_body = None
 
@@ -133,22 +134,35 @@ class StorageClient:
             # local_dp is guaranteed to not be None, so remap values to string and update request data mapping
             data.update({k: str(v) for k, v in local_dp.items()})
 
-        try:
-            effective_output_type = "str" if use_local_dp else output_type
-            if filename:
-                resolved_name = filename
-            else:
-                resolved_name = (f"result_{str(uuid.uuid4())[-4:]}_{datetime.now().strftime('%y%m%d%H%M%S')}"
-                                 f"{EXT_TO_OUTPUT_TYPE[effective_output_type][0]}")
-            response = self.client.put(request_path,
-                                       files={"file": (resolved_name,
-                                                       BytesIO(file_body))},
-                                       data=data,
-                                       headers=[('Connection', 'close')],
-                                       timeout=Timeout(5, read=None, write=None))
-            response.raise_for_status()
-        except (HTTPStatusError, ConnectError, TimeoutException) as e:
-            self.flame_logger.raise_error(f"Failed to push results:", hidden_error_msg=repr(e))
+        effective_output_type = "str" if use_local_dp else output_type
+        if filename:
+            resolved_name = filename
+        else:
+            resolved_name = (f"result_{str(uuid.uuid4())[-4:]}_{datetime.now().strftime('%y%m%d%H%M%S')}"
+                             f"{EXT_TO_OUTPUT_TYPE[effective_output_type][0]}")
+
+        i_repeat = 0
+        while i_repeat < MAX_REQUEST_REPEATS:
+            try:
+                response = self.client.put(request_path,
+                                           files={"file": (resolved_name,
+                                                           BytesIO(file_body))},
+                                           data=data,
+                                           headers=[('Connection', 'close')],
+                                           timeout=Timeout(5, read=None, write=None))
+                response.raise_for_status()
+                break
+            except (HTTPStatusError, ConnectError, TimeoutException) as e:
+                i_repeat += 1
+                if i_repeat < MAX_REQUEST_REPEATS:
+                    self.flame_logger.new_log(f"Failed to push results (reattempt {i_repeat} of "
+                                              f"{MAX_REQUEST_REPEATS})",
+                                              hidden_error_msg=repr(e),
+                                              log_type=LogTypeLiteral.WARNING.value)
+                    time.sleep(1)
+                if i_repeat == MAX_REQUEST_REPEATS:
+                    self.flame_logger.raise_error(f"Failed to push results", hidden_error_msg=repr(e))
+
         if type != "final":
             self.flame_logger.new_log(f"sending intermediate result",
                                       log_type=LogTypeLiteral.INFO.value)
@@ -207,12 +221,24 @@ class StorageClient:
         :param tag:
         :return:
         """
-        try:
-            response = self.client.get(f"/local/tags/{tag}")
-            response.raise_for_status()
-        except (HTTPStatusError, ConnectError, TimeoutException) as e:
-            self.flame_logger.raise_error(f"Failed to Retrieves the URL associated with the specified tag.:",
-                                          hidden_error_msg=repr(e))
+        i_repeat = 0
+        while i_repeat < MAX_REQUEST_REPEATS:
+            try:
+                response = self.client.get(f"/local/tags/{tag}")
+                response.raise_for_status()
+                break
+            except (HTTPStatusError, ConnectError, TimeoutException) as e:
+                i_repeat += 1
+                if i_repeat < MAX_REQUEST_REPEATS:
+                    self.flame_logger.new_log(f"Failed to retrieve the URL associated with the "
+                                              f"specified tag (reattempt {i_repeat} of {MAX_REQUEST_REPEATS})",
+                                              hidden_error_msg=repr(e),
+                                              log_type=LogTypeLiteral.WARNING.value)
+                    time.sleep(1)
+                if i_repeat == MAX_REQUEST_REPEATS:
+                    self.flame_logger.raise_error(f"Failed to retrieve the URL associated with the specified tag",
+                                                  hidden_error_msg=repr(e))
+
         urls = []
         for item in response.json()["results"]:
             item["url"] = item["url"].split("/local/")[1]
@@ -225,12 +251,23 @@ class StorageClient:
         :param url:
         :return:
         """
-        try:
-            response = self.client.get(url, timeout=Timeout(5, read=None, write=None))
-            response.raise_for_status()
-        except (HTTPStatusError, ConnectError, TimeoutException) as e:
-            self.flame_logger.raise_error(f"Failed to retrieve file from URL:",
-                                          hidden_error_msg=repr(e))
+        i_repeat = 0
+        while i_repeat < MAX_REQUEST_REPEATS:
+            try:
+                response = self.client.get(url, timeout=Timeout(5, read=None, write=None))
+                response.raise_for_status()
+                break
+            except (HTTPStatusError, ConnectError, TimeoutException) as e:
+                i_repeat += 1
+                if i_repeat < MAX_REQUEST_REPEATS:
+                    self.flame_logger.new_log(f"Failed to retrieve file from URL (reattempt {i_repeat} of "
+                                              f"{MAX_REQUEST_REPEATS})",
+                                              hidden_error_msg=repr(e),
+                                              log_type=LogTypeLiteral.WARNING.value)
+                    time.sleep(1)
+                if i_repeat == MAX_REQUEST_REPEATS:
+                    self.flame_logger.raise_error(f"Failed to retrieve file from URL", hidden_error_msg=repr(e))
+
         return pickle.loads(BytesIO(response.content).read())
 
     def get_local_tags(self, filter: Optional[str] = None) -> list[str]:
@@ -265,12 +302,22 @@ class StorageClient:
         Raises:
             HTTPError: If the request to fetch tags fails.
         """
-        try:
-            response = self.client.get("/local/tags", timeout=Timeout(5, read=None, write=None))
-            response.raise_for_status()
-        except (HTTPStatusError, ConnectError, TimeoutException) as e:
-            self.flame_logger.raise_error(f"Failed to retrieve local tags:",
-                                          hidden_error_msg=repr(e))
+        i_repeat = 0
+        while i_repeat < MAX_REQUEST_REPEATS:
+            try:
+                response = self.client.get("/local/tags", timeout=Timeout(5, read=None, write=None))
+                response.raise_for_status()
+                break
+            except (HTTPStatusError, ConnectError, TimeoutException) as e:
+                i_repeat += 1
+                if i_repeat < MAX_REQUEST_REPEATS:
+                    self.flame_logger.new_log(f"Failed to retrieve local tags (reattempt {i_repeat} of "
+                                              f"{MAX_REQUEST_REPEATS})",
+                                              hidden_error_msg=repr(e),
+                                              log_type=LogTypeLiteral.WARNING.value)
+                    time.sleep(1)
+                if i_repeat == MAX_REQUEST_REPEATS:
+                    self.flame_logger.raise_error(f"Failed to retrieve local tags", hidden_error_msg=repr(e))
 
         tag_name_list = [tag["name"] for tag in response.json()["tags"]]
 

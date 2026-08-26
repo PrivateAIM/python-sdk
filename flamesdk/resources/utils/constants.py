@@ -4,6 +4,9 @@ from enum import Enum
 CHECKPOINT_TAG_PREFIX = 'checkpoint-'
 
 
+MAX_REQUEST_REPEATS = 5
+
+
 class AnalysisStatus(Enum):
     STARTING = 'starting'
     STARTED = 'started'
