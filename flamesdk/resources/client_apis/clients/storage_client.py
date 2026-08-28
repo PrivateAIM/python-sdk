@@ -164,9 +164,7 @@ class StorageClient:
                     self.flame_logger.raise_error(f"Failed to push results", hidden_error_msg=repr(e))
 
         if type != "final":
-            self.flame_logger.new_log(f"sending intermediate result",
-                                      log_type=LogTypeLiteral.INFO.value)
-            self.flame_logger.new_log(f"push response body: {response.json()}",
+            self.flame_logger.new_log(f"Saving intermediate result (response body: {response.json()})",
                                       log_type=LogTypeLiteral.DEBUG.value)
         else:
             return {"status": "success"}
