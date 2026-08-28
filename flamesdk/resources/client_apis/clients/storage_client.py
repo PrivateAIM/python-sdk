@@ -1,7 +1,7 @@
 import math
 import uuid
 import time
-from httpx import Client, HTTPStatusError, ConnectError, TimeoutException, Timeout
+from httpx import Client, HTTPError, Timeout
 import pickle
 import re
 from datetime import datetime
@@ -152,7 +152,7 @@ class StorageClient:
                                            timeout=Timeout(5, read=None, write=None))
                 response.raise_for_status()
                 break
-            except (HTTPStatusError, ConnectError, TimeoutException) as e:
+            except HTTPError as e:
                 i_repeat += 1
                 if i_repeat < MAX_REQUEST_REPEATS:
                     self.flame_logger.new_log(f"Failed to push results (reattempt {i_repeat} of "
@@ -225,7 +225,7 @@ class StorageClient:
                 response = self.client.get(f"/local/tags/{tag}")
                 response.raise_for_status()
                 break
-            except (HTTPStatusError, ConnectError, TimeoutException) as e:
+            except HTTPError as e:
                 i_repeat += 1
                 if i_repeat < MAX_REQUEST_REPEATS:
                     self.flame_logger.new_log(f"Failed to retrieve the URL associated with the "
@@ -255,7 +255,7 @@ class StorageClient:
                 response = self.client.get(url, timeout=Timeout(5, read=None, write=None))
                 response.raise_for_status()
                 break
-            except (HTTPStatusError, ConnectError, TimeoutException) as e:
+            except HTTPError as e:
                 i_repeat += 1
                 if i_repeat < MAX_REQUEST_REPEATS:
                     self.flame_logger.new_log(f"Failed to retrieve file from URL (reattempt {i_repeat} of "
@@ -306,7 +306,7 @@ class StorageClient:
                 response = self.client.get("/local/tags", timeout=Timeout(5, read=None, write=None))
                 response.raise_for_status()
                 break
-            except (HTTPStatusError, ConnectError, TimeoutException) as e:
+            except HTTPError as e:
                 i_repeat += 1
                 if i_repeat < MAX_REQUEST_REPEATS:
                     self.flame_logger.new_log(f"Failed to retrieve local tags (reattempt {i_repeat} of "
