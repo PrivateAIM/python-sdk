@@ -76,10 +76,8 @@ def fhir_to_csv(fhir_data: dict[str, Any],
                         df_dict[col_id] = {}
                     df_dict[col_id][str(i)] = value
             else:
-                try:
-                    raise IOError(f"Unknown resource specified (given={input_resource}, known={_KNOWN_RESOURCES})")
-                except IOError as e:
-                    flame_logger.raise_error(f"Error while parsing fhir data: {repr(e)}")
+                flame_logger.raise_error(f"Error while parsing fhir data: Unknown resource specified "
+                                         f"(given={input_resource}, known={_KNOWN_RESOURCES})")
 
         # get next data
         if (data_client is None) or (isinstance(data_client, bool)):

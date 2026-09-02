@@ -1,3 +1,4 @@
+import os
 import time
 import asyncio
 from httpx import AsyncClient
@@ -17,7 +18,7 @@ from flamesdk.resources.rest_api import FlameAPI
 from flamesdk.resources.utils.fhir import fhir_to_csv
 from flamesdk.resources.utils.utils import wait_until_nginx_online
 from flamesdk.resources.utils.logging import FlameLogger
-from flamesdk.resources.utils.constants import AnalysisStatus, LogTypeLiteral
+from flamesdk.resources.utils.constants import AnalysisStatus, LogTypeLiteral, CHECKPOINT_TAG_PREFIX
 
 
 class FlameCoreSDK:
@@ -25,6 +26,7 @@ class FlameCoreSDK:
     def __init__(
             self,
             aggregator_requires_data: bool = False,
+            default_requires_data: bool = True, #TODO: Apply different method to determine Proxy Node
             stream_log_level: int = 20,
             silent: bool = False,
             status_sync: Optional[tuple[Literal['executed', 'stopped', 'failed']]] = (AnalysisStatus.EXECUTED.value,
@@ -42,7 +44,9 @@ class FlameCoreSDK:
         try:
             wait_until_nginx_online(self.config.nginx_name, self._flame_logger)
         except Exception as e:
-            self.flame_log(f"Nginx connection failure (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value)
+            self.flame_log(f"Nginx connection failure",
+                           log_type=LogTypeLiteral.CRITICAL.value,
+                           hidden_error_msg=repr(e))
 
         # Set up the connection to all the services needed
         ## Connect to MessageBroker
@@ -52,13 +56,13 @@ class FlameCoreSDK:
             self.flame_log("success", append=True)
         except Exception as e:
             self._message_broker_api = None
-            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value, append=True)
+            self.flame_log("failed", log_type=LogTypeLiteral.CRITICAL.value, append=True, hidden_error_msg=repr(e))
         try:
             ### Update config with self_config from MessageBroker
             self.config = self._message_broker_api.config
         except Exception as e:
-            self.flame_log(f"Unable to retrieve node config from message broker (error_msg='{repr(e)}')",
-                           log_type=LogTypeLiteral.ERROR.value)
+            self.flame_log(f"Unable to retrieve node config from message broker",
+                           log_type=LogTypeLiteral.CRITICAL.value, hidden_error_msg=repr(e))
 
         ## Connect to POService
         self.flame_log("\tConnecting to PO service...", end='', halt_submission=True)
@@ -68,7 +72,7 @@ class FlameCoreSDK:
             self.flame_log("success", append=True)
         except Exception as e:
             self._po_api = None
-            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value, append=True)
+            self.flame_log("failed", log_type=LogTypeLiteral.CRITICAL.value, append=True, hidden_error_msg=repr(e))
 
         ## Connect to ResultService
         self.flame_log("\tConnecting to ResultService...", end='', halt_submission=True)
@@ -77,7 +81,7 @@ class FlameCoreSDK:
             self.flame_log("success", append=True)
         except Exception as e:
             self._storage_api = None
-            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value, append=True)
+            self.flame_log("failed", log_type=LogTypeLiteral.CRITICAL.value, append=True, hidden_error_msg=repr(e))
 
         if (self.config.node_role == 'default') or aggregator_requires_data:
             ## Connection to DataService
@@ -86,8 +90,16 @@ class FlameCoreSDK:
                 self._data_api = DataAPI(self.config, self._flame_logger)
                 self.flame_log("success", append=True)
             except Exception as e:
-                self._data_api = None
-                self.flame_log(f"failed (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value, append=True)
+                if isinstance(e, ValueError) and (not default_requires_data): #TODO: Apply different method to determine Proxy Node
+                    self._data_api = True
+                    self.config.set_role("proxy")  # set role to proxy if data api connection fails
+                    self.flame_log("success (as proxy)", append=True)
+                else:
+                    self._data_api = None
+                    self.flame_log("failed",
+                                   log_type=LogTypeLiteral.CRITICAL.value,
+                                   append=True,
+                                   hidden_error_msg=repr(e))
         else:
             self._data_api = True
 
@@ -100,13 +112,17 @@ class FlameCoreSDK:
             self.flame_log("success", append=True)
         except Exception as e:
             self._flame_api_thread = None
-            self.flame_log(f"failed (error_msg='{repr(e)}')", log_type=LogTypeLiteral.ERROR.value, append=True)
+            self.flame_log("failed",
+                           log_type=LogTypeLiteral.CRITICAL.value,
+                           append=True,
+                           hidden_error_msg=repr(e))
 
         if all([self._message_broker_api, self._po_api, self._storage_api, self._data_api, self._flame_api_thread]):
             self._flame_logger.set_runstatus(AnalysisStatus.EXECUTING.value)
             self.flame_log("FlameCoreSDK ready")
+            self._file_system_lock = os.listdir(os.getcwd())
         else:
-            self.flame_log("FlameCoreSDK startup failed", log_type=LogTypeLiteral.ERROR.value)
+            self.flame_log("FlameCoreSDK startup failed", log_type=LogTypeLiteral.CRITICAL.value)
 
 
     ########################################General##################################################
@@ -122,7 +138,9 @@ class FlameCoreSDK:
 
     def get_participants(self) -> list[dict[str, str]]:
         """
-        Returns a list of all participant configs in the analysis
+        Returns a list of all participant configs in the analysis. Note: This will only return the participating nodes'
+        types, which are not to be confused with the nodes' roles (see ``self.partner_role_call(...)`` or
+        ``self.full_role_call(...)`` instead).
         :return: the list of participants
         """
         return self._message_broker_api.participants
@@ -155,13 +173,96 @@ class FlameCoreSDK:
         """
         return self.config.node_id
 
-    def get_role(self) -> Literal['default', 'aggregator']:
+    def get_type(self) -> Literal['default', 'aggregator']:
         """
-        Returns the role of the node. "aggregator" means that the node can submit final results using
-        "submit_final_result", else "default" (this may change with further permission settings).
-        :return: the role of the node
+        Returns the node type. ``"aggregator"`` means that the node can submit final results using
+        ``"self.submit_final_result(...)"``, else ``"default"``.
+        :return: the type of this node
+        """
+        return self.config.node_type
+
+    def get_role(self) -> str:
+        """
+        Returns the node role. Immediately after node analysis initialization equal to ``self.get_type()``,
+        if not set manually via ``self.set_role(...)``.
+        :return: the role of this node
         """
         return self.config.node_role
+
+    def set_role(self, role: str) -> str:
+        """
+        Sets the role of this node.
+        :return: the role of this node
+        """
+        return self.config.set_role(role)
+
+    def partner_role_call(self,
+                          node_ids: list[str],
+                          max_attempts: int = 1,
+                          timeout: Optional[int] = None,
+                          attempt_timeout: int = 10) -> dict[str, Optional[str]]:
+        """
+        Returns a dict of roles for partner nodes given their node_ids. Will set None as value instead, if respective
+        node_id could not be found in get_participant_ids, or if timeout was reached.
+        :return: the role of partner node
+        """
+        returned_roles = {}
+        verified_partner_node_ids = []
+        for id in node_ids:
+            if id in self.get_participant_ids():
+                verified_partner_node_ids.append(id)
+            else:
+                self.flame_log(f"Found unknown node_id in partner_role_call input id={id} not "
+                               f"contained in participant_ids. Excluding this id for result.",
+                               log_type=LogTypeLiteral.WARNING.value)
+        acknowledged, _ = self.send_message(receivers=verified_partner_node_ids,
+                                            message_category='role_call',
+                                            message={},
+                                            max_attempts=max_attempts,
+                                            timeout=timeout,
+                                            attempt_timeout=attempt_timeout)
+        message_dict = self.await_messages(senders=verified_partner_node_ids,
+                                           message_category='role_call_answer',
+                                           timeout=timeout)
+        for node_id in verified_partner_node_ids:
+            returned_roles[node_id] = message_dict[node_id][-1].body['role'] if message_dict else None
+        return returned_roles
+
+    def full_role_call(self,
+                       max_attempts: int = 1,
+                       timeout: Optional[int] = None,
+                       attempt_timeout: int = 10) -> dict[str, Optional[str]]:
+        """
+        Returns a dictionary containing of all roles of all partner nodes. Will individually return None instead of a
+        role value, if timeout was reached.
+        :return: the role of the node
+        """
+        return self.partner_role_call(node_ids=self.get_participant_ids(),
+                                      max_attempts=max_attempts,
+                                      timeout=timeout,
+                                      attempt_timeout=attempt_timeout)
+
+    def get_self_node_index(self) -> int:
+        """
+        Returns the index of the executing node id from list containing all analysis node ids sorted alphanumerically.
+        :return: the node id index
+        """
+        return self.get_node_index(self.get_id())
+
+    def get_node_index(self, node_id: str) -> Optional[int]:
+        """
+        Returns the index of the given node id from list containing all analysis node ids sorted alphanumerically.
+        If the given id cannot be found returns None.
+        :return: the node id index or None
+        """
+        id_list = self.get_participant_ids()
+        id_list.append(self.get_id())
+        if node_id in id_list:
+            return sorted(id_list).index(node_id)
+        else:
+            self.flame_log(f"\tSearched node id '{node_id}' not found during indexing attempt",
+                           log_type= LogTypeLiteral.WARNING.value)
+            return None
 
     def analysis_finished(self) -> bool:
         """
@@ -176,6 +277,13 @@ class FlameCoreSDK:
                               attempt_timeout=30)
 
         return self._node_finished()
+
+    def node_has_data(self) -> bool:
+        """
+        Returns whether the node has access to data via DataAPI
+        :return: bool
+        """
+        return isinstance(self._data_api, DataAPI)
 
     def ready_check(self,
                     nodes: list[str] = 'all',
@@ -219,6 +327,7 @@ class FlameCoreSDK:
         start_time = datetime.now()
 
         time_passed = (datetime.now() - start_time).seconds
+        nodes = nodes.copy()
         while (not all(received.values())) and ((timeout is None) or (time_passed < timeout)):
             acknowledged_list, _ = self.send_message(receivers=nodes,
                                                      message_category='ready_check',
@@ -239,7 +348,8 @@ class FlameCoreSDK:
                   end: str = '',
                   log_type: str = LogTypeLiteral.INFO.value,
                   append: bool = False,
-                  halt_submission: bool = False) -> None:
+                  halt_submission: bool = False,
+                  hidden_error_msg: Optional[str] = None) -> None:
         """
         Prints logs to console and submits them to the hub (as soon as a connection is established, until then they will be queued).
         :param msg:
@@ -248,6 +358,7 @@ class FlameCoreSDK:
         :param log_type:
         :param append:
         :param halt_submission:
+        :param hidden_error_msg:
         :return:
         """
         if log_type != LogTypeLiteral.ERROR.value:
@@ -256,9 +367,10 @@ class FlameCoreSDK:
                                        end=end,
                                        log_type=log_type,
                                        append=append,
-                                       halt_submission=halt_submission)
+                                       halt_submission=halt_submission,
+                                       hidden_error_msg=hidden_error_msg)
         else:
-            self._flame_logger.raise_error(msg)
+            self._flame_logger.raise_error(message=msg, hidden_error_msg=hidden_error_msg)
 
     def get_progress(self) -> int:
         """
@@ -274,6 +386,93 @@ class FlameCoreSDK:
         :return:
         """
         self._flame_logger.set_progress(progress)
+
+    def set_checkpoint(self, kwargs: dict[str, Any], file_paths: Optional[list[str]] = None) -> None:
+        """
+        Saves given kwargs into local node storage for future analysis retrieval. raise Warning for incorrect format
+        of kwargs
+
+        :param kwargs:
+        :return:
+        """
+        if not isinstance(kwargs, dict):
+            self.flame_log(msg=f'Expected dictionary object for kwargs in checkpoint save but received {type(kwargs)}.'
+                               f' Could not save checkpoint',
+                           log_type=LogTypeLiteral.WARNING.value)
+        elif not any(isinstance(key, str) for key in kwargs.keys()):
+            self.flame_log(msg=f'Expected string object for kwargs keys in checkpoint save but received '
+                               f'{[type(k) for k in kwargs.keys()]}. Could not save checkpoint',
+                           log_type=LogTypeLiteral.WARNING.value)
+        else:
+            i = len(self.get_local_tags(CHECKPOINT_TAG_PREFIX)) + 1
+            self.flame_log(msg=f'Saved checkpoint no.{i}', log_type=LogTypeLiteral.INFO.value)
+
+            file_system_diff = {}
+            list_dir = os.listdir(os.getcwd())
+            if file_paths is not None:
+                list_dir.extend(file_paths)
+            self.flame_log(f'to be added: {list_dir}', log_type=LogTypeLiteral.DEBUG.value)
+            self.flame_log(f'locked: {self._file_system_lock}', log_type=LogTypeLiteral.DEBUG.value)
+            for e in list_dir:
+                if e not in self._file_system_lock:
+                    self.flame_log(f'found to differ: {e}', log_type=LogTypeLiteral.DEBUG.value)
+                    e_path = os.path.join(os.getcwd(), e)
+                    for path, subdirs, files in os.walk(e_path):
+                        if files:
+                            for name in files:
+                                file_path = os.path.join(path, name)
+                                with open(file_path, 'rb') as f:
+                                    file_system_diff[file_path] = f.read()
+                                self.flame_log(f'save file: {file_path}', log_type=LogTypeLiteral.DEBUG.value)
+                        elif (not subdirs) and (not files):
+                            file_system_diff[path] = []
+                            self.flame_log(f'save empty dir: {path}', log_type=LogTypeLiteral.DEBUG.value)
+
+            self._storage_api.save_intermediate_data(data=(kwargs, file_system_diff),
+                                                     location='local',
+                                                     tag=f"{CHECKPOINT_TAG_PREFIX}{i}-end")
+
+    def load_checkpoint(self, index: int) -> Optional[dict[str, Any]]:
+        """
+        Load saved kwargs from previous checkpoint with given index. return None if not found
+
+        :param index:
+        :return kwargs:
+        """
+        checkpoint_name = f"{CHECKPOINT_TAG_PREFIX}{index}-end"
+        locally_tagged_saves = self.get_local_tags(checkpoint_name)
+        if len(locally_tagged_saves) == 1:
+            self.flame_log(msg=f'Loading checkpoint no.{index}', log_type=LogTypeLiteral.INFO.value)
+            kwargs, file_system_diff = self.get_intermediate_data(location='local', tag=checkpoint_name)[0]
+            for k, v in file_system_diff.items():
+                is_file = bool(v)
+                for i in range(len(k.split('/'))):
+                    current_path = os.path.join(os.getcwd(), *k.split('/')[:i+1])
+                    self.flame_log(f'current_path: {current_path}, '
+                                   f'is_file: {is_file}, '
+                                   f'exists: {os.path.exists(current_path)}, '
+                                   f'last element: {i == len(k.split("/")) - 1}', log_type=LogTypeLiteral.DEBUG.value)
+                    if is_file:
+                        if (not os.path.exists(current_path)) and (i < len(k.split('/')) - 1):
+                            os.mkdir(current_path)
+                            self.flame_log(f'create dir: {current_path}', log_type=LogTypeLiteral.DEBUG.value)
+                        elif i == len(k.split('/')) - 1:
+                            with open(k, 'wb') as f:
+                                f.write(v)
+                            self.flame_log(f'write file: {k}', log_type=LogTypeLiteral.DEBUG.value)
+                    else:
+                        if not os.path.exists(current_path):
+                            os.mkdir(current_path)
+                            self.flame_log(f'create dir: {current_path}', log_type=LogTypeLiteral.DEBUG.value)
+            return kwargs
+        elif len(locally_tagged_saves) > 1:
+            self.flame_log(msg=f'Error: Loading checkpoint no.{index} failed. Multiple saves under same tag found',
+                           log_type=LogTypeLiteral.ERROR.value)
+            return None
+        else:
+            self.flame_log(msg=f'No checkpoint {index} was found. Returning None',
+                           log_type=LogTypeLiteral.WARNING.value)
+            return None
 
     def fhir_to_csv(self,
                     fhir_data: dict[str, Any],
@@ -443,7 +642,7 @@ class FlameCoreSDK:
                                data: Any,
                                location: Literal["local", "global"],
                                remote_node_ids: Optional[list[str]] = None,
-                               tag: Optional[str] = None) -> Union[dict[str, dict[str, str]], dict[str, str]]:
+                               tag: Optional[str] = None) -> Optional[Union[dict[str, dict[str, str]], dict[str, str]]]:
         """
         Saves intermediate results/data either on the hub (location="global"), or locally (location="local")
         :param data: the result to save
@@ -453,12 +652,18 @@ class FlameCoreSDK:
         :return: the request status code{"status":, "url":, "id": }, or dict of said dicts if encrypted mode is used, i.e. remote_node_ids are set
         """
         if (location == "global") and (remote_node_ids is None):
-            raise ValueError("remote_node_ids must be provided when saving global intermediate data")
-
-        return self._storage_api.save_intermediate_data(data,
-                                                        location=location,
-                                                        remote_node_ids=remote_node_ids,
-                                                        tag=tag)
+            self.flame_log(msg="remote_node_ids must be provided when saving global intermediate data",
+                           log_type=LogTypeLiteral.ERROR.value)
+        elif (tag is not None) and (CHECKPOINT_TAG_PREFIX in tag):
+            self.flame_log(msg=f"Provided the tag='{tag}' containing '{CHECKPOINT_TAG_PREFIX}' which is a protected flag for "
+                               f"checkpoint saves. Data was not saved.",
+                           log_type=LogTypeLiteral.WARNING.value)
+        else:
+            return self._storage_api.save_intermediate_data(data,
+                                                            location=location,
+                                                            remote_node_ids=remote_node_ids,
+                                                            tag=tag)
+        return None
 
     def get_intermediate_data(self,
                               location: Literal["local", "global"],
@@ -592,7 +797,7 @@ class FlameCoreSDK:
         Returns a list of all data sources available for this project.
         :return: the list of data sources
         """
-        if isinstance(self._data_api, DataAPI):
+        if self.node_has_data():
             return self._data_api.get_data_sources()
         else:
             self.flame_log("Data API is not available, cannot retrieve data sources",
@@ -605,7 +810,7 @@ class FlameCoreSDK:
         :param data_id: the id of the data source
         :return: the data client
         """
-        if isinstance(self._data_api, DataAPI):
+        if self.node_has_data():
             return self._data_api.get_data_client(data_id)
         else:
             self.flame_log("Data API is not available, cannot retrieve data client",
@@ -618,7 +823,7 @@ class FlameCoreSDK:
         :param fhir_queries: list of queries to get the data
         :return:
         """
-        if isinstance(self._data_api, DataAPI):
+        if self.node_has_data():
             return self._data_api.get_fhir_data(fhir_queries)
         else:
             self.flame_log("Data API is not available, cannot retrieve FHIR data",
@@ -631,7 +836,7 @@ class FlameCoreSDK:
         :param s3_keys:f
         :return:
         """
-        if isinstance(self._data_api, DataAPI):
+        if self.node_has_data():
             return self._data_api.get_s3_data(s3_keys)
         else:
             self.flame_log("Data API is not available, cannot retrieve S3 data",
@@ -646,7 +851,7 @@ class FlameCoreSDK:
         :return:
         """
         self.flame_api = FlameAPI(self._message_broker_api.message_broker_client,
-                                  self._data_api.data_client if isinstance(self._data_api, DataAPI) else self._data_api,
+                                  self._data_api.data_client if self.node_has_data() else self._data_api,
                                   self._storage_api.storage_client,
                                   self._po_api.po_client,
                                   self._flame_logger,

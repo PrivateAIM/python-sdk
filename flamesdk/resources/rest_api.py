@@ -5,7 +5,6 @@ import time
 import uvicorn
 from typing import Any, Callable, Union, Optional, Literal
 
-
 from fastapi import FastAPI, APIRouter, Request, Depends
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -107,7 +106,7 @@ class FlameAPI:
                 self.keycloak_token = new_token
                 return JSONResponse(content={"message": "Token refreshed successfully"})
             except Exception as e:
-                self.flame_logger.raise_error(f"stack trace {repr(e)}")
+                self.flame_logger.raise_error(f"stack trace see in node", hidden_error_msg=repr(e))
                 raise HTTPException(status_code=500, detail=str(e))
 
         @router.post("/webhook", response_class=JSONResponse)
@@ -130,12 +129,12 @@ class FlameAPI:
                 else:
                     return JSONResponse(content={"status": self.flame_logger.runstatus})
             except Exception as e:
-                self.flame_logger.raise_error(f"stack trace {repr(e)}")
+                self.flame_logger.raise_error(f"stack trace see in node", hidden_error_msg=repr(e))
                 raise HTTPException(status_code=500, detail=str(e))
 
         @router.get("/healthz", response_class=JSONResponse)
         def health() -> dict[str, Union[str, int]]:
-            response_json = {"status": self._finished([self.message_broker, self.data_client, self.storage_client]),
+            response_json = {"status": self._status(),
                              "token_remaining_time": extract_remaining_time_from_token(self.keycloak_token,
                                                                                        self.flame_logger)}
             self.flame_logger.new_log(f"Forwarding status={response_json['status']} via health endpoint",
@@ -149,8 +148,8 @@ class FlameAPI:
 
         uvicorn.run(app, host="0.0.0.0", port=8000)
 
-    def _finished(self, clients: list[Any]) -> str:
-        init_failed = None in clients
+    def _status(self) -> str:
+        init_failed = None in [self.message_broker, self.data_client, self.storage_client]
         main_alive = threading.main_thread().is_alive()
         self.flame_logger.new_log(f"Finished check: runstatus={self.flame_logger.runstatus}, "
                                   f"init_failed={init_failed}, main_alive={main_alive}",
