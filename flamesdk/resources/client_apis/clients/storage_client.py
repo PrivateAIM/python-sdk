@@ -266,7 +266,7 @@ class StorageClient:
                 if i_repeat == MAX_REQUEST_REPEATS:
                     self.flame_logger.raise_error(f"Failed to retrieve file from URL", hidden_error_msg=repr(e))
 
-        return pickle.loads(BytesIO(response.content).read())
+        return pickle.loads(response.content)
 
     def get_local_tags(self, filter: Optional[str] = None) -> list[str]:
         """
