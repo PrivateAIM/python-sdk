@@ -87,7 +87,7 @@ class FlameCoreSDK:
             ## Connection to DataService
             self.flame_log("\tConnecting to DataApi...", end='', halt_submission=True)
             try:
-                self._data_api = DataAPI(self.config, self._flame_logger)
+                self._data_api = DataAPI(self.config, self._flame_logger, default_requires_data)
                 self.flame_log("success", append=True)
             except Exception as e:
                 if isinstance(e, ValueError) and (not default_requires_data): #TODO: Apply different method to determine Proxy Node

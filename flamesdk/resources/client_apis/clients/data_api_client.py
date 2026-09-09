@@ -9,7 +9,13 @@ from flamesdk.resources.utils.constants import LogTypeLiteral
 
 
 class DataApiClient:
-    def __init__(self, project_id: str, nginx_name: str, data_source_token: str, keycloak_token: str, flame_logger: FlameLogger) -> None:
+    def __init__(self,
+                 project_id: str,
+                 nginx_name: str,
+                 data_source_token: str,
+                 keycloak_token: str,
+                 flame_logger: FlameLogger,
+                 default_requires_data: bool = True) -> None:
         self.nginx_name = nginx_name
         self.flame_logger = flame_logger
         self.client = AsyncClient(base_url=f"http://{nginx_name}/kong",
@@ -23,7 +29,7 @@ class DataApiClient:
 
         self.project_id = project_id
         self.available_sources = asyncio.run(self._retrieve_available_sources())
-        if not self.available_sources:
+        if default_requires_data and (not self.available_sources):
             if self.available_sources == []:
                 self.flame_logger.new_log(f"No data sources found for project {project_id}",
                                           log_type=LogTypeLiteral.CRITICAL.value)

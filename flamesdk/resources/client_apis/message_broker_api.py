@@ -178,9 +178,9 @@ class MessageBrokerAPI:
                                             attempt_timeout: int = 10) -> dict[str, Optional[list[Message]]]:
         """
         Sends a message to all specified nodes and waits for responses, (combines send_message and await_responses)
-        :param receivers:  list of node ids to send the message to
+        :param receivers: list of node ids to send the message to
         :param message_category: a string that specifies the message category,
-        :param message:  the message to send
+        :param message: the message to send
         :param max_attempts: the maximum number of attempts to send the message
         :param timeout: time in seconds to wait for the message acknowledgement, if None waits indefinitely
         :param attempt_timeout: timeout of each attempt, if timeout is None (the last attempt will be indefinite though)
