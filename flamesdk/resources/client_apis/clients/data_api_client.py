@@ -28,7 +28,7 @@ class DataApiClient:
                                       follow_redirects=True)
 
         self.project_id = project_id
-        self.available_sources = asyncio.run(self._retrieve_available_sources())
+        self.available_sources = asyncio.run(self._retrieve_available_sources(default_requires_data))
         if default_requires_data and (not self.available_sources):
             if self.available_sources == []:
                 self.flame_logger.new_log(f"No data sources found for project {project_id}",
@@ -114,12 +114,14 @@ class DataApiClient:
         client = AsyncClient(base_url=f"{path}")
         return client
 
-    async def _retrieve_available_sources(self) -> list[dict[str, Any]]:
+    async def _retrieve_available_sources(self, default_requires_data: bool = True) -> list[dict[str, Any]]:
         try:
             response = await self.hub_client.get(f"/kong/datastore/{self.project_id}")
             response.raise_for_status()
         except (HTTPStatusError, ConnectError, TimeoutException) as e:
-            self.flame_logger.new_log(f"Failed to retrieve available data sources for project {self.project_id}",
+            if default_requires_data:
+                self.flame_logger.new_log(f"Failed to retrieve available data sources for project "
+                                          f"{self.project_id}",
                                           log_type=LogTypeLiteral.CRITICAL.value)
             raise ValueError(f"Failed to retrieve available data sources for project {self.project_id}: {repr(e)}")
 
