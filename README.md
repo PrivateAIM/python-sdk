@@ -66,7 +66,10 @@ FlameCoreSDK(
   a proxy node (its role is set to `"proxy"`) instead of failing startup.
 - `stream_log_level` — minimum log level submitted to the hub (see [Logging](#logging)).
 - `silent` — suppress console output.
-- `status_sync` — terminal states the analysis REST API advertises to partner nodes.
+- `status_sync` — terminal states this node **adopts** when a partner node reports them, checked
+  in the order `executed`, `stopped`, `failed`. Pass an empty tuple to disable status syncing.
+  Partner statuses are ignored for the first 100 seconds after startup, so a node that is still
+  coming up is not dragged into a terminal state by partners that are further along.
 
 ### Startup sequence
 
@@ -133,9 +136,16 @@ prints to the console and submits the log to the hub (logs created before the PO
 is up are queued). Log types are defined by `LogTypeLiteral` in
 `flamesdk/resources/utils/constants.py`: `debug` (10), `info` (20), `notice` (25), `warn` (30),
 `alert` (33), `emerg` (36), `error` (40), `crit` (50). Only logs at or above `stream_log_level` are
-submitted. `log_type='error'` raises the error in addition to logging it; `hidden_error_msg` keeps a
-stacktrace in the local log without submitting it to the hub. `halt_submission=True` defers
-submission until the following log call, which is how `"…success"` / `"…failed"` end up on one line.
+submitted. `hidden_error_msg` keeps a stacktrace in the local log without submitting it to the
+hub. `halt_submission=True` defers submission until the following log call, which is how
+`"…success"` / `"…failed"` end up on one line.
+
+> **`log_type='error'` is terminal, and despite the name it raises nothing.** It routes to
+> `FlameLogger.raise_error`, which flips the analysis status to `failed`, submits the message, and
+> then sleeps for 1000 seconds so the platform can collect the final logs and reap the container.
+> Control does not come back to your code and there is no exception to catch — treat a call to it
+> as the last line that runs. The same applies to the internal `raise_error` calls in the client
+> APIs, which is why a failed validation shows up as a stalled container rather than a traceback.
 
 ### Progress
 
@@ -247,7 +257,7 @@ The background `FlameAPI` thread exposes:
 | --- | --- |
 | `GET /healthz` | health check, reports the current analysis status |
 | `POST /webhook` | incoming messages from the Message Broker |
-| `POST /partner_status` | partner node status updates |
+| `POST /partner_status` | partner node status updates (see `status_sync`; ignored for the first 100 s) |
 | `POST /token_refresh` | refreshes the Keycloak token on all clients |
 
 ## Repository layout
@@ -281,12 +291,17 @@ request/response plumbing.
 ```bash
 poetry run pytest                                # unit tests (tests/test_images is ignored)
 poetry run pytest tests/unit_test/test_util.py   # a single test module
-poetry run ruff check .                          # lint
-poetry run ruff format .                         # format
+poetry run ruff check flamesdk/                  # lint
+poetry run ruff format flamesdk/                 # format
 poetry run pre-commit run --all-files
 ```
 
 Run pytest from the repository root — fixtures reference their data files relative to it.
+
+`flamesdk/` is lint-clean and `ruff format`-clean, and every module, class and function in it carries
+a docstring, so `help(...)` and IDE tooltips are the fastest reference for anything below. Note that
+`pre-commit run --all-files` also rewrites files under `tests/`, which is not always what you want
+mid-change.
 
 Commits are checked by `conventional-pre-commit`, so use Conventional Commits (`feat:`, `fix:`,
 `chore:`, `refactor:` …).
