@@ -1,3 +1,5 @@
+"""Logging for analysis containers, with forwarding to the PO service."""
+
 import string
 import time
 from typing import Union, Optional
@@ -12,6 +14,16 @@ from flamesdk.resources.utils.constants import AnalysisStatus, LogTypeLiteral
 
 
 class FlameLogger:
+    """Writes analysis logs locally and forwards them to the PO service.
+
+    The logger is constructed before any sidecar client exists, so logs made
+    early are held in a queue; :meth:`add_po_api` attaches the PO service once
+    it is up and the backlog is flushed on the next submission.
+
+    Every log also carries the node's current run status and progress, which is
+    why those are tracked here rather than by the caller.
+    """
+
     def __init__(self, silent: bool = False) -> None:
         """
         Initialize the FlameLog class with a silent mode.
@@ -40,10 +52,15 @@ class FlameLogger:
         if status not in [s.value for s in AnalysisStatus]:
             status = AnalysisStatus.FAILED.value
         if status == AnalysisStatus.STOPPED.value:
-            self.new_log(msg='Analysis execution was stopped on another node.', log_type=LogTypeLiteral.INFO.value)
-        if self.runstatus not in [AnalysisStatus.EXECUTED.value,
-                                  AnalysisStatus.STOPPED.value,
-                                  AnalysisStatus.FAILED.value]:
+            self.new_log(
+                msg="Analysis execution was stopped on another node.",
+                log_type=LogTypeLiteral.INFO.value,
+            )
+        if self.runstatus not in [
+            AnalysisStatus.EXECUTED.value,
+            AnalysisStatus.STOPPED.value,
+            AnalysisStatus.FAILED.value,
+        ]:
             self.runstatus = status
 
     def set_progress(self, progress: Union[int, float]) -> None:
@@ -54,12 +71,16 @@ class FlameLogger:
         if isinstance(progress, float):
             progress = int(progress)
         if not (0 <= progress <= 100):
-            self.new_log(msg=f"Invalid progress: {progress} (should be a numeric value between 0 and 100).",
-                         log_type=LogTypeLiteral.WARNING.value)
+            self.new_log(
+                msg=f"Invalid progress: {progress} (should be a numeric value between 0 and 100).",
+                log_type=LogTypeLiteral.WARNING.value,
+            )
         elif self.progress > progress:
-            self.new_log(msg=f"Progress value needs to be higher to current progress (i.e. only register progress, "
-                             f"if actual progress has been made).",
-                         log_type=LogTypeLiteral.WARNING.value)
+            self.new_log(
+                msg="Progress value needs to be higher to current progress (i.e. only register progress, "
+                "if actual progress has been made).",
+                log_type=LogTypeLiteral.WARNING.value,
+            )
         else:
             self.progress = progress
 
@@ -68,21 +89,30 @@ class FlameLogger:
         Send all logs from the queue to the POAPI.
         """
         if self.po_api is None:
-            self.raise_error("Error: POAPI instance is not set. Use add_po_api() to set it before sending logs.")
+            self.raise_error(
+                "Error: POAPI instance is not set. Use add_po_api() to set it before sending logs."
+            )
         if not self.queue.empty():
             while not self.queue.empty():
                 log_dict = self.queue.get()
-                self.po_api.stream_logs(log_dict['msg'], log_dict['log_type'], log_dict['status'], log_dict['progress'])
+                self.po_api.stream_logs(
+                    log_dict["msg"],
+                    log_dict["log_type"],
+                    log_dict["status"],
+                    log_dict["progress"],
+                )
                 self.queue.task_done()
 
-    def new_log(self,
-                msg: Union[str, bytes, Iterable],
-                sep: str = '',
-                end: str = '',
-                log_type: str = LogTypeLiteral.INFO.value,
-                append: bool = False,
-                halt_submission: bool = False,
-                hidden_error_msg: Optional[str] = None) -> None:
+    def new_log(
+        self,
+        msg: Union[str, bytes, Iterable],
+        sep: str = "",
+        end: str = "",
+        log_type: str = LogTypeLiteral.INFO.value,
+        append: bool = False,
+        halt_submission: bool = False,
+        hidden_error_msg: Optional[str] = None,
+    ) -> None:
         """
         Print logs to console, if silent is set to False. May raise IOError, if append=False and log_type receives
         an invalid value.
@@ -97,21 +127,25 @@ class FlameLogger:
         """
         log_type_literals = [lt.value for lt in LogTypeLiteral]
         if log_type not in log_type_literals:
-            self.raise_error(f"When attempting to use logging function, this error occurred: Invalid log type given "
-                             f"to logging function (known log_types={log_type_literals}, "
-                             f"received log_type={log_type}).")
+            self.raise_error(
+                f"When attempting to use logging function, this error occurred: Invalid log type given "
+                f"to logging function (known log_types={log_type_literals}, "
+                f"received log_type={log_type})."
+            )
 
         if not self.silent:
             if isinstance(msg, bytes):
-                msg = msg.decode('utf-8', errors='replace')
-                log = ''.join(filter(lambda x: x in string.printable, msg)) + end
+                msg = msg.decode("utf-8", errors="replace")
+                log = "".join(filter(lambda x: x in string.printable, msg)) + end
             elif isinstance(msg, str):
                 log = msg + end
             elif isinstance(msg, Iterable):
                 log = sep.join(msg) + end
             else:
-                self.raise_error(f"Attempted to log msg of neither type str, bytes, or joinable iterable "
-                                 f"(type(msg)={type(msg)}).")
+                self.raise_error(
+                    f"Attempted to log msg of neither type str, bytes, or joinable iterable "
+                    f"(type(msg)={type(msg)})."
+                )
                 return
 
             if hidden_error_msg is None:
@@ -132,7 +166,7 @@ class FlameLogger:
                 elif log_type == LogTypeLiteral.CRITICAL.value:
                     self.logger.critical(log)
                 else:
-                    pass # Impossible to reach
+                    pass  # Impossible to reach
             else:
                 self.logger.error(log + hidden_error_msg)
 
@@ -143,11 +177,31 @@ class FlameLogger:
                     log = self.log_ph + log
                     self.log_ph = ""
                 self._submit_logs(log, log_type, self.runstatus)
-        
-    def raise_error(self, message: str, hidden_error_msg: Optional[str] = None, seconds: int = 1000) -> None:
-        if self.runstatus not in [AnalysisStatus.EXECUTED.value,
-                                  AnalysisStatus.STOPPED.value,
-                                  AnalysisStatus.FAILED.value]:
+
+    def raise_error(
+        self, message: str, hidden_error_msg: Optional[str] = None, seconds: int = 1000
+    ) -> None:
+        """Report an unrecoverable error and then stall the caller.
+
+        Despite the name this raises nothing and never returns within
+        ``seconds``. It flips the run status to ``FAILED``, submits the message,
+        and then sleeps, so the platform can collect the final logs and reap
+        the container rather than the process dying first. Execution therefore
+        does not resume at the call site - treat a call to this as terminal.
+
+        A node already in a terminal state keeps the status it has, so a
+        shutdown in progress is not overwritten by a late failure.
+
+        :param message: the error reported to the analyst through the PO service
+        :param hidden_error_msg: detail kept in the container's local log only,
+            e.g. a stack trace that should not reach the analyst
+        :param seconds: how long to stall before returning
+        """
+        if self.runstatus not in [
+            AnalysisStatus.EXECUTED.value,
+            AnalysisStatus.STOPPED.value,
+            AnalysisStatus.FAILED.value,
+        ]:
             self.set_runstatus(AnalysisStatus.FAILED.value)
             self.new_log(message, log_type=LogTypeLiteral.ERROR.value)
 
@@ -157,12 +211,22 @@ class FlameLogger:
         time.sleep(seconds)
 
     def _submit_logs(self, log: str, log_type: str, status: str) -> None:
+        """Forward one log to the PO service, queueing it if that is not possible.
+
+        Logs made before :meth:`add_po_api` - or while submission is failing -
+        are kept in the queue and retried with the next submission, so none are
+        lost while the sidecars are still coming up.
+
+        :param log: the log message
+        :param log_type: severity, a :class:`LogTypeLiteral` value
+        :param status: run status recorded alongside the log
+        """
         if self.po_api is None:
             log_dict = {
                 "msg": log,
                 "log_type": log_type,
                 "status": status,
-                "progress": self.progress
+                "progress": self.progress,
             }
             self.queue.put(log_dict)
         else:
@@ -175,7 +239,7 @@ class FlameLogger:
                     "msg": log,
                     "log_type": log_type,
                     "status": status,
-                    "progress": self.progress
+                    "progress": self.progress,
                 }
                 self.queue.put(log_dict)
 
@@ -184,7 +248,7 @@ class FlameLogger:
                     "msg": "Failed to send log to POAPI",
                     "log_type": LogTypeLiteral.WARNING.value,
                     "status": status,
-                    "progress": self.progress
+                    "progress": self.progress,
                 }
                 self.queue.put(error_log_dict)
                 self.logger.error(f"Failed to send log to POAPI: {repr(e)}")
@@ -253,16 +317,18 @@ def _set_custom_log_level(level, level_name):
     After calling ``_set_custom_log_level(21, 'ACTION')`` you can write
     ``logger.action("...")`` and ``logging.action("...")``.
 
-    Args:
-        level: Integer log level (between existing stdlib levels).
-        level_name: Human-readable name; used uppercase as the level name and
-            lowercase as the method/function name.
+    :param level: Integer log level (between existing stdlib levels).
+    :param level_name: Human-readable name; used uppercase as the level name and
+        lowercase as the method/function name.
     """
+
     def logForLevel(self, message, *args, **kws):
+        """Log at the custom level; bound onto ``Logger`` as a method."""
         if self.isEnabledFor(level):
             self._log(level, message, args, **kws)
 
     def logToRoot(message, *args, **kwargs):
+        """Log at the custom level on the root logger; bound onto ``logging``."""
         logging.log(level, message, *args, **kwargs)
 
     logging.addLevelName(level, level_name.upper())
@@ -272,6 +338,16 @@ def _set_custom_log_level(level, level_name):
 
 
 def _log_uncaught(exc_type, exc, tb):
+    """Route uncaught exceptions into the log instead of the bare stderr hook.
+
+    Installed as ``sys.excepthook`` so that a crash in analysis code is captured
+    in the container's log. ``KeyboardInterrupt`` is handed back to the default
+    hook so that interactive interrupts still behave normally.
+
+    :param exc_type: class of the uncaught exception
+    :param exc: the exception instance
+    :param tb: the traceback
+    """
     if issubclass(exc_type, KeyboardInterrupt):
         sys.__excepthook__(exc_type, exc, tb)
         return

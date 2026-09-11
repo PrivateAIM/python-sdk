@@ -1,26 +1,48 @@
+"""High-level API for exchanging messages with the other analysis nodes."""
+
 import asyncio
 from datetime import datetime
 from typing import Literal, Optional
 
 from flamesdk.resources.node_config import NodeConfig
-from flamesdk.resources.client_apis.clients.message_broker_client import MessageBrokerClient, Message
+from flamesdk.resources.client_apis.clients.message_broker_client import (
+    MessageBrokerClient,
+    Message,
+)
 from flamesdk.resources.utils.logging import FlameLogger, LogTypeLiteral
 
 
 class MessageBrokerAPI:
+    """Sends and awaits messages between the nodes of an analysis.
+
+    Constructing this performs the MessageBroker handshake, which is what fills
+    in the node's role and id on the shared :class:`NodeConfig` and populates
+    :attr:`participants` with the other nodes taking part.
+    """
+
     def __init__(self, config: NodeConfig, flame_logger: FlameLogger) -> None:
+        """Connect to the message broker and look up the partner nodes.
+
+        :param config: node configuration; its role and id are filled in here
+        :param flame_logger: logger used to report connection problems
+        """
         self.message_broker_client = MessageBrokerClient(config, flame_logger)
         self.config = self.message_broker_client.nodeConfig
-        self.participants = asyncio.run(self.message_broker_client.get_partner_nodes(self.config.node_id,
-                                                                                     self.config.analysis_id))
+        self.participants = asyncio.run(
+            self.message_broker_client.get_partner_nodes(
+                self.config.node_id, self.config.analysis_id
+            )
+        )
 
-    async def send_message(self,
-                           receivers: list[str],
-                           message_category: str,
-                           message: dict,
-                           max_attempts: int = 1,
-                           timeout: Optional[int] = None,
-                           attempt_timeout: int = 10) -> tuple[list[str], list[str]]:
+    async def send_message(
+        self,
+        receivers: list[str],
+        message_category: str,
+        message: dict,
+        max_attempts: int = 1,
+        timeout: Optional[int] = None,
+        attempt_timeout: int = 10,
+    ) -> tuple[list[str], list[str]]:
         """
         Sends a message to specified nodes with support for multiple attempts and timeout handling.
 
@@ -38,20 +60,24 @@ class MessageBrokerAPI:
         :raises TimeoutError: if the message is not acknowledged within the specified timeout
         :return: a tuple of nodes ids that acknowledged and not acknowledged the message
         """
-        message = Message(message=message,
-                          config=self.config,
-                          outgoing=True,
-                          flame_logger=self.message_broker_client.flame_logger,
-                          message_number=self.message_broker_client.message_number,
-                          category=message_category,
-                          recipients=receivers)
+        message = Message(
+            message=message,
+            config=self.config,
+            outgoing=True,
+            flame_logger=self.message_broker_client.flame_logger,
+            message_number=self.message_broker_client.message_number,
+            category=message_category,
+            recipients=receivers,
+        )
         start_time = datetime.now()
         acknowledged = []
         not_acknowledged = receivers
 
         for attempt in range(max_attempts):
             if timeout is None:
-                attempt_timeout = attempt_timeout if attempt < (max_attempts - 1) else None
+                attempt_timeout = (
+                    attempt_timeout if attempt < (max_attempts - 1) else None
+                )
             else:
                 attempt_timeout = timeout / max_attempts
 
@@ -62,7 +88,7 @@ class MessageBrokerAPI:
                 f"send message with category={message.body['meta']['category']} to {len(message.recipients)} "
                 f"recipients...",
                 log_type=LogTypeLiteral.DEBUG.value,
-                halt_submission=True
+                halt_submission=True,
             )
             await self.message_broker_client.send_message(message)
 
@@ -73,12 +99,16 @@ class MessageBrokerAPI:
             for receiver in not_acknowledged:
                 await_list.append(
                     asyncio.create_task(
-                        self.message_broker_client.await_message_acknowledgement(message, receiver)
+                        self.message_broker_client.await_message_acknowledgement(
+                            message, receiver
+                        )
                     )
                 )
 
             # Run the tasks and wait for the message acknowledgement until the timeout or all messages are acknowledged
-            done, pending = await asyncio.wait(await_list, timeout=attempt_timeout, return_when=asyncio.ALL_COMPLETED)
+            done, pending = await asyncio.wait(
+                await_list, timeout=attempt_timeout, return_when=asyncio.ALL_COMPLETED
+            )
 
             # Check if the message was acknowledged
             for task in done:
@@ -86,23 +116,29 @@ class MessageBrokerAPI:
                     acknowledged.append(task.result())
 
             # not_acknowledged = receivers - acknowledged
-            not_acknowledged = [receiver for receiver in receivers if receiver not in acknowledged]
+            not_acknowledged = [
+                receiver for receiver in receivers if receiver not in acknowledged
+            ]
 
             time_passed = datetime.now() - start_time
             self.message_broker_client.flame_logger.new_log(
                 f"{len(acknowledged)} acknowledged (time={time_passed.microseconds}{chr(956)}s)",
-                log_type=LogTypeLiteral.DEBUG.value
+                log_type=LogTypeLiteral.DEBUG.value,
             )
-            if (len(acknowledged) == len(receivers)) or ((timeout is not None) and (time_passed.seconds > timeout)):
+            if (len(acknowledged) == len(receivers)) or (
+                (timeout is not None) and (time_passed.seconds > timeout)
+            ):
                 break
 
         return acknowledged, not_acknowledged
 
-    async def await_messages(self,
-                             node_ids: list[str],
-                             message_category: str,
-                             message_id: Optional[str] = None,
-                             timeout: Optional[int] = None) -> dict[str, Optional[list[Message]]]:
+    async def await_messages(
+        self,
+        node_ids: list[str],
+        message_category: str,
+        message_id: Optional[str] = None,
+        timeout: Optional[int] = None,
+    ) -> dict[str, Optional[list[Message]]]:
         """
         Wait for responses from the specified nodes
         :param node_ids: list of node ids to wait for
@@ -115,10 +151,14 @@ class MessageBrokerAPI:
         for node_id in node_ids:
             await_list.append(
                 asyncio.create_task(
-                    self.message_broker_client.await_message(node_id, message_category, message_id)
+                    self.message_broker_client.await_message(
+                        node_id, message_category, message_id
+                    )
                 )
             )
-        done, pending = await asyncio.wait(await_list, timeout=timeout, return_when=asyncio.ALL_COMPLETED)
+        done, pending = await asyncio.wait(
+            await_list, timeout=timeout, return_when=asyncio.ALL_COMPLETED
+        )
         responses = dict()
         for node_id in node_ids:
             for task in done:
@@ -133,13 +173,18 @@ class MessageBrokerAPI:
 
         return responses
 
-    def get_messages(self, status: Literal['unread', 'read'] = 'unread') -> list[Message]:
+    def get_messages(
+        self, status: Literal["unread", "read"] = "unread"
+    ) -> list[Message]:
         """
         Get all messages that have been sent to the node and have the specified un-/read status
         :return:
         """
-        return [msg for msg in self.message_broker_client.list_of_incoming_messages
-                if msg.body["meta"]["status"] == status]
+        return [
+            msg
+            for msg in self.message_broker_client.list_of_incoming_messages
+            if msg.body["meta"]["status"] == status
+        ]
 
     def delete_messages_by_id(self, message_ids: list[str]) -> int:
         """
@@ -149,13 +194,23 @@ class MessageBrokerAPI:
         """
         number_of_deleted_messages = 0
         for message_id in message_ids:
-            number_of_deleted_messages += self.message_broker_client.delete_message_by_id(message_id, type="incoming")
-            number_of_deleted_messages += self.message_broker_client.delete_message_by_id(message_id, type="outgoing")
+            number_of_deleted_messages += (
+                self.message_broker_client.delete_message_by_id(
+                    message_id, type="incoming"
+                )
+            )
+            number_of_deleted_messages += (
+                self.message_broker_client.delete_message_by_id(
+                    message_id, type="outgoing"
+                )
+            )
         return number_of_deleted_messages
 
-    def clear_messages(self,
-                       status: Literal["read", "unread", "all"] = "read",
-                       min_age: Optional[int] = None) -> int:
+    def clear_messages(
+        self,
+        status: Literal["read", "unread", "all"] = "read",
+        min_age: Optional[int] = None,
+    ) -> int:
         """
         Deletes all messages by status (default: read messages) and if they are older than the specified min_age. It
         returns the number of deleted messages.
@@ -165,17 +220,23 @@ class MessageBrokerAPI:
         :return: the number of messages cleared
         """
         number_of_deleted_messages = 0
-        number_of_deleted_messages += self.message_broker_client.clear_messages("incoming", status, min_age)
-        number_of_deleted_messages += self.message_broker_client.clear_messages("outgoing", status, min_age)
+        number_of_deleted_messages += self.message_broker_client.clear_messages(
+            "incoming", status, min_age
+        )
+        number_of_deleted_messages += self.message_broker_client.clear_messages(
+            "outgoing", status, min_age
+        )
         return number_of_deleted_messages
 
-    def send_message_and_wait_for_responses(self,
-                                            receivers: list[str],
-                                            message_category: str,
-                                            message: dict,
-                                            max_attempts: int = 1,
-                                            timeout: Optional[int] = None,
-                                            attempt_timeout: int = 10) -> dict[str, Optional[list[Message]]]:
+    def send_message_and_wait_for_responses(
+        self,
+        receivers: list[str],
+        message_category: str,
+        message: dict,
+        max_attempts: int = 1,
+        timeout: Optional[int] = None,
+        attempt_timeout: int = 10,
+    ) -> dict[str, Optional[list[Message]]]:
         """
         Sends a message to all specified nodes and waits for responses, (combines send_message and await_responses)
         :param receivers: list of node ids to send the message to
@@ -188,17 +249,22 @@ class MessageBrokerAPI:
         """
         time_start = datetime.now()
         # Send the message
-        asyncio.run(self.send_message(receivers=receivers,
-                                      message_category=message_category,
-                                      message=message,
-                                      max_attempts=max_attempts,
-                                      timeout=timeout,
-                                      attempt_timeout=attempt_timeout))
+        asyncio.run(
+            self.send_message(
+                receivers=receivers,
+                message_category=message_category,
+                message=message,
+                max_attempts=max_attempts,
+                timeout=timeout,
+                attempt_timeout=attempt_timeout,
+            )
+        )
         timeout = timeout - (datetime.now() - time_start).seconds
         if timeout < 0:
             timeout = 1
 
         # Wait for the responses
-        responses = asyncio.run(self.await_messages(receivers, message_category, timeout=timeout))
+        responses = asyncio.run(
+            self.await_messages(receivers, message_category, timeout=timeout)
+        )
         return responses
-

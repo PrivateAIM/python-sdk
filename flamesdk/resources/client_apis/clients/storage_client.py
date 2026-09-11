@@ -1,3 +1,5 @@
+"""HTTP transport for the storage/result service sidecar."""
+
 import math
 import uuid
 import time
@@ -14,38 +16,67 @@ from flamesdk.resources.utils.constants import LogTypeLiteral, MAX_REQUEST_REPEA
 
 
 EXT_TO_OUTPUT_TYPE: dict[str, list[str]] = {
-    'str': ['.txt', '.csv', '.tsv', '.json', '.xml', '.yaml', '.yml'],
-    'pickle': ['.pkl', '.pickle'],
-    'bytes': ['.bin', '.gz', '.zip', '.png']
+    "str": [".txt", ".csv", ".tsv", ".json", ".xml", ".yaml", ".yml"],
+    "pickle": [".pkl", ".pickle"],
+    "bytes": [".bin", ".gz", ".zip", ".png"],
 }
 
 
 class LocalDifferentialPrivacyParams(TypedDict, total=True):
+    """Noise parameters applied to a numeric result before it is published.
+
+    :param epsilon: privacy budget; smaller values add more noise
+    :param sensitivity: how much a single record can change the result
+    """
+
     epsilon: float
     sensitivity: float
 
 
 class StorageClient:
+    """Thin HTTP transport for the storage/result service.
+
+    Requests that fail are retried up to
+    :data:`~flamesdk.resources.utils.constants.MAX_REQUEST_REPEATS` times before
+    the error is reported.
+    """
+
     def __init__(self, nginx_name, keycloak_token, flame_logger: FlameLogger) -> None:
+        """Open a client against the storage service behind the nginx sidecar.
+
+        :param nginx_name: hostname of the local nginx sidecar
+        :param keycloak_token: bearer token authenticating this node
+        :param flame_logger: logger used to report transport errors
+        """
         self.nginx_name = nginx_name
-        self.client = Client(base_url=f"http://{nginx_name}/storage",
-                             headers={"Authorization": f"Bearer {keycloak_token}"},
-                             follow_redirects=True)
+        self.client = Client(
+            base_url=f"http://{nginx_name}/storage",
+            headers={"Authorization": f"Bearer {keycloak_token}"},
+            follow_redirects=True,
+        )
         self.flame_logger = flame_logger
 
     def refresh_token(self, keycloak_token: str):
-        self.client = Client(base_url=f"http://{self.nginx_name}/storage",
-                             headers={"Authorization": f"Bearer {keycloak_token}"},
-                             follow_redirects=True)
+        """Replace the client with one using a freshly issued token.
 
-    def push_result(self,
-                    result: Any,
-                    tag: Optional[str] = None,
-                    remote_node_id: Optional[str] = None,
-                    type: Literal["final", "global", "local"] = "final",
-                    output_type: Literal['str', 'bytes', 'pickle'] = 'pickle',
-                    filename: Optional[str] = None,
-                    local_dp: Optional[LocalDifferentialPrivacyParams] = None) -> dict[str, str]:
+        :param keycloak_token: the renewed bearer token
+        """
+        self.client = Client(
+            base_url=f"http://{self.nginx_name}/storage",
+            headers={"Authorization": f"Bearer {keycloak_token}"},
+            follow_redirects=True,
+        )
+
+    def push_result(
+        self,
+        result: Any,
+        tag: Optional[str] = None,
+        remote_node_id: Optional[str] = None,
+        type: Literal["final", "global", "local"] = "final",
+        output_type: Literal["str", "bytes", "pickle"] = "pickle",
+        filename: Optional[str] = None,
+        local_dp: Optional[LocalDifferentialPrivacyParams] = None,
+    ) -> dict[str, str]:
         """
         Pushes the result to the hub. Making it available for analysts to download.
 
@@ -59,15 +90,21 @@ class StorageClient:
         :return:
         """
         if tag and (type != "local"):
-            self.flame_logger.raise_error("Tag can only be used with local type, in current implementation")
+            self.flame_logger.raise_error(
+                "Tag can only be used with local type, in current implementation"
+            )
         elif (type == "global") and (remote_node_id is None):
-            self.flame_logger.raise_error("Remote_node_id has to be specified for global type, "
-                                          "i.e. in order to send data")
+            self.flame_logger.raise_error(
+                "Remote_node_id has to be specified for global type, "
+                "i.e. in order to send data"
+            )
         type = "intermediate" if type == "global" else type
 
-        if tag and not re.match(r'^[a-z0-9]+(-[a-z0-9]+)*$', tag):
-            self.flame_logger.raise_error(f"Invalid tag format: {tag}. "
-                                          f"Tag must consist only of lowercase letters, numbers, and hyphens")
+        if tag and not re.match(r"^[a-z0-9]+(-[a-z0-9]+)*$", tag):
+            self.flame_logger.raise_error(
+                f"Invalid tag format: {tag}. "
+                f"Tag must consist only of lowercase letters, numbers, and hyphens"
+            )
 
         # check if local dp parameters have been supplied
         use_local_dp = isinstance(local_dp, dict)
@@ -76,7 +113,9 @@ class StorageClient:
             if use_local_dp:
                 # check if result is a numeric value
                 if not isinstance(result, (float, int)):
-                    self.flame_logger.raise_error("Local differential privacy can only be applied on numeric values")
+                    self.flame_logger.raise_error(
+                        "Local differential privacy can only be applied on numeric values"
+                    )
 
                 # check if result is finite
                 if not math.isfinite(result):
@@ -84,39 +123,49 @@ class StorageClient:
 
                 # check if final result submission is requested
                 if type != "final":
-                    self.flame_logger.raise_error("ValueError: Local differential privacy is only supported for "
-                                                  "submission of final results")
+                    self.flame_logger.raise_error(
+                        "ValueError: Local differential privacy is only supported for "
+                        "submission of final results"
+                    )
 
                 # print warning if output_type other than str is specified
                 if output_type != "str":
                     self.flame_logger.new_log(
-                    f"Result submission with local differential privacy requested but output type is set to `{output_type}`."
+                        f"Result submission with local differential privacy requested but output type is set to `{output_type}`."
                         "`str` is enforced but this may change in a future version.",
-                        log_type=LogTypeLiteral.WARNING.value)
+                        log_type=LogTypeLiteral.WARNING.value,
+                    )
 
                 # write as string to request body
                 file_body = str(result).encode("utf-8")
-            elif (type == 'final') and (output_type == 'str'):
-                file_body = str(result).encode('utf-8')
-            elif (type == 'final') and (output_type == 'bytes'):
+            elif (type == "final") and (output_type == "str"):
+                file_body = str(result).encode("utf-8")
+            elif (type == "final") and (output_type == "bytes"):
                 file_body = bytes(result)
             else:
                 file_body = pickle.dumps(result)
         except (TypeError, ValueError, UnicodeEncodeError, pickle.PicklingError) as e:
-            if output_type != 'pickle':
-                self.flame_logger.new_log(f"Failed to translate result data to type={output_type}",
-                                          hidden_error_msg=repr(e),
-                                          log_type=LogTypeLiteral.WARNING.value)
-                self.flame_logger.new_log("Attempting 'pickle' instead...", log_type=LogTypeLiteral.WARNING.value)
+            if output_type != "pickle":
+                self.flame_logger.new_log(
+                    f"Failed to translate result data to type={output_type}",
+                    hidden_error_msg=repr(e),
+                    log_type=LogTypeLiteral.WARNING.value,
+                )
+                self.flame_logger.new_log(
+                    "Attempting 'pickle' instead...",
+                    log_type=LogTypeLiteral.WARNING.value,
+                )
                 try:
                     file_body = pickle.dumps(result)
                 except pickle.PicklingError as e:
-                    self.flame_logger.raise_error(f"Failed to pickle result data",
-                                                  hidden_error_msg=repr(e))
+                    self.flame_logger.raise_error(
+                        "Failed to pickle result data", hidden_error_msg=repr(e)
+                    )
                     file_body = None
             else:
-                self.flame_logger.raise_error(f"Failed to pickle result data",
-                                              hidden_error_msg=repr(e))
+                self.flame_logger.raise_error(
+                    "Failed to pickle result data", hidden_error_msg=repr(e)
+                )
                 file_body = None
 
         if remote_node_id is not None:
@@ -138,45 +187,58 @@ class StorageClient:
         if filename:
             resolved_name = filename
         else:
-            resolved_name = (f"result_{str(uuid.uuid4())[-4:]}_{datetime.now().strftime('%y%m%d%H%M%S')}"
-                             f"{EXT_TO_OUTPUT_TYPE[effective_output_type][0]}")
+            resolved_name = (
+                f"result_{str(uuid.uuid4())[-4:]}_{datetime.now().strftime('%y%m%d%H%M%S')}"
+                f"{EXT_TO_OUTPUT_TYPE[effective_output_type][0]}"
+            )
 
         i_repeat = 0
         while i_repeat < MAX_REQUEST_REPEATS:
             try:
-                response = self.client.put(request_path,
-                                           files={"file": (resolved_name,
-                                                           BytesIO(file_body))},
-                                           data=data,
-                                           headers=[('Connection', 'close')],
-                                           timeout=Timeout(5, read=None, write=None))
+                response = self.client.put(
+                    request_path,
+                    files={"file": (resolved_name, BytesIO(file_body))},
+                    data=data,
+                    headers=[("Connection", "close")],
+                    timeout=Timeout(5, read=None, write=None),
+                )
                 response.raise_for_status()
                 break
             except HTTPError as e:
                 i_repeat += 1
                 if i_repeat < MAX_REQUEST_REPEATS:
-                    self.flame_logger.new_log(f"Failed to push results (reattempt {i_repeat} of "
-                                              f"{MAX_REQUEST_REPEATS})",
-                                              hidden_error_msg=repr(e),
-                                              log_type=LogTypeLiteral.WARNING.value)
+                    self.flame_logger.new_log(
+                        f"Failed to push results (reattempt {i_repeat} of "
+                        f"{MAX_REQUEST_REPEATS})",
+                        hidden_error_msg=repr(e),
+                        log_type=LogTypeLiteral.WARNING.value,
+                    )
                     time.sleep(1)
                 if i_repeat == MAX_REQUEST_REPEATS:
-                    self.flame_logger.raise_error(f"Failed to push results", hidden_error_msg=repr(e))
+                    self.flame_logger.raise_error(
+                        "Failed to push results", hidden_error_msg=repr(e)
+                    )
 
         if type != "final":
-            self.flame_logger.new_log(f"Saving intermediate result (response body: {response.json()})",
-                                      log_type=LogTypeLiteral.DEBUG.value)
+            self.flame_logger.new_log(
+                f"Saving intermediate result (response body: {response.json()})",
+                log_type=LogTypeLiteral.DEBUG.value,
+            )
         else:
             return {"status": "success"}
-        return {"status": "success",
-                "url": response.json()["url"],
-                "id":  response.json()["url"].split("/")[-1]}
+        return {
+            "status": "success",
+            "url": response.json()["url"],
+            "id": response.json()["url"].split("/")[-1],
+        }
 
-    def get_intermediate_data(self,
-                              query: Optional[str] = None,
-                              tag: Optional[str] = None,
-                              type: Literal["local", "global"] = "global",
-                              tag_option: Optional[Literal["all", "last", "first"]] = "all") -> Any:
+    def get_intermediate_data(
+        self,
+        query: Optional[str] = None,
+        tag: Optional[str] = None,
+        type: Literal["local", "global"] = "global",
+        tag_option: Optional[Literal["all", "last", "first"]] = "all",
+    ) -> Any:
         """
         Returns the intermediate data with the specified query
         :param query: query of the intermediate data
@@ -186,18 +248,30 @@ class StorageClient:
         :return:
         """
         if (type != "local") and (tag is not None):
-            self.flame_logger.new_log("Tag can only be used with local type (will be ignored)",
-                                      log_type=LogTypeLiteral.WARNING.value)
+            self.flame_logger.new_log(
+                "Tag can only be used with local type (will be ignored)",
+                log_type=LogTypeLiteral.WARNING.value,
+            )
         if (type == "global") and (id is None):
-            self.flame_logger.raise_error("Global intermediate data retrieval requires storage id specification")
+            self.flame_logger.raise_error(
+                "Global intermediate data retrieval requires storage id specification"
+            )
         if (type == "local") and (id is None) and (tag is None):
-            self.flame_logger.raise_error("For local data a tag or storage id has to be specified")
-        if (tag is not None) and (not re.match(r'^[a-z0-9]{1,2}|[a-z0-9][a-z0-9-]{,30}[a-z0-9]+$', tag)):
+            self.flame_logger.raise_error(
+                "For local data a tag or storage id has to be specified"
+            )
+        if (tag is not None) and (
+            not re.match(r"^[a-z0-9]{1,2}|[a-z0-9][a-z0-9-]{,30}[a-z0-9]+$", tag)
+        ):
             if type == "local":
-                self.flame_logger.raise_error(f"Tag must consist only of lowercase letters, numbers, and hyphens")
+                self.flame_logger.raise_error(
+                    "Tag must consist only of lowercase letters, numbers, and hyphens"
+                )
             else:
-                self.flame_logger.new_log(f"Tag must consist only of lowercase letters, numbers, and hyphens",
-                                          log_type=LogTypeLiteral.WARNING.value)
+                self.flame_logger.new_log(
+                    "Tag must consist only of lowercase letters, numbers, and hyphens",
+                    log_type=LogTypeLiteral.WARNING.value,
+                )
         type = "intermediate" if type == "global" else type
 
         if tag is not None:
@@ -228,14 +302,18 @@ class StorageClient:
             except HTTPError as e:
                 i_repeat += 1
                 if i_repeat < MAX_REQUEST_REPEATS:
-                    self.flame_logger.new_log(f"Failed to retrieve the URL associated with the "
-                                              f"specified tag (reattempt {i_repeat} of {MAX_REQUEST_REPEATS})",
-                                              hidden_error_msg=repr(e),
-                                              log_type=LogTypeLiteral.WARNING.value)
+                    self.flame_logger.new_log(
+                        f"Failed to retrieve the URL associated with the "
+                        f"specified tag (reattempt {i_repeat} of {MAX_REQUEST_REPEATS})",
+                        hidden_error_msg=repr(e),
+                        log_type=LogTypeLiteral.WARNING.value,
+                    )
                     time.sleep(1)
                 if i_repeat == MAX_REQUEST_REPEATS:
-                    self.flame_logger.raise_error(f"Failed to retrieve the URL associated with the specified tag",
-                                                  hidden_error_msg=repr(e))
+                    self.flame_logger.raise_error(
+                        "Failed to retrieve the URL associated with the specified tag",
+                        hidden_error_msg=repr(e),
+                    )
 
         urls = []
         for item in response.json()["results"]:
@@ -252,19 +330,25 @@ class StorageClient:
         i_repeat = 0
         while i_repeat < MAX_REQUEST_REPEATS:
             try:
-                response = self.client.get(url, timeout=Timeout(5, read=None, write=None))
+                response = self.client.get(
+                    url, timeout=Timeout(5, read=None, write=None)
+                )
                 response.raise_for_status()
                 break
             except HTTPError as e:
                 i_repeat += 1
                 if i_repeat < MAX_REQUEST_REPEATS:
-                    self.flame_logger.new_log(f"Failed to retrieve file from URL (reattempt {i_repeat} of "
-                                              f"{MAX_REQUEST_REPEATS})",
-                                              hidden_error_msg=repr(e),
-                                              log_type=LogTypeLiteral.WARNING.value)
+                    self.flame_logger.new_log(
+                        f"Failed to retrieve file from URL (reattempt {i_repeat} of "
+                        f"{MAX_REQUEST_REPEATS})",
+                        hidden_error_msg=repr(e),
+                        log_type=LogTypeLiteral.WARNING.value,
+                    )
                     time.sleep(1)
                 if i_repeat == MAX_REQUEST_REPEATS:
-                    self.flame_logger.raise_error(f"Failed to retrieve file from URL", hidden_error_msg=repr(e))
+                    self.flame_logger.raise_error(
+                        "Failed to retrieve file from URL", hidden_error_msg=repr(e)
+                    )
 
         return pickle.loads(response.content)
 
@@ -303,19 +387,25 @@ class StorageClient:
         i_repeat = 0
         while i_repeat < MAX_REQUEST_REPEATS:
             try:
-                response = self.client.get("/local/tags", timeout=Timeout(5, read=None, write=None))
+                response = self.client.get(
+                    "/local/tags", timeout=Timeout(5, read=None, write=None)
+                )
                 response.raise_for_status()
                 break
             except HTTPError as e:
                 i_repeat += 1
                 if i_repeat < MAX_REQUEST_REPEATS:
-                    self.flame_logger.new_log(f"Failed to retrieve local tags (reattempt {i_repeat} of "
-                                              f"{MAX_REQUEST_REPEATS})",
-                                              hidden_error_msg=repr(e),
-                                              log_type=LogTypeLiteral.WARNING.value)
+                    self.flame_logger.new_log(
+                        f"Failed to retrieve local tags (reattempt {i_repeat} of "
+                        f"{MAX_REQUEST_REPEATS})",
+                        hidden_error_msg=repr(e),
+                        log_type=LogTypeLiteral.WARNING.value,
+                    )
                     time.sleep(1)
                 if i_repeat == MAX_REQUEST_REPEATS:
-                    self.flame_logger.raise_error(f"Failed to retrieve local tags", hidden_error_msg=repr(e))
+                    self.flame_logger.raise_error(
+                        "Failed to retrieve local tags", hidden_error_msg=repr(e)
+                    )
 
         tag_name_list = [tag["name"] for tag in response.json()["tags"]]
 
