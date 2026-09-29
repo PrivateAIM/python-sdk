@@ -1,11 +1,13 @@
-import os
 import pytest
-import asyncio
 import datetime
-from httpx import Response, Request
-#from asyncmock import AsyncMock
-from flamesdk.resources.client_apis.clients.message_broker_client import MessageBrokerClient, Message
+
+# from asyncmock import AsyncMock
+from flamesdk.resources.client_apis.clients.message_broker_client import (
+    MessageBrokerClient,
+    Message,
+)
 from flamesdk.resources.utils.logging import FlameLogger
+
 
 # Dummy stub for NodeConfig used by MessageBrokerClient.
 class DummyNodeConfig:
@@ -21,27 +23,34 @@ class DummyNodeConfig:
     def set_node_id(self, node_id: str):
         self.node_id = node_id
 
+
 # Set environment variable needed by MessageBrokerClient.
 @pytest.fixture(autouse=True)
 def set_analysis_id(monkeypatch):
     monkeypatch.setenv("ANALYSIS_ID", "test_analysis")
+
 
 # Patch get_self_config so that __init__ does not perform real network calls.
 @pytest.fixture
 def dummy_get_self_config():
     async def fake_get_self_config(self, analysis_id: str):
         return {"nodeType": "test_role", "nodeId": "test_node"}
+
     return fake_get_self_config
+
 
 # Create a test client with patched network methods.
 @pytest.fixture
 def client(monkeypatch, dummy_get_self_config):
     monkeypatch.setattr(MessageBrokerClient, "get_self_config", dummy_get_self_config)
+
     async def fake_connect(self):
         pass
+
     monkeypatch.setattr(MessageBrokerClient, "_connect", fake_connect)
     flame_logger = FlameLogger()
     return MessageBrokerClient(DummyNodeConfig(), flame_logger)
+
 
 def test_refresh_token(client):
     new_token = "new_dummy_token"
@@ -49,18 +58,30 @@ def test_refresh_token(client):
     updated_auth = client._message_broker.headers.get("Authorization")
     assert updated_auth == f"Bearer {new_token}"
 
+
 def test_delete_message_by_id(client):
     # Create a dummy outgoing message without 'meta' field.
-    msg_body = {
-        "data": "test message"
-    }
-    dummy_message = Message(message=msg_body, config=client.nodeConfig, outgoing=True,
-                            message_number=1, category="test", recipients=["rec1"])
+    msg_body = {"data": "test message"}
+    dummy_message = Message(
+        message=msg_body,
+        config=client.nodeConfig,
+        outgoing=True,
+        flame_logger=client.flame_logger,
+        message_number=1,
+        category="test",
+        recipients=["rec1"],
+    )
     client.list_of_outgoing_messages.append(dummy_message)
-    deleted_count = client.delete_message_by_id(dummy_message.body["meta"]["id"], "outgoing")
+    deleted_count = client.delete_message_by_id(
+        dummy_message.body["meta"]["id"], "outgoing"
+    )
     assert deleted_count == 1
     # Verify the message is removed from the outgoing list
-    assert all(m.body["meta"]["id"] != dummy_message.body["meta"]["id"] for m in client.list_of_outgoing_messages)
+    assert all(
+        m.body["meta"]["id"] != dummy_message.body["meta"]["id"]
+        for m in client.list_of_outgoing_messages
+    )
+
 
 def test_clear_messages(client):
     # Create dummy incoming messages with different status.
@@ -77,7 +98,7 @@ def test_clear_messages(client):
             "created_at": current_time,
             "arrived_at": None,
             "akn_id": "nodeX",
-        }
+        },
     }
     msg_body_unread = {
         "data": "message2",
@@ -91,15 +112,26 @@ def test_clear_messages(client):
             "created_at": current_time,
             "arrived_at": None,
             "akn_id": "nodeX",
-        }
+        },
     }
-    msg1 = Message(message=msg_body_read, config=client.nodeConfig, outgoing=False)
-    msg2 = Message(message=msg_body_unread, config=client.nodeConfig, outgoing=False)
+    msg1 = Message(
+        message=msg_body_read,
+        config=client.nodeConfig,
+        outgoing=False,
+        flame_logger=client.flame_logger,
+    )
+    msg2 = Message(
+        message=msg_body_unread,
+        config=client.nodeConfig,
+        outgoing=False,
+        flame_logger=client.flame_logger,
+    )
     client.list_of_incoming_messages.extend([msg1, msg2])
     deleted_count = client.clear_messages("incoming", status="read")
     assert deleted_count == 1
     # Verify only the message with status "unread" remains.
     assert client.list_of_incoming_messages[0].body["meta"]["status"] == "unread"
+
 
 def test_receive_message(client, monkeypatch):
     # Create an incoming message with missing akn_id.
@@ -116,10 +148,12 @@ def test_receive_message(client, monkeypatch):
             "created_at": current_time,
             "arrived_at": None,
             "akn_id": None,
-        }
+        },
     }
+
     async def dummy_ack(self, message):
         return
+
     monkeypatch.setattr(MessageBrokerClient, "acknowledge_message", dummy_ack)
     client.receive_message(msg_body)
     received_msg = client.list_of_incoming_messages[-1]
