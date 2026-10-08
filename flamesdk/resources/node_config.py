@@ -2,6 +2,8 @@
 
 import os
 
+from flamesdk.plugins.constants import any_plugin, PLUGINS
+
 
 class NodeConfig:
     """Identity and credentials of the node this analysis container runs on.
@@ -23,6 +25,11 @@ class NodeConfig:
         self.keycloak_token = os.getenv("KEYCLOAK_TOKEN")
         self.data_source_token = os.getenv("DATA_SOURCE_TOKEN")
         self.nginx_name = f'nginx-{os.getenv("DEPLOYMENT_NAME")}'
+
+        # plugins enabled
+        if any_plugin():
+            for value in PLUGINS.values():
+                setattr(self, value["env"].lower(), os.getenv(value["env"], False))
 
         # tbd by MessageBroker
         self.node_role = None

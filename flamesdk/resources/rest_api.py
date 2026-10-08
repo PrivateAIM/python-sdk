@@ -5,6 +5,7 @@ import threading
 import time
 
 import uvicorn
+from httpx import Client
 from typing import Callable, Union, Optional, Literal
 
 from fastapi import FastAPI, APIRouter, Request, Depends
@@ -20,6 +21,8 @@ from flamesdk.resources.client_apis.clients.po_client import POClient
 from flamesdk.resources.utils.utils import extract_remaining_time_from_token
 from flamesdk.resources.utils.logging import FlameLogger
 from flamesdk.resources.utils.constants import AnalysisStatus, LogTypeLiteral
+
+from flamesdk.plugins.constants import PLUGINS
 
 
 _SYNC_TIMER_IN_SECONDS = 100
@@ -38,16 +41,17 @@ class FlameAPI:
     """
 
     def __init__(
-        self,
-        message_broker: MessageBrokerClient,
-        data_client: Union[DataApiClient, Optional[bool]],
-        storage_client: StorageClient,
-        po_client: POClient,
-        flame_logger: FlameLogger,
-        keycloak_token: str,
-        finished_check: Callable,
-        finishing_call: Callable,
-        status_sync: tuple[Literal["executed", "stopped", "failed"]] = (),
+            self,
+            message_broker: MessageBrokerClient,
+            data_client: Union[DataApiClient, Optional[bool]],
+            storage_client: StorageClient,
+            po_client: POClient,
+            flame_logger: FlameLogger,
+            keycloak_token: str,
+            finished_check: Callable,
+            finishing_call: Callable,
+            status_sync: tuple[Literal["executed", "stopped", "failed"]] = (),
+            plugin_clients: Optional[dict[str, Client]] = None
     ) -> None:
         """Build the app and serve it; does not return while the node runs.
 
@@ -61,6 +65,8 @@ class FlameAPI:
         :param finishing_call: invoked when a partner reports the analysis finished
         :param status_sync: terminal states this node adopts when a partner
             reports them; an empty tuple disables status syncing
+        :param plugin_clients: optional dictionary of plugin clients for covering
+            inbound plugin endpoints
         """
         app = FastAPI(
             title="FLAME node",
@@ -92,9 +98,9 @@ class FlameAPI:
         self.finishing_call = finishing_call
         self.start_time = time.time()
 
-        async def get_body(request: Request) -> dict[str, dict]:
-            """Dependency returning the parsed json body of a request."""
-            return await request.json()
+        if plugin_clients is not None:
+            for name, client in plugin_clients.items():
+                setattr(self, name, client)
 
         def apply_partner_status_to_self(
             partner_status: dict[
@@ -176,18 +182,19 @@ class FlameAPI:
                 raise HTTPException(status_code=500, detail=str(e))
 
         @router.post("/webhook", response_class=JSONResponse)
-        def get_message(msg: dict = Depends(get_body)) -> None:
+        async def get_message(request: Request) -> None:
             """Receive a message the broker delivered to this node.
 
             A message in the ``analysis_finished`` category also triggers this
             node's finishing call.
 
-            :param msg: the raw message body
+            :param request: request body
             """
-            message_broker.receive_message(msg)
+            body = await request.json()
+            message_broker.receive_message(body)
 
             # check message category for finished
-            if msg["meta"]["category"] == "analysis_finished":
+            if body["meta"]["category"] == "analysis_finished":
                 self.finished = True
                 self.finishing_call()
 
@@ -215,6 +222,17 @@ class FlameAPI:
                     "stack trace see in node", hidden_error_msg=repr(e)
                 )
                 raise HTTPException(status_code=500, detail=str(e))
+
+        @router.post("/nextflow", response_class=JSONResponse)
+        async def receive_nf_run_feedback(request: Request) -> JSONResponse:
+            """
+            """
+            if hasattr(self, PLUGINS["nf"]["client"]) and (getattr(self, PLUGINS["nf"]["client"], None) is not None):
+                body = await request.json()
+                getattr(self, PLUGINS["nf"]["client"]).receive_feedback(body)
+                return JSONResponse(content={"status": "received"})
+            else:
+                raise HTTPException(status_code=500, detail="No NextFlow client found")
 
         @router.get("/healthz", response_class=JSONResponse)
         def health() -> dict[str, Union[str, int]]:
