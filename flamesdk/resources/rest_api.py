@@ -142,7 +142,7 @@ class FlameAPI:
 
         @router.post("/token_refresh", response_class=JSONResponse)
         async def token_refresh(request: Request) -> JSONResponse:
-            """Replace the keycloak token on every sidecar client.
+            """Replace the analysis bearer token on every sidecar client.
 
             Called by the platform before the current token expires.
 

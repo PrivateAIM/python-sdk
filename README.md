@@ -94,9 +94,18 @@ Read by `NodeConfig` and injected by the platform:
 | --- | --- |
 | `ANALYSIS_ID` | id of the analysis |
 | `PROJECT_ID` | id of the project |
-| `KEYCLOAK_TOKEN` | bearer token for the sidecar services |
+| `AUTHUP_TOKEN` | bearer token for the sidecar services; takes precedence over the legacy `KEYCLOAK_TOKEN` |
 | `DATA_SOURCE_TOKEN` | token for the data sources |
 | `DEPLOYMENT_NAME` | used to derive the nginx sidecar host name |
+
+For compatibility with older deployments, `KEYCLOAK_TOKEN` is used when `AUTHUP_TOKEN` is unset or
+empty. The existing `NodeConfig.keycloak_token` attribute continues to hold the selected token.
+Token refresh remains `POST /token_refresh` with a `{"token": "..."}` body and updates all connected
+clients and the token lifetime reported by `/healthz`.
+
+Analysis images must install an SDK revision containing this change before running with an
+orchestrator that injects only `AUTHUP_TOKEN`. Update SDK pins (including those in
+`PrivateAIM/master-images`), rebuild and publish those images before rollout.
 
 `node_id`, `node_type` and `node_role` are not read from the environment — they are filled in by the
 MessageBroker handshake.
