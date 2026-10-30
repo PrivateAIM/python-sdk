@@ -15,7 +15,7 @@ from flamesdk.resources.rest_api import FlameAPI
 
 
 @pytest.mark.parametrize(
-    ("authup", "keycloak", "expected"),
+    ("authup", "legacy", "expected"),
     [
         ("authup-token", "legacy-token", "authup-token"),
         ("authup-token", None, "authup-token"),
@@ -24,8 +24,8 @@ from flamesdk.resources.rest_api import FlameAPI
         (None, None, None),
     ],
 )
-def test_node_config_token_preference(monkeypatch, authup, keycloak, expected):
-    for name, value in (("AUTHUP_TOKEN", authup), ("KEYCLOAK_TOKEN", keycloak)):
+def test_node_config_token_preference(monkeypatch, authup, legacy, expected):
+    for name, value in (("AUTHUP_TOKEN", authup), ("KEYCLOAK_TOKEN", legacy)):
         if value is None:
             monkeypatch.delenv(name, raising=False)
         else:

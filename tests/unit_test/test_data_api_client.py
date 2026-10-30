@@ -78,7 +78,7 @@ def test_refresh_token():
         # Check initial Authorization header in hub_client
         initial_auth = client.hub_client.headers.get("Authorization")
         assert initial_auth == "Bearer key_token"
-        # Refresh token with a new keycloak token
+        # Refresh token with a new analysis token
         new_token = "new_key_token"
         client.refresh_token(new_token)
         # Verify that the hub_client has been updated with the new token

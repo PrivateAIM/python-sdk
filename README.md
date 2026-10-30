@@ -99,8 +99,8 @@ Read by `NodeConfig` and injected by the platform:
 | `DEPLOYMENT_NAME` | used to derive the nginx sidecar host name |
 
 For compatibility with older deployments, `KEYCLOAK_TOKEN` is used when `AUTHUP_TOKEN` is unset or
-empty. `NodeConfig.analysis_token` holds the selected token. The former `keycloak_token` attribute
-and token parameter names are renamed to `analysis_token`; callers using the old attribute or keyword
+empty. `NodeConfig.analysis_token` holds the selected token. Token attributes and parameter names
+now use `analysis_token`; callers using the former identity-provider-specific attribute or keyword
 arguments must update.
 Token refresh remains `POST /token_refresh` with a `{"token": "..."}` body and updates all connected
 clients and the token lifetime reported by `/healthz`.
@@ -269,7 +269,7 @@ The background `FlameAPI` thread exposes:
 | `GET /healthz` | health check, reports the current analysis status |
 | `POST /webhook` | incoming messages from the Message Broker |
 | `POST /partner_status` | partner node status updates (see `status_sync`; ignored for the first 100 s) |
-| `POST /token_refresh` | refreshes the Keycloak token on all clients |
+| `POST /token_refresh` | refreshes the analysis token on all clients |
 
 ## Repository layout
 
