@@ -41,29 +41,29 @@ class StorageClient:
     the error is reported.
     """
 
-    def __init__(self, nginx_name, keycloak_token, flame_logger: FlameLogger) -> None:
+    def __init__(self, nginx_name, analysis_token, flame_logger: FlameLogger) -> None:
         """Open a client against the storage service behind the nginx sidecar.
 
         :param nginx_name: hostname of the local nginx sidecar
-        :param keycloak_token: bearer token authenticating this node
+        :param analysis_token: bearer token authenticating this node
         :param flame_logger: logger used to report transport errors
         """
         self.nginx_name = nginx_name
         self.client = Client(
             base_url=f"http://{nginx_name}/storage",
-            headers={"Authorization": f"Bearer {keycloak_token}"},
+            headers={"Authorization": f"Bearer {analysis_token}"},
             follow_redirects=True,
         )
         self.flame_logger = flame_logger
 
-    def refresh_token(self, keycloak_token: str):
+    def refresh_token(self, analysis_token: str):
         """Replace the client with one using a freshly issued token.
 
-        :param keycloak_token: the renewed bearer token
+        :param analysis_token: the renewed bearer token
         """
         self.client = Client(
             base_url=f"http://{self.nginx_name}/storage",
-            headers={"Authorization": f"Bearer {keycloak_token}"},
+            headers={"Authorization": f"Bearer {analysis_token}"},
             follow_redirects=True,
         )
 

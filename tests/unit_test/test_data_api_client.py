@@ -71,7 +71,7 @@ def test_refresh_token():
         new=AsyncMock(side_effect=dummy_get),
     ):
         flame_logger = FlameLogger()
-        # Create DataApiClient with initial keycloak_token "key_token"
+        # Create DataApiClient with initial analysis_token "key_token"
         client = DataApiClient(
             "proj_id", "nginx", "data_token", "key_token", flame_logger
         )

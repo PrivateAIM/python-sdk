@@ -13,34 +13,34 @@ class POClient:
     """
 
     def __init__(
-        self, nginx_name: str, keycloak_token: str, flame_logger: FlameLogger
+        self, nginx_name: str, analysis_token: str, flame_logger: FlameLogger
     ) -> None:
         """Open a client against the PO service behind the nginx sidecar.
 
         :param nginx_name: hostname of the local nginx sidecar
-        :param keycloak_token: bearer token authenticating this node
+        :param analysis_token: bearer token authenticating this node
         :param flame_logger: logger used to report transport errors
         """
         self.nginx_name = nginx_name
         self.client = Client(
             base_url=f"http://{nginx_name}/po",
             headers={
-                "Authorization": f"Bearer {keycloak_token}",
+                "Authorization": f"Bearer {analysis_token}",
                 "accept": "application/json",
             },
             follow_redirects=True,
         )
         self.flame_logger = flame_logger
 
-    def refresh_token(self, keycloak_token: str) -> None:
+    def refresh_token(self, analysis_token: str) -> None:
         """Replace the client with one using a freshly issued token.
 
-        :param keycloak_token: the renewed bearer token
+        :param analysis_token: the renewed bearer token
         """
         self.client = Client(
             base_url=f"http://{self.nginx_name}/po",
             headers={
-                "Authorization": f"Bearer {keycloak_token}",
+                "Authorization": f"Bearer {analysis_token}",
                 "accept": "application/json",
             },
             follow_redirects=True,

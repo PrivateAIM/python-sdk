@@ -99,7 +99,9 @@ Read by `NodeConfig` and injected by the platform:
 | `DEPLOYMENT_NAME` | used to derive the nginx sidecar host name |
 
 For compatibility with older deployments, `KEYCLOAK_TOKEN` is used when `AUTHUP_TOKEN` is unset or
-empty. The existing `NodeConfig.keycloak_token` attribute continues to hold the selected token.
+empty. `NodeConfig.analysis_token` holds the selected token. The former `keycloak_token` attribute
+and token parameter names are renamed to `analysis_token`; callers using the old attribute or keyword
+arguments must update.
 Token refresh remains `POST /token_refresh` with a `{"token": "..."}` body and updates all connected
 clients and the token lifetime reported by `/healthz`.
 

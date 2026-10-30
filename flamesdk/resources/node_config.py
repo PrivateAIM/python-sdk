@@ -20,8 +20,8 @@ class NodeConfig:
         # environment variables
         self.analysis_id = os.getenv("ANALYSIS_ID")
         self.project_id = os.getenv("PROJECT_ID")
-        # Keep the attribute and fallback for older deployments and SDK callers.
-        self.keycloak_token = os.getenv("AUTHUP_TOKEN") or os.getenv("KEYCLOAK_TOKEN")
+        # Support older deployments that still inject KEYCLOAK_TOKEN.
+        self.analysis_token = os.getenv("AUTHUP_TOKEN") or os.getenv("KEYCLOAK_TOKEN")
         self.data_source_token = os.getenv("DATA_SOURCE_TOKEN")
         self.nginx_name = f'nginx-{os.getenv("DEPLOYMENT_NAME")}'
 

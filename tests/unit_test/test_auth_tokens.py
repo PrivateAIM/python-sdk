@@ -31,7 +31,7 @@ def test_node_config_token_preference(monkeypatch, authup, keycloak, expected):
         else:
             monkeypatch.setenv(name, value)
 
-    assert NodeConfig().keycloak_token == expected
+    assert NodeConfig().analysis_token == expected
 
 
 @pytest.mark.parametrize("authup", ["authup-token", None])
@@ -110,4 +110,4 @@ def test_health_and_token_refresh(monkeypatch, with_data):
         downstream.refresh_token.assert_called_once_with("new-token")
     if data is not None:
         data.refresh_token.assert_called_once_with("new-token")
-    assert api.keycloak_token == "new-token"
+    assert api.analysis_token == "new-token"
