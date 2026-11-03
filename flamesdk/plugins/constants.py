@@ -1,9 +1,10 @@
-import os
+from typing import Any
+from inspect import isclass
 
 from flamesdk.plugins.nextflow.nextflow_api import NextFlowAPI
 
 
-PLUGINS = {
+_PLUGINS = {
     "nf":
         {
             "service_name": "NextFlow Launcher",    # arbitrary service name
@@ -15,8 +16,36 @@ PLUGINS = {
 }
 
 
-def any_plugin() -> bool:
-    for value in PLUGINS.values():
-        if os.getenv(value["env"], False):
-            return True
-    return False
+def get_plugins() -> dict[str, dict[str, Any]]:
+    return _sanitize_plugin_configs()
+
+
+def _sanitize_plugin_configs() -> dict[str, dict[str, Any]]:
+    plugins = {}
+    for plugin, config in _PLUGINS.items():
+        sanitized_config = {}
+        for key, value in config.items():
+            if key == "service_name":
+                sanitized_config[key] = value
+            elif key == "env":
+                sanitized_config[key] = value.upper()
+            elif key == "api":
+                if value.startswith('_') and value.endswith('api'):
+                    sanitized_config[key] = value
+                else:
+                    break
+            elif key == "client":
+                if value.endswith('client'):
+                    sanitized_config[key] = value
+                else:
+                    break
+            elif key == "api_class":
+                if isclass(value):
+                    sanitized_config[key] = value
+                else:
+                    break
+
+        if all(k in sanitized_config for k in ["service_name", "env", "api", "client", "api_class"]):
+            plugins[plugin] = sanitized_config
+
+    return plugins

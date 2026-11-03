@@ -29,7 +29,7 @@ from flamesdk.resources.utils.constants import (
     CHECKPOINT_TAG_PREFIX,
 )
 
-from flamesdk.plugins.constants import any_plugin, PLUGINS
+from flamesdk.plugins.constants import get_plugins
 
 
 class FlameCoreSDK:
@@ -178,8 +178,9 @@ class FlameCoreSDK:
             self._data_api = True
 
         ## Connect Plugin Services
-        if any_plugin():
-            for value in PLUGINS.values():
+        plugins = get_plugins()
+        if plugins:
+            for value in plugins.values():
                 if getattr(self.config, value["env"].lower(), False):
                     self.flame_log(f"\tConnecting to {value['service_name']}...", end="", halt_submission=True)
                     try:
@@ -1076,18 +1077,21 @@ class FlameCoreSDK:
 
     ###################################PLUGIN - NextFlow###########################################
     def start_nf_run(self, pipeline_name: str, run_args: list[str], s3_keys: list[str] = None) -> None:
+        plugins = get_plugins()
         if self._check_plugin_connection("nf"):
-            getattr(self, PLUGINS["nf"]["api"]).start_nf_run(pipeline_name=pipeline_name,
+            getattr(self, plugins["nf"]["api"]).start_nf_run(pipeline_name=pipeline_name,
                                                              run_args=run_args,
                                                              s3_keys=s3_keys)
 
     def stop_nf_run(self, salvaged_paths: list[str] = []) -> None:
+        plugins = get_plugins()
         if self._check_plugin_connection("nf"):
-            getattr(self, PLUGINS["nf"]["api"]).stop_nf_run(salvaged_paths=salvaged_paths)
+            getattr(self, plugins["nf"]["api"]).stop_nf_run(salvaged_paths=salvaged_paths)
 
     def await_nf_termination(self) -> Optional[dict[str, str]]:
+        plugins = get_plugins()
         if self._check_plugin_connection("nf"):
-            return getattr(self, PLUGINS["nf"]["api"]).await_termination()
+            return getattr(self, plugins["nf"]["api"]).await_termination()
         else:
             return None
 
@@ -1109,9 +1113,10 @@ class FlameCoreSDK:
         Start the flame api, this is used for incoming messages from the message broker and health checks
         :return:
         """
-        if any_plugin():
+        plugins = get_plugins()
+        if plugins:
             plugin_clients = {}
-            for value in PLUGINS.values():
+            for value in plugins.values():
                 api_attribute = getattr(self, value["api"], None)
                 plugin_clients[value["client"]] = api_attribute.client if api_attribute is not None else None
         else:
@@ -1151,10 +1156,12 @@ class FlameCoreSDK:
         return self.config.finished
 
     def _check_plugin_connection(self, plugin_identifier: str) -> bool:
-        if getattr(self, PLUGINS[plugin_identifier]["api"], None) is None:
+        plugins = get_plugins()
+        if getattr(self, plugins[plugin_identifier]["api"], None) is None:
             self.flame_log(
-                f'{PLUGINS[plugin_identifier]["service_name"]} plugin is not connected to FlameSDK',
-                log_type=LogTypeLiteral.ERROR.value
+                f'{plugins[plugin_identifier]["service_name"]} plugin is not connected to FlameSDK. '
+                f'Ignoring attempted access.',
+                log_type=LogTypeLiteral.WARNING.value
             )
             return False
         else:

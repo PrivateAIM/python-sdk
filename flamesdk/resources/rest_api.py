@@ -22,7 +22,7 @@ from flamesdk.resources.utils.utils import extract_remaining_time_from_token
 from flamesdk.resources.utils.logging import FlameLogger
 from flamesdk.resources.utils.constants import AnalysisStatus, LogTypeLiteral
 
-from flamesdk.plugins.constants import PLUGINS
+from flamesdk.plugins.constants import get_plugins
 
 
 _SYNC_TIMER_IN_SECONDS = 100
@@ -227,9 +227,10 @@ class FlameAPI:
         async def receive_nf_run_feedback(request: Request) -> JSONResponse:
             """
             """
-            if hasattr(self, PLUGINS["nf"]["client"]) and (getattr(self, PLUGINS["nf"]["client"], None) is not None):
+            plugins = get_plugins()
+            if hasattr(self, plugins["nf"]["client"]) and (getattr(self, plugins["nf"]["client"], None) is not None):
                 body = await request.json()
-                getattr(self, PLUGINS["nf"]["client"]).receive_feedback(body)
+                getattr(self, plugins["nf"]["client"]).receive_feedback(body)
                 return JSONResponse(content={"status": "received"})
             else:
                 raise HTTPException(status_code=500, detail="No NextFlow client found")
