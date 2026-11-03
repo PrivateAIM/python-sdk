@@ -44,7 +44,7 @@ class FlameAPI:
         storage_client: StorageClient,
         po_client: POClient,
         flame_logger: FlameLogger,
-        keycloak_token: str,
+        analysis_token: str,
         finished_check: Callable,
         finishing_call: Callable,
         status_sync: tuple[Literal["executed", "stopped", "failed"]] = (),
@@ -56,7 +56,7 @@ class FlameAPI:
         :param storage_client: storage client to refresh tokens on
         :param po_client: PO service client to refresh tokens on
         :param flame_logger: logger holding the run status this API reports
-        :param keycloak_token: current bearer token, replaced on refresh
+        :param analysis_token: current bearer token, replaced on refresh
         :param finished_check: predicate telling whether the analysis is done
         :param finishing_call: invoked when a partner reports the analysis finished
         :param status_sync: terminal states this node adopts when a partner
@@ -86,7 +86,7 @@ class FlameAPI:
         self.storage_client = storage_client
         self.po_client = po_client
         self.flame_logger = flame_logger
-        self.keycloak_token = keycloak_token
+        self.analysis_token = analysis_token
         self.status_sync = status_sync
         self.finished_check = finished_check
         self.finishing_call = finishing_call
@@ -142,7 +142,7 @@ class FlameAPI:
 
         @router.post("/token_refresh", response_class=JSONResponse)
         async def token_refresh(request: Request) -> JSONResponse:
-            """Replace the keycloak token on every sidecar client.
+            """Replace the analysis bearer token on every sidecar client.
 
             Called by the platform before the current token expires.
 
@@ -167,7 +167,7 @@ class FlameAPI:
                 # refresh token in result client
                 self.storage_client.refresh_token(new_token)
                 # refresh token in self
-                self.keycloak_token = new_token
+                self.analysis_token = new_token
                 return JSONResponse(content={"message": "Token refreshed successfully"})
             except Exception as e:
                 self.flame_logger.raise_error(
@@ -225,7 +225,7 @@ class FlameAPI:
             response_json = {
                 "status": self._status(),
                 "token_remaining_time": extract_remaining_time_from_token(
-                    self.keycloak_token, self.flame_logger
+                    self.analysis_token, self.flame_logger
                 ),
             }
             self.flame_logger.new_log(

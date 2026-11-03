@@ -1066,7 +1066,7 @@ class FlameCoreSDK:
             self._storage_api.storage_client,
             self._po_api.po_client,
             self._flame_logger,
-            self.config.keycloak_token,
+            self.config.analysis_token,
             finished_check=self._has_finished,
             finishing_call=self._node_finished,
             status_sync=self._status_sync,

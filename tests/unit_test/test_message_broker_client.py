@@ -15,7 +15,7 @@ class DummyNodeConfig:
         self.node_id = "dummy_node"
         self.analysis_id = "dummy_analysis"
         self.nginx_name = "dummy_nginx"
-        self.keycloak_token = "dummy_token"
+        self.analysis_token = "dummy_token"
 
     def set_role(self, role: str):
         self.role = role
