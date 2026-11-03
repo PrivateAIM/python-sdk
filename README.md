@@ -94,9 +94,20 @@ Read by `NodeConfig` and injected by the platform:
 | --- | --- |
 | `ANALYSIS_ID` | id of the analysis |
 | `PROJECT_ID` | id of the project |
-| `KEYCLOAK_TOKEN` | bearer token for the sidecar services |
+| `AUTHUP_TOKEN` | bearer token for the sidecar services; takes precedence over the legacy `KEYCLOAK_TOKEN` |
 | `DATA_SOURCE_TOKEN` | token for the data sources |
 | `DEPLOYMENT_NAME` | used to derive the nginx sidecar host name |
+
+For compatibility with older deployments, `KEYCLOAK_TOKEN` is used when `AUTHUP_TOKEN` is unset or
+empty. `NodeConfig.analysis_token` holds the selected token. Token attributes and parameter names
+now use `analysis_token`; callers using the former identity-provider-specific attribute or keyword
+arguments must update.
+Token refresh remains `POST /token_refresh` with a `{"token": "..."}` body and updates all connected
+clients and the token lifetime reported by `/healthz`.
+
+Analysis images must install an SDK revision containing this change before running with an
+orchestrator that injects only `AUTHUP_TOKEN`. Update SDK pins (including those in
+`PrivateAIM/master-images`), rebuild and publish those images before rollout.
 
 `node_id`, `node_type` and `node_role` are not read from the environment — they are filled in by the
 MessageBroker handshake.
@@ -258,7 +269,7 @@ The background `FlameAPI` thread exposes:
 | `GET /healthz` | health check, reports the current analysis status |
 | `POST /webhook` | incoming messages from the Message Broker |
 | `POST /partner_status` | partner node status updates (see `status_sync`; ignored for the first 100 s) |
-| `POST /token_refresh` | refreshes the Keycloak token on all clients |
+| `POST /token_refresh` | refreshes the analysis token on all clients |
 
 ## Repository layout
 

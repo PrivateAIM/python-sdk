@@ -22,7 +22,7 @@ class DummyNodeConfig:
         self.node_id = "node_1"
         self.analysis_id = "analysis_dummy"
         self.nginx_name = "localhost"
-        self.keycloak_token = "dummy_token"
+        self.analysis_token = "dummy_token"
 
     def set_role(self, role: str):
         self.role = role

@@ -33,7 +33,7 @@ class DataAPI:
             project_id=config.project_id,
             nginx_name=config.nginx_name,
             data_source_token=config.data_source_token,
-            keycloak_token=config.keycloak_token,
+            analysis_token=config.analysis_token,
             flame_logger=flame_logger,
             default_requires_data=default_requires_data,
         )

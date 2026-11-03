@@ -149,7 +149,7 @@ class MessageBrokerClient:
         self._message_broker = AsyncClient(
             base_url=f"http://{self.nodeConfig.nginx_name}/message-broker",
             headers={
-                "Authorization": f"Bearer {config.keycloak_token}",
+                "Authorization": f"Bearer {config.analysis_token}",
                 "Accept": "application/json",
             },
             follow_redirects=True,
@@ -163,15 +163,15 @@ class MessageBrokerClient:
         self.nodeConfig.set_role(message_node_info["nodeType"])
         self.nodeConfig.set_node_id(message_node_info["nodeId"])
 
-    def refresh_token(self, keycloak_token: str):
+    def refresh_token(self, analysis_token: str):
         """Replace the broker client with one using a freshly issued token.
 
-        :param keycloak_token: the renewed bearer token
+        :param analysis_token: the renewed bearer token
         """
         self._message_broker = AsyncClient(
             base_url=f"http://{self.nodeConfig.nginx_name}/message-broker",
             headers={
-                "Authorization": f"Bearer {keycloak_token}",
+                "Authorization": f"Bearer {analysis_token}",
                 "Accept": "application/json",
             },
             follow_redirects=True,

@@ -71,14 +71,14 @@ def test_refresh_token():
         new=AsyncMock(side_effect=dummy_get),
     ):
         flame_logger = FlameLogger()
-        # Create DataApiClient with initial keycloak_token "key_token"
+        # Create DataApiClient with initial analysis_token "key_token"
         client = DataApiClient(
             "proj_id", "nginx", "data_token", "key_token", flame_logger
         )
         # Check initial Authorization header in hub_client
         initial_auth = client.hub_client.headers.get("Authorization")
         assert initial_auth == "Bearer key_token"
-        # Refresh token with a new keycloak token
+        # Refresh token with a new analysis token
         new_token = "new_key_token"
         client.refresh_token(new_token)
         # Verify that the hub_client has been updated with the new token
