@@ -3,13 +3,14 @@
 import os
 import uuid
 import asyncio
+import time
 import datetime
 from typing import Optional, Literal
 from httpx import AsyncClient, HTTPStatusError, ConnectError, TimeoutException
 
 from flamesdk.resources.node_config import NodeConfig
 from flamesdk.resources.utils.logging import FlameLogger
-from flamesdk.resources.utils.constants import LogTypeLiteral
+from flamesdk.resources.utils.constants import LogTypeLiteral, MAX_REQUEST_REPEATS
 
 
 class Message:
@@ -290,7 +291,7 @@ class MessageBrokerClient:
         self.message_number += 1
         body = {"recipients": message.recipients, "message": message.body}
         attempt_count = 0
-        while True:
+        while attempt_count < MAX_REQUEST_REPEATS:
             attempt_count += 1
             try:
                 response = await self._message_broker.post(
@@ -305,11 +306,13 @@ class MessageBrokerClient:
                 self.list_of_outgoing_messages.append(message)
                 break
             except Exception as e:
-                if attempt_count < 10:
+                attempt_count += 1
+                if attempt_count < MAX_REQUEST_REPEATS:
                     self.flame_logger.new_log(
                         f"Attempt failed to send message to message broker (attempt={attempt_count})",
                         log_type=LogTypeLiteral.WARNING.value,
                     )
+                    time.sleep(2 ** attempt_count)
                 else:
                     self.flame_logger.raise_error(
                         "Failed to send message to message broker after repeated "
