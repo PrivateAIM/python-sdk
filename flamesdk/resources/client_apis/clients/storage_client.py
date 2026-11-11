@@ -344,7 +344,7 @@ class StorageClient:
                         hidden_error_msg=repr(e),
                         log_type=LogTypeLiteral.WARNING.value,
                     )
-                    time.sleep(1)
+                    time.sleep(2 ** i_repeat)
                 if i_repeat == MAX_REQUEST_REPEATS:
                     self.flame_logger.raise_error(
                         "Failed to retrieve file from URL", hidden_error_msg=repr(e)
@@ -401,7 +401,7 @@ class StorageClient:
                         hidden_error_msg=repr(e),
                         log_type=LogTypeLiteral.WARNING.value,
                     )
-                    time.sleep(1)
+                    time.sleep(2 ** i_repeat)
                 if i_repeat == MAX_REQUEST_REPEATS:
                     self.flame_logger.raise_error(
                         "Failed to retrieve local tags", hidden_error_msg=repr(e)
