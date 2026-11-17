@@ -968,7 +968,8 @@ class FlameCoreSDK:
         data_dict = {sender: None for sender in senders}
         message_dict = self.await_messages(senders, message_category, timeout=timeout)
         self.flame_log(
-            "message_dict" + str(data_dict), log_type=LogTypeLiteral.DEBUG.value
+            f"message_dict {dict([(k, str(v)[:20]) for k, v in data_dict.items()])}",
+            log_type=LogTypeLiteral.DEBUG.value
         )
         for sender, message_list in message_dict.items():
             if message_list:
@@ -978,7 +979,8 @@ class FlameCoreSDK:
                     location="global", query=result_query
                 )
                 self.flame_log(
-                    "data_dict" + str(data_dict), log_type=LogTypeLiteral.DEBUG.value
+                    f"data_dict {dict([(k, str(v)[:20]) for k, v in data_dict.items()])}",
+                    log_type=LogTypeLiteral.DEBUG.value
                 )
         return data_dict
 
