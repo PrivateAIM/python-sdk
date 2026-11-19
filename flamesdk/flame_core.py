@@ -989,7 +989,8 @@ class FlameCoreSDK:
         data_dict = {sender: None for sender in senders}
         message_dict = self.await_messages(senders, message_category, timeout=timeout)
         self.flame_log(
-            "message_dict" + str(data_dict), log_type=LogTypeLiteral.DEBUG.value
+            f"message_dict {dict([(k, str(v)[:20]) for k, v in data_dict.items()])}",
+            log_type=LogTypeLiteral.DEBUG.value
         )
         for sender, message_list in message_dict.items():
             if message_list:
@@ -999,7 +1000,8 @@ class FlameCoreSDK:
                     location="global", query=result_query
                 )
                 self.flame_log(
-                    "data_dict" + str(data_dict), log_type=LogTypeLiteral.DEBUG.value
+                    f"data_dict {dict([(k, str(v)[:20]) for k, v in data_dict.items()])}",
+                    log_type=LogTypeLiteral.DEBUG.value
                 )
         return data_dict
 
@@ -1128,7 +1130,7 @@ class FlameCoreSDK:
             self._storage_api.storage_client,
             self._po_api.po_client,
             self._flame_logger,
-            self.config.keycloak_token,
+            self.config.analysis_token,
             finished_check=self._has_finished,
             finishing_call=self._node_finished,
             status_sync=self._status_sync,

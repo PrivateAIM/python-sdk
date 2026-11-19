@@ -24,7 +24,7 @@ class POAPI:
             compared against :attr:`LogTypeLiteral.level`
         """
         self.po_client = POClient(
-            config.nginx_name, config.keycloak_token, flame_logger
+            config.nginx_name, config.analysis_token, flame_logger
         )
         self.analysis_id = config.analysis_id
         self.stream_log_level = stream_log_level

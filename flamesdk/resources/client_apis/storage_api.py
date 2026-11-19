@@ -29,7 +29,7 @@ class StorageAPI:
         """
         self.flame_logger = flame_logger
         self.storage_client = StorageClient(
-            config.nginx_name, config.keycloak_token, flame_logger
+            config.nginx_name, config.analysis_token, flame_logger
         )
 
     def submit_final_result(

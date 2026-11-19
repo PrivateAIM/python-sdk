@@ -24,7 +24,7 @@ class DataApiClient:
         project_id: str,
         nginx_name: str,
         data_source_token: str,
-        keycloak_token: str,
+        analysis_token: str,
         flame_logger: FlameLogger,
         default_requires_data: bool = True,
     ) -> None:
@@ -33,7 +33,7 @@ class DataApiClient:
         :param project_id: id of the project whose data sources are used
         :param nginx_name: hostname of the local nginx sidecar
         :param data_source_token: api key authenticating against kong
-        :param keycloak_token: bearer token authenticating against the hub adapter
+        :param analysis_token: bearer token authenticating against the hub adapter
         :param flame_logger: logger used to report connection problems
         :param default_requires_data: when ``True``, an empty or unavailable
             source list is treated as fatal
@@ -50,7 +50,7 @@ class DataApiClient:
         self.hub_client = AsyncClient(
             base_url=f"http://{nginx_name}/hub-adapter",
             headers={
-                "Authorization": f"Bearer {keycloak_token}",
+                "Authorization": f"Bearer {analysis_token}",
                 "accept": "application/json",
             },
             follow_redirects=True,
@@ -76,15 +76,15 @@ class DataApiClient:
                     f"Failed to retrieve available data sources for project {project_id}"
                 )
 
-    def refresh_token(self, keycloak_token: str) -> None:
+    def refresh_token(self, analysis_token: str) -> None:
         """Replace the hub adapter client with one using a fresh token.
 
-        :param keycloak_token: the renewed bearer token
+        :param analysis_token: the renewed bearer token
         """
         self.hub_client = AsyncClient(
             base_url=f"http://{self.nginx_name}/hub-adapter",
             headers={
-                "Authorization": f"Bearer {keycloak_token}",
+                "Authorization": f"Bearer {analysis_token}",
                 "accept": "application/json",
             },
             follow_redirects=True,

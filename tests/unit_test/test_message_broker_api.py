@@ -32,7 +32,7 @@ def dummy_config():
     config.node_id = "dummy_node"
     config.analysis_id = "dummy_analysis"
     config.nginx_name = "dummy_nginx"
-    config.keycloak_token = "dummy_token"
+    config.analysis_token = "dummy_token"
     return config
 
 
