@@ -1078,12 +1078,19 @@ class FlameCoreSDK:
             return None
 
     ###################################PLUGIN - NextFlow###########################################
-    def start_nf_run(self, pipeline_name: str, run_args: list[str], s3_keys: list[str] = None) -> None:
+    def start_nf_run(
+            self,
+            pipeline_name: str,
+            run_args: list[str],
+            s3_keys: list[str] = None,
+            refs: dict[str, str] = None
+    ) -> None:
         plugins = get_plugins()
         if self._check_plugin_connection("nf"):
             getattr(self, plugins["nf"]["api"]).start_nf_run(pipeline_name=pipeline_name,
                                                              run_args=run_args,
-                                                             s3_keys=s3_keys)
+                                                             s3_keys=s3_keys,
+                                                             refs=refs)
 
     def stop_nf_run(self, salvaged_paths: list[str] = []) -> None:
         plugins = get_plugins()
@@ -1097,8 +1104,14 @@ class FlameCoreSDK:
         else:
             return None
 
-    def start_nf_run_and_await_termination(self, pipeline_name: str, run_args: list[str], s3_keys: list[str] = None) -> Optional[dict[str, str]]:
-        self.start_nf_run(pipeline_name, run_args, s3_keys)
+    def start_nf_run_and_await_termination(
+            self,
+            pipeline_name: str,
+            run_args: list[str],
+            s3_keys: list[str] = None,
+            refs: dict[str, str] = None
+    ) -> Optional[dict[str, str]]:
+        self.start_nf_run(pipeline_name, run_args, s3_keys, refs)
         return self.await_nf_termination()
 
     def retrieve_nf_run_results(self, data_urls: list[str]) -> list[Any]:

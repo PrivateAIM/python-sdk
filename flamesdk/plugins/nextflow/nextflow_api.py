@@ -24,7 +24,7 @@ class NextFlowAPI:
                 self.run_locked = True
         else:
             self.flame_logger.new_log(
-                "A Next Flow Run is already locked. Wait until it is finished before starting a new one.",
+                "A NextFlow Run is already locked. Wait until it is finished before starting a new one.",
                 log_type=LogTypeLiteral.WARNING.value
             )
 
@@ -35,7 +35,7 @@ class NextFlowAPI:
                 self.client.reset_feedback()
         else:
             self.flame_logger.new_log(
-                "No Next Flow Run found. Ignoring attempt to stop it.",
+                "No NextFlow Run found. Ignoring attempt to stop it.",
                 log_type=LogTypeLiteral.WARNING.value
             )
 

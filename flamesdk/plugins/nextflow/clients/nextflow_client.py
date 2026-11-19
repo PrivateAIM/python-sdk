@@ -40,14 +40,24 @@ class NextFlowClient(Client):
     def start_nf_run(self,
                      pipeline_name: str,
                      run_args: list[str],
-                     s3_keys: list[str] = None) -> bool:
+                     s3_keys: list[str] = None,
+                     refs: dict[str, str] = None) -> bool:
+        inputs = [{"key": s3_keys, "param_name": "input", "samplesheet": True}]
+        for param, ref in refs.items():
+            # TODO: list with ref keys from storage service pointing towards globally stored reference data
+            # TODO: pull from global store if not found locally
+            # TODO: use ref keys to retrieve local store urls
+            run_args.extend([f"--{param}", ref])
         body = {
             "analysis_id": self.config.analysis_id,
+            "project_id": self.config.project_id,
             "pipeline_name": pipeline_name,
             "run_args": run_args,
             "analysis_token": self.config.analysis_token,
-            "inputs": [{"key": s3_keys, "param_name": "input", "samplesheet": True}],
-            "kong_apikey": self.config.data_source_token
+            "inputs": inputs,
+            "kong_apikey": self.config.data_source_token,
+            "kong_datastore": None,
+            "forward": None
         }
         try:
             responses = self.post("/run", data=body)
