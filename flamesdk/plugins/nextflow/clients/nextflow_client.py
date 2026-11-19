@@ -30,7 +30,7 @@ class NextFlowClient(Client):
         super().__init__(
             base_url=f"http://{self.config.nginx_name}/nextflow",
             headers={
-                "Authorization": f"Bearer {self.config.keycloak_token}",
+                "Authorization": f"Bearer {self.config.analysis_token}",
                 "accept": "application/json",
                 "Connection": "close"
             },
@@ -45,7 +45,7 @@ class NextFlowClient(Client):
             "analysis_id": self.config.analysis_id,
             "pipeline_name": pipeline_name,
             "run_args": run_args,
-            "keycloak_token": self.config.keycloak_token,
+            "analysis_token": self.config.analysis_token,
             "inputs": [{"key": s3_keys, "param_name": "input", "samplesheet": True}],
             "kong_apikey": self.config.data_source_token
         }
